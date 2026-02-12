@@ -23,6 +23,12 @@
   - Оранжевая вспышка при ошибке выполнения (ненулевой exit code)
   - Возврат к цвету покоя при нормальном завершении
 
+- **Фокус и жизненный цикл IDE**:
+  - Затемнение клавиатуры при потере фокуса IDE (настраиваемая яркость)
+  - Восстановление текущего эффекта при возврате фокуса
+  - Сброс LED в чёрный при закрытии IDE
+  - Очистка эффектов и возврат в idle при закрытии проекта
+
 - **Статус в реальном времени**:
   - Виджет в статус-баре IDE с индикацией подключения к OpenRGB
   - Автоматическое переподключение при потере соединения
@@ -49,6 +55,9 @@ graph TD
         BuildListener[BuildEventListener]
         TestListener[TestEventListener]
         ExecListener[ExecutionEventListener]
+        FocusListener[FocusEventListener]
+        LifecycleHandler[AppLifecycleHandler]
+        ProjectListener[ProjectFocusListener]
         StartupActivity[KgBoardStartupActivity]
         StatusWidget[KgBoardStatusWidget]
     end
@@ -72,6 +81,9 @@ graph TD
     BuildListener --> EffectManager
     TestListener --> EffectManager
     ExecListener --> EffectManager
+    FocusListener --> EffectManager
+    LifecycleHandler --> ConnectionService
+    ProjectListener --> EffectManager
     EffectManager --> ConnectionService
     ConnectionService --> RgbClient
     RgbClient --> Protocol
@@ -117,6 +129,9 @@ sequenceDiagram
 - **BuildEventListener** - слушает события компиляции (CompilationStatusListener)
 - **TestEventListener** - слушает события тестирования (SMTRunnerEventsListener)
 - **ExecutionEventListener** - слушает события запуска/отладки (ExecutionListener)
+- **FocusEventListener** - обрабатывает фокус/расфокус IDE (ApplicationActivationListener)
+- **AppLifecycleHandler** - обрабатывает закрытие IDE (AppLifecycleListener)
+- **ProjectFocusListener** - обрабатывает открытие/закрытие проектов (ProjectManagerListener)
 - **KgBoardStartupActivity** - автоподключение к OpenRGB при открытии проекта
 - **KgBoardStatusWidget** - виджет в статус-баре с индикацией состояния подключения
 
@@ -324,7 +339,7 @@ cd /home/dzerik/Development/KGBoard
 ./gradlew buildPlugin
 
 # Результат:
-# build/distributions/KGBoard-0.1.0.zip
+# build/distributions/KGBoard-<version>.zip
 ```
 
 ### Запуск IDE с плагином для разработки
@@ -359,7 +374,7 @@ cd /home/dzerik/Development/KGBoard
 2. Открыть IntelliJ IDEA
 3. Перейти в **File → Settings → Plugins**
 4. Нажать на иконку шестеренки (⚙️) → **Install Plugin from Disk...**
-5. Выбрать файл `build/distributions/KGBoard-0.1.0.zip`
+5. Выбрать файл `build/distributions/KGBoard-<version>.zip`
 6. Нажать **OK**
 7. Перезапустить IDE
 
@@ -442,11 +457,19 @@ cd /home/dzerik/Development/KGBoard
 | **Test fail color** | Тесты провалились | `#FF1744` (красный) |
 | **Test running color** | Выполнение тестов | `#2979FF` (синий) |
 
-##### Системные
+##### Состояние покоя
 
 | Параметр | Описание | Значение по умолчанию |
 |----------|----------|----------------------|
 | **Idle color** | Цвет покоя (нет активности) | `#263238` (темно-серый) |
+
+##### Фокус и завершение (Focus & Shutdown)
+
+| Параметр | Описание | Значение по умолчанию |
+|----------|----------|----------------------|
+| **Dim on focus loss** | Затемнять клавиатуру при потере фокуса IDE | `true` |
+| **Dim brightness** | Яркость при затемнении (0–100%) | `15`% |
+| **Reset on exit** | Сбрасывать LED в чёрный при закрытии IDE | `true` |
 
 ---
 
@@ -468,6 +491,10 @@ cd /home/dzerik/Development/KGBoard
 | **Run: terminated (exit≠0)** | `FlashEffect` | `#FF9100` (оранжевый) | 7 | 1500 мс | Оранжевая вспышка при ошибке |
 | **Debug: started** | `PulseEffect` | `#651FFF` (фиолетовый) | 6 | До завершения | Фиолетовая пульсация при отладке |
 | **Debug: terminated** | Idle | `#263238` (темно-серый) | 0 | Постоянно | Возврат к цвету покоя |
+| **Focus: lost** | Dim | `idleColor × dimBrightness%` | — | До возврата | Затемнение при потере фокуса |
+| **Focus: gained** | Restore | (текущий эффект) | — | — | Восстановление текущего эффекта |
+| **Project: closing** | Idle | `#263238` (темно-серый) | 0 | — | Очистка эффектов при закрытии проекта |
+| **IDE: shutdown** | Off | `#000000` (чёрный) | — | — | Сброс LED при выходе из IDE |
 | **Idle (no events)** | `StaticEffect` | `#263238` (темно-серый) | 0 | Постоянно | Цвет по умолчанию |
 
 ### Система приоритетов
@@ -547,6 +574,9 @@ cd /home/dzerik/Development/KGBoard
     <option name="effectDurationMs" value="3000" />
     <option name="pulseSpeedMs" value="1000" />
     <option name="idleColor" value="#263238" />
+    <option name="dimOnFocusLoss" value="true" />
+    <option name="dimBrightness" value="15" />
+    <option name="resetOnExit" value="true" />
   </component>
 </application>
 ```
@@ -750,27 +780,38 @@ sudo reboot
 KGBoard/
 ├── src/main/
 │   ├── kotlin/com/kgboard/rgb/
-│   │   ├── bridge/          # IDE listeners и UI компоненты
-│   │   │   ├── BuildEventListener.kt
-│   │   │   ├── TestEventListener.kt
-│   │   │   ├── ExecutionEventListener.kt
-│   │   │   ├── KgBoardStartupActivity.kt
-│   │   │   └── KgBoardStatusWidgetFactory.kt
-│   │   ├── client/          # OpenRGB SDK клиент
+│   │   ├── bridge/              # IDE listeners и UI компоненты
+│   │   │   ├── AppLifecycleHandler.kt      # Закрытие IDE → сброс LED
+│   │   │   ├── BuildEventListener.kt       # Компиляция
+│   │   │   ├── ExecutionEventListener.kt   # Run/Debug
+│   │   │   ├── FocusEventListener.kt       # Фокус/расфокус IDE
+│   │   │   ├── KgBoardStartupActivity.kt   # Автоподключение
+│   │   │   ├── KgBoardStatusWidgetFactory.kt # Виджет статус-бара
+│   │   │   ├── ProjectFocusListener.kt     # Открытие/закрытие проектов
+│   │   │   └── TestEventListener.kt        # Тестирование
+│   │   ├── client/              # OpenRGB SDK клиент
 │   │   │   ├── OpenRgbClient.kt
 │   │   │   ├── OpenRgbConnectionService.kt
 │   │   │   └── OpenRgbProtocol.kt
-│   │   ├── effect/          # Визуальные эффекты
+│   │   ├── effect/              # Визуальные эффекты
 │   │   │   ├── RgbEffect.kt
 │   │   │   └── EffectManagerService.kt
-│   │   └── settings/        # Настройки плагина
+│   │   └── settings/            # Настройки плагина
 │   │       ├── KgBoardSettings.kt
 │   │       └── KgBoardConfigurable.kt
 │   └── resources/
 │       └── META-INF/
-│           └── plugin.xml   # Манифест плагина
-├── build.gradle.kts         # Gradle конфигурация
-└── gradle.properties        # Версии и параметры
+│           └── plugin.xml       # Манифест плагина
+├── build.gradle.kts             # Gradle конфигурация
+├── gradle.properties            # Версии и параметры
+├── CHANGELOG.md                 # История изменений
+├── CLAUDE.md                    # Правила проекта
+├── CODE_OF_CONDUCT.md           # Кодекс поведения
+├── CONTRIBUTING.md              # Гайд для контрибьюторов
+├── CONTRIBUTORS.md              # Список контрибьюторов
+├── LICENSE                      # Apache 2.0
+├── SECURITY.md                  # Политика безопасности
+└── .editorconfig                # Настройки форматирования
 ```
 
 ### Как добавить новый RGB эффект
@@ -903,38 +944,25 @@ data class State(
 val vcsCommitColor: Color get() = parseColor(state.vcsCommitColor)
 ```
 
-3. **Добавить UI поле** в `KgBoardConfigurable.kt`:
+3. **Добавить UI** в `KgBoardConfigurable.kt` (Kotlin UI DSL v2 + ColorPanel):
 
 ```kotlin
-private var vcsCommitField: JBTextField? = null
+// Объявить ColorPanel в классе
+private val vcsCommitColorPanel = colorPanel()
 
-override fun createComponent(): JComponent {
-    // ...
-    vcsCommitField = JBTextField(8)
-
-    return FormBuilder.createFormBuilder()
-        // ... existing fields ...
-        .addLabeledComponent(JBLabel("VCS commit color:"), vcsCommitField!!)
-        .panel
+// В createPanel() добавить в нужную group()
+group("VCS Events") {
+    colorRow("Commit color:", vcsCommitColorPanel, "Cyan flash on successful commit")
 }
 
-override fun isModified(): Boolean {
-    val s = KgBoardSettings.getInstance()
-    return // ... existing checks ... ||
-           vcsCommitField?.text != s.state.vcsCommitColor
-}
+// В apply() сохранить значение
+s.state.vcsCommitColor = toHex(vcsCommitColorPanel.selectedColor)
 
-override fun apply() {
-    val s = KgBoardSettings.getInstance()
-    // ...
-    s.state.vcsCommitColor = vcsCommitField?.text ?: s.state.vcsCommitColor
-}
+// В loadColorPanels() загрузить значение
+vcsCommitColorPanel.selectedColor = s.vcsCommitColor
 
-override fun reset() {
-    val s = KgBoardSettings.getInstance()
-    // ...
-    vcsCommitField?.text = s.state.vcsCommitColor
-}
+// В isModified() добавить проверку
+colorChanged(vcsCommitColorPanel, s.state.vcsCommitColor)
 ```
 
 ### Полезные ссылки для разработки
@@ -963,7 +991,7 @@ override fun reset() {
 
 ## Лицензия
 
-Проект распространяется как open source. Проверьте файл LICENSE в корне репозитория для деталей.
+Проект распространяется под лицензией [Apache License 2.0](LICENSE).
 
 ---
 
@@ -983,6 +1011,6 @@ override fun reset() {
 
 ---
 
-**Версия документации:** 1.0
-**Версия плагина:** 0.1.0
+**Версия документации:** 1.1
+**Версия плагина:** 0.1.1
 **Дата обновления:** 2026-02-12
