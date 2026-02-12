@@ -1,0 +1,77 @@
+<idea-plugin>
+    <id>com.kgboard.rgb</id>
+    <name>KGBoard</name>
+    <vendor>KGBoard</vendor>
+
+    <description><![CDATA[
+    RGB keyboard integration for JetBrains IDEs.<br/>
+    Visualize build status, test results, debug state through your RGB keyboard via OpenRGB.
+    ]]></description>
+
+    <depends>com.intellij.modules.platform</depends>
+    <depends>com.intellij.modules.java</depends>
+
+    <extensions defaultExtensionNs="com.intellij">
+        <!-- Application-level service: OpenRGB connection manager -->
+        <applicationService
+                serviceImplementation="com.kgboard.rgb.client.OpenRgbConnectionService"/>
+
+        <!-- Project-level service: effect manager per project -->
+        <projectService
+                serviceImplementation="com.kgboard.rgb.effect.EffectManagerService"/>
+
+        <!-- Settings page -->
+        <applicationConfigurable
+                parentId="tools"
+                instance="com.kgboard.rgb.settings.KgBoardConfigurable"
+                id="com.kgboard.rgb.settings"
+                displayName="KGBoard RGB"/>
+
+        <!-- Persistent settings storage -->
+        <applicationService
+                serviceImplementation="com.kgboard.rgb.settings.KgBoardSettings"/>
+
+        <!-- Status bar widget -->
+        <statusBarWidgetFactory
+                id="KGBoardStatus"
+                implementation="com.kgboard.rgb.bridge.KgBoardStatusWidgetFactory"/>
+
+        <!-- Auto-connect on project open -->
+        <postStartupActivity
+                implementation="com.kgboard.rgb.bridge.KgBoardStartupActivity"/>
+    </extensions>
+
+    <applicationListeners>
+        <!-- IDE focus gain/loss -->
+        <listener
+                class="com.kgboard.rgb.bridge.FocusEventListener"
+                topic="com.intellij.openapi.application.ApplicationActivationListener"/>
+
+        <!-- IDE shutdown -->
+        <listener
+                class="com.kgboard.rgb.bridge.AppLifecycleHandler"
+                topic="com.intellij.ide.AppLifecycleListener"/>
+
+        <!-- Project open/close -->
+        <listener
+                class="com.kgboard.rgb.bridge.ProjectFocusListener"
+                topic="com.intellij.openapi.project.ProjectManagerListener"/>
+    </applicationListeners>
+
+    <projectListeners>
+        <!-- Build events listener -->
+        <listener
+                class="com.kgboard.rgb.bridge.BuildEventListener"
+                topic="com.intellij.openapi.compiler.CompilationStatusListener"/>
+
+        <!-- Execution events listener -->
+        <listener
+                class="com.kgboard.rgb.bridge.ExecutionEventListener"
+                topic="com.intellij.execution.ExecutionListener"/>
+
+        <!-- Test events listener -->
+        <listener
+                class="com.kgboard.rgb.bridge.TestEventListener"
+                topic="com.intellij.execution.testframework.sm.runner.SMTRunnerEventsListener"/>
+    </projectListeners>
+</idea-plugin>
