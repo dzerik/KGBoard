@@ -28,6 +28,14 @@ class KgBoardConfigurable : BoundConfigurable("KGBoard RGB") {
     private val testRunningColorPanel = colorPanel()
     private val idleColorPanel = colorPanel()
 
+    // Phase 2 color panels
+    private val pomodoroWorkColorPanel = colorPanel()
+    private val pomodoroBreakColorPanel = colorPanel()
+    private val pomodoroTransitionColorPanel = colorPanel()
+    private val notifyIndexingColorPanel = colorPanel()
+    private val notifyLowMemoryColorPanel = colorPanel()
+    private val notifyTodoColorPanel = colorPanel()
+
     private val statusLabel = JBLabel("Not connected")
 
     private fun colorPanel(): ColorPanel = ColorPanel().apply {
@@ -175,6 +183,72 @@ class KgBoardConfigurable : BoundConfigurable("KGBoard RGB") {
                         .bindSelected(settings::resetOnExit)
                 }
             }
+
+            // ── Multi-Device ──
+            group("Multi-Device") {
+                row {
+                    checkBox("Enable multi-device support")
+                        .bindSelected(settings::multiDeviceEnabled)
+                }
+                row {
+                    comment("Configure multiple OpenRGB devices. Each device can have a role:<br/>" +
+                            "<b>primary</b> — all effects, <b>ambient</b> — idle + dim only,<br/>" +
+                            "<b>indicator</b> — per-key only, <b>mirror</b> — copies primary.")
+                }
+            }
+
+            // ── Pomodoro ──
+            group("Pomodoro Timer") {
+                row {
+                    checkBox("Enable Pomodoro timer")
+                        .bindSelected(settings::pomodoroEnabled)
+                }
+                row("Work duration:") {
+                    intTextField(1..120)
+                        .columns(4)
+                        .bindIntText(settings::pomodoroWorkMinutes)
+                        .comment("Minutes per work session")
+                }
+                row("Break duration:") {
+                    intTextField(1..60)
+                        .columns(4)
+                        .bindIntText(settings::pomodoroBreakMinutes)
+                        .comment("Minutes per short break")
+                }
+                row("Long break:") {
+                    intTextField(1..120)
+                        .columns(4)
+                        .bindIntText(settings::pomodoroLongBreakMinutes)
+                        .comment("Minutes per long break")
+                }
+                row("Sessions before long break:") {
+                    intTextField(1..12)
+                        .columns(4)
+                        .bindIntText(settings::pomodoroSessionsBeforeLongBreak)
+                }
+                colorRow("Work color:", pomodoroWorkColorPanel, "Keyboard color during work phase")
+                colorRow("Break color:", pomodoroBreakColorPanel, "Keyboard color during break")
+                colorRow("Transition:", pomodoroTransitionColorPanel, "Flash color on phase change")
+            }
+
+            // ── IDE Notifications ──
+            group("IDE Notifications") {
+                row {
+                    checkBox("Indexing indicator (orange pulse during indexing)")
+                        .bindSelected(settings::notifyIndexingEnabled)
+                }
+                colorRow("Indexing color:", notifyIndexingColorPanel, "Pulse color during IDE indexing")
+                row {
+                    checkBox("Low memory warning (red flash)")
+                        .bindSelected(settings::notifyLowMemoryEnabled)
+                }
+                colorRow("Low memory color:", notifyLowMemoryColorPanel, "Flash color on low memory")
+                row {
+                    checkBox("TODO indicator in current file")
+                        .bindSelected(settings::notifyTodoEnabled)
+                }
+                colorRow("TODO color:", notifyTodoColorPanel, "Indicator color for TODO items")
+            }
         }
     }
 
@@ -200,6 +274,13 @@ class KgBoardConfigurable : BoundConfigurable("KGBoard RGB") {
         s.state.testFailColor = toHex(testFailColorPanel.selectedColor)
         s.state.testRunningColor = toHex(testRunningColorPanel.selectedColor)
         s.state.idleColor = toHex(idleColorPanel.selectedColor)
+        // Phase 2
+        s.state.pomodoroWorkColor = toHex(pomodoroWorkColorPanel.selectedColor)
+        s.state.pomodoroBreakColor = toHex(pomodoroBreakColorPanel.selectedColor)
+        s.state.pomodoroTransitionColor = toHex(pomodoroTransitionColorPanel.selectedColor)
+        s.state.notifyIndexingColor = toHex(notifyIndexingColorPanel.selectedColor)
+        s.state.notifyLowMemoryColor = toHex(notifyLowMemoryColorPanel.selectedColor)
+        s.state.notifyTodoColor = toHex(notifyTodoColorPanel.selectedColor)
     }
 
     override fun reset() {
@@ -220,7 +301,13 @@ class KgBoardConfigurable : BoundConfigurable("KGBoard RGB") {
                 colorChanged(testPassColorPanel, s.state.testPassColor) ||
                 colorChanged(testFailColorPanel, s.state.testFailColor) ||
                 colorChanged(testRunningColorPanel, s.state.testRunningColor) ||
-                colorChanged(idleColorPanel, s.state.idleColor)
+                colorChanged(idleColorPanel, s.state.idleColor) ||
+                colorChanged(pomodoroWorkColorPanel, s.state.pomodoroWorkColor) ||
+                colorChanged(pomodoroBreakColorPanel, s.state.pomodoroBreakColor) ||
+                colorChanged(pomodoroTransitionColorPanel, s.state.pomodoroTransitionColor) ||
+                colorChanged(notifyIndexingColorPanel, s.state.notifyIndexingColor) ||
+                colorChanged(notifyLowMemoryColorPanel, s.state.notifyLowMemoryColor) ||
+                colorChanged(notifyTodoColorPanel, s.state.notifyTodoColor)
     }
 
     private fun loadColorPanels(s: KgBoardSettings) {
@@ -234,6 +321,13 @@ class KgBoardConfigurable : BoundConfigurable("KGBoard RGB") {
         testFailColorPanel.selectedColor = s.testFailColor
         testRunningColorPanel.selectedColor = s.testRunningColor
         idleColorPanel.selectedColor = s.idleColor
+        // Phase 2
+        pomodoroWorkColorPanel.selectedColor = s.pomodoroWorkColor
+        pomodoroBreakColorPanel.selectedColor = s.pomodoroBreakColor
+        pomodoroTransitionColorPanel.selectedColor = s.pomodoroTransitionColor
+        notifyIndexingColorPanel.selectedColor = s.notifyIndexingColor
+        notifyLowMemoryColorPanel.selectedColor = s.notifyLowMemoryColor
+        notifyTodoColorPanel.selectedColor = s.notifyTodoColor
     }
 
     private fun updateStatusLabel(connection: OpenRgbConnectionService) {

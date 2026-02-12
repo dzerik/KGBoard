@@ -10,36 +10,81 @@
 
     <depends>com.intellij.modules.platform</depends>
     <depends>com.intellij.modules.java</depends>
+    <depends optional="true" config-file="kgboard-git.xml">Git4Idea</depends>
 
     <extensions defaultExtensionNs="com.intellij">
         <!-- Application-level service: OpenRGB connection manager -->
         <applicationService
                 serviceImplementation="com.kgboard.rgb.client.OpenRgbConnectionService"/>
 
-        <!-- Project-level service: effect manager per project -->
+        <!-- Project-level service: LED compositor (buffered rendering engine) -->
+        <projectService
+                serviceImplementation="com.kgboard.rgb.effect.LedCompositor"/>
+
+        <!-- Project-level service: effect manager per project (facade over compositor) -->
         <projectService
                 serviceImplementation="com.kgboard.rgb.effect.EffectManagerService"/>
 
-        <!-- Settings page -->
+        <!-- Settings page (application-level) -->
         <applicationConfigurable
                 parentId="tools"
                 instance="com.kgboard.rgb.settings.KgBoardConfigurable"
                 id="com.kgboard.rgb.settings"
                 displayName="KGBoard RGB"/>
 
+        <!-- Settings page (project-level) -->
+        <projectConfigurable
+                parentId="com.kgboard.rgb.settings"
+                instance="com.kgboard.rgb.settings.KgBoardProjectConfigurable"
+                id="com.kgboard.rgb.settings.project"
+                displayName="Project Settings"/>
+
         <!-- Persistent settings storage -->
         <applicationService
                 serviceImplementation="com.kgboard.rgb.settings.KgBoardSettings"/>
 
-        <!-- Status bar widget -->
+        <!-- Keyboard layout mapping service -->
+        <applicationService
+                serviceImplementation="com.kgboard.rgb.layout.KeyboardLayoutService"/>
+
+        <!-- Project-level settings -->
+        <projectService
+                serviceImplementation="com.kgboard.rgb.settings.KgBoardProjectSettings"/>
+
+        <!-- Project-level services: Phase 2 features -->
+        <projectService
+                serviceImplementation="com.kgboard.rgb.bridge.CodeAnalysisListener"/>
+        <projectService
+                serviceImplementation="com.kgboard.rgb.bridge.IdeNotificationListener"/>
+        <projectService
+                serviceImplementation="com.kgboard.rgb.bridge.ShortcutHighlightService"/>
+        <projectService
+                serviceImplementation="com.kgboard.rgb.pomodoro.PomodoroTimerService"/>
+
+        <!-- Status bar widgets -->
         <statusBarWidgetFactory
                 id="KGBoardStatus"
                 implementation="com.kgboard.rgb.bridge.KgBoardStatusWidgetFactory"/>
+        <statusBarWidgetFactory
+                id="KGBoardPomodoro"
+                implementation="com.kgboard.rgb.pomodoro.PomodoroWidgetFactory"/>
 
         <!-- Auto-connect on project open -->
         <postStartupActivity
                 implementation="com.kgboard.rgb.bridge.KgBoardStartupActivity"/>
     </extensions>
+
+    <actions>
+        <group id="KGBoard.ToolsMenu" text="KGBoard" popup="true">
+            <add-to-group group-id="ToolsMenu" anchor="last"/>
+            <action id="KGBoard.Pomodoro.StartStop"
+                    class="com.kgboard.rgb.pomodoro.PomodoroStartStopAction"
+                    text="Pomodoro: Start/Stop"/>
+            <action id="KGBoard.Pomodoro.Skip"
+                    class="com.kgboard.rgb.pomodoro.PomodoroSkipAction"
+                    text="Pomodoro: Skip Phase"/>
+        </group>
+    </actions>
 
     <applicationListeners>
         <!-- IDE focus gain/loss -->

@@ -22,7 +22,7 @@ class AppLifecycleHandler : AppLifecycleListener {
         if (connection.isConnected) {
             log.info("IDE shutting down (restart=$isRestart) — resetting keyboard LEDs")
             try {
-                connection.setAllLeds(settings.deviceIndex, Color.BLACK)
+                connection.setAllLedsMultiDevice(Color.BLACK)
                 Thread.sleep(100)
             } catch (e: Exception) {
                 log.warn("Failed to reset LEDs on shutdown: ${e.message}")

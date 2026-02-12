@@ -36,7 +36,7 @@ class FocusEventListener : ApplicationActivationListener {
         if (connection.isConnected) {
             val factor = settings.dimBrightness / 100f
             val dimColor = dimColor(settings.idleColor, factor)
-            connection.setAllLeds(settings.deviceIndex, dimColor)
+            connection.setAllLedsMultiDevice(dimColor)
         }
     }
 

@@ -1,0 +1,10 @@
+<idea-plugin>
+    <!-- Git4Idea-dependent extensions — loaded only when Git plugin is available -->
+    <extensions defaultExtensionNs="com.intellij">
+        <projectService
+                serviceImplementation="com.kgboard.rgb.bridge.GitStatusListener"/>
+
+        <postStartupActivity
+                implementation="com.kgboard.rgb.bridge.GitStatusStartupActivity"/>
+    </extensions>
+</idea-plugin>

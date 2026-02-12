@@ -100,6 +100,78 @@ class OpenRgbConnectionService : Disposable {
         }
     }
 
+    /**
+     * Multi-device: set all LEDs on all enabled devices.
+     * 10ms delay between device updates to avoid overwhelming OpenRGB.
+     */
+    fun setAllLedsMultiDevice(color: Color) {
+        val settings = KgBoardSettings.getInstance()
+        if (!settings.multiDeviceEnabled || settings.deviceConfigs.isEmpty()) {
+            setAllLeds(settings.deviceIndex, color)
+            return
+        }
+        executor.submit {
+            try {
+                synchronized(lock) {
+                    val c = client ?: return@submit
+                    for (config in settings.deviceConfigs) {
+                        if (!config.enabled) continue
+                        try {
+                            c.setAllLeds(config.deviceIndex, color)
+                            Thread.sleep(10)
+                        } catch (e: Exception) {
+                            log.warn("Failed to set LEDs on device ${config.deviceIndex}: ${e.message}")
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                log.warn("Multi-device set LEDs failed: ${e.message}")
+                scheduleReconnect()
+            }
+        }
+    }
+
+    /**
+     * Multi-device: update LEDs on all enabled devices.
+     */
+    fun updateLedsMultiDevice(colors: List<Color>) {
+        val settings = KgBoardSettings.getInstance()
+        if (!settings.multiDeviceEnabled || settings.deviceConfigs.isEmpty()) {
+            updateLeds(settings.deviceIndex, colors)
+            return
+        }
+        executor.submit {
+            try {
+                synchronized(lock) {
+                    val c = client ?: return@submit
+                    for (config in settings.deviceConfigs) {
+                        if (!config.enabled) continue
+                        try {
+                            c.setCustomMode(config.deviceIndex)
+                            // Mirror mode: send same colors
+                            // For devices with different LED counts, truncate or pad
+                            val deviceInfo = cachedDevices.getOrNull(config.deviceIndex)
+                            val adjustedColors = if (deviceInfo != null && deviceInfo.numLeds != colors.size) {
+                                if (deviceInfo.numLeds < colors.size) {
+                                    colors.take(deviceInfo.numLeds)
+                                } else {
+                                    colors + List(deviceInfo.numLeds - colors.size) { colors.lastOrNull() ?: Color.BLACK }
+                                }
+                            } else colors
+                            c.updateLeds(config.deviceIndex, adjustedColors)
+                            Thread.sleep(10)
+                        } catch (e: Exception) {
+                            log.warn("Failed to update LEDs on device ${config.deviceIndex}: ${e.message}")
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                log.warn("Multi-device update LEDs failed: ${e.message}")
+                scheduleReconnect()
+            }
+        }
+    }
+
     fun refreshDevices() {
         executor.submit {
             try {

@@ -18,6 +18,7 @@ dependencies {
     intellijPlatform {
         create(providers.gradleProperty("platformType").get(), providers.gradleProperty("platformVersion").get())
         bundledPlugin("com.intellij.java")
+        bundledPlugin("Git4Idea")
         testFramework(org.jetbrains.intellij.platform.gradle.TestFrameworkType.Platform)
     }
 }

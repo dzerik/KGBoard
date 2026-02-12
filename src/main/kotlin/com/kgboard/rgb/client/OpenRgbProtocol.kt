@@ -141,10 +141,10 @@ object OpenRgbProtocol {
         }
 
         val numLeds = payload.getShort().toInt() and 0xFFFF
-        // Skip LED names
+        val ledNames = mutableListOf<String>()
         for (i in 0 until numLeds) {
-            readString(payload) // LED name
-            payload.getInt()    // LED value
+            ledNames.add(readString(payload)) // LED name
+            payload.getInt() // LED value
         }
 
         val numColors = payload.getShort().toInt() and 0xFFFF
@@ -163,6 +163,7 @@ object OpenRgbProtocol {
             vendor = vendor,
             description = description,
             numLeds = numLeds,
+            ledNames = ledNames,
             zones = zones,
             colors = colors
         )
@@ -205,15 +206,26 @@ object OpenRgbProtocol {
         buf.getInt() // ledsMax
         val ledsCount = buf.getInt()
         val matrixSize = buf.getShort().toInt() and 0xFFFF
+        var matrixHeight = 0
+        var matrixWidth = 0
+        var matrixMap: List<Int>? = null
         if (matrixSize > 0) {
-            val matrixHeight = buf.getInt()
-            val matrixWidth = buf.getInt()
-            // Skip matrix values
+            matrixHeight = buf.getInt()
+            matrixWidth = buf.getInt()
+            val map = mutableListOf<Int>()
             for (i in 0 until matrixHeight * matrixWidth) {
-                buf.getInt()
+                map.add(buf.getInt())
             }
+            matrixMap = map
         }
-        return RgbZoneInfo(name = name, type = type, ledsCount = ledsCount)
+        return RgbZoneInfo(
+            name = name,
+            type = type,
+            ledsCount = ledsCount,
+            matrixHeight = matrixHeight,
+            matrixWidth = matrixWidth,
+            matrixMap = matrixMap
+        )
     }
 }
 
@@ -229,6 +241,7 @@ data class RgbDeviceInfo(
     val vendor: String,
     val description: String,
     val numLeds: Int,
+    val ledNames: List<String> = emptyList(),
     val zones: List<RgbZoneInfo>,
     val colors: List<Color>
 )
@@ -236,7 +249,10 @@ data class RgbDeviceInfo(
 data class RgbZoneInfo(
     val name: String,
     val type: Int,
-    val ledsCount: Int
+    val ledsCount: Int,
+    val matrixHeight: Int = 0,
+    val matrixWidth: Int = 0,
+    val matrixMap: List<Int>? = null
 )
 
 class OpenRgbException(message: String, cause: Throwable? = null) : Exception(message, cause)
