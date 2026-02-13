@@ -203,10 +203,77 @@ class LedCompositor(private val project: Project) : Disposable {
                 System.arraycopy(frame, 0, previousFrame!!, 0, numLeds)
             }
 
-            // 6. Send to device
-            connection.updateLeds(deviceIndex, frame.toList())
+            // 6. Send to device(s)
+            if (settings.multiDeviceEnabled && settings.deviceConfigs.isNotEmpty()) {
+                sendToMultiDevice(frame, snapshot, now, idleColor)
+            } else {
+                connection.updateLeds(deviceIndex, frame.toList())
+            }
         } catch (e: Exception) {
             log.warn("Compositor render error: ${e.message}")
+        }
+    }
+
+    /**
+     * Sends frames to multiple devices based on their roles:
+     * - primary/mirror: full primary frame (adjusted for LED count)
+     * - ambient: idle color only (no effects)
+     * - indicator: idle + per-key effects only (no AllLeds effects)
+     */
+    private fun sendToMultiDevice(
+        primaryFrame: Array<Color>,
+        snapshot: List<ActiveEffect>,
+        now: Long,
+        idleColor: Color
+    ) {
+        val devices = connection.devices
+        for (config in settings.deviceConfigs) {
+            if (!config.enabled) continue
+            if (config.deviceIndex >= devices.size) continue
+
+            val numLeds = devices[config.deviceIndex].numLeds
+            if (numLeds <= 0) continue
+
+            val deviceFrame = when (config.role) {
+                "primary", "mirror" -> adjustFrameSize(primaryFrame, numLeds, idleColor)
+
+                "ambient" -> Array(numLeds) { idleColor }
+
+                "indicator" -> {
+                    // Idle base + only per-key effects (not AllLeds)
+                    val frame = Array(numLeds) { idleColor }
+                    val perKeyEffects = snapshot.filter { it.effect.target !is EffectTarget.AllLeds }
+                    for (ae in perKeyEffects) {
+                        val elapsed = now - ae.startTime
+                        val indices = resolveIndices(ae.effect.target, numLeds)
+                        val colors = computeColors(ae.effect, elapsed, indices.size, numLeds)
+                        for ((i, ledIdx) in indices.withIndex()) {
+                            if (ledIdx in frame.indices && i < colors.size) {
+                                frame[ledIdx] = colors[i]
+                            }
+                        }
+                    }
+                    frame
+                }
+
+                else -> adjustFrameSize(primaryFrame, numLeds, idleColor)
+            }
+
+            try {
+                connection.updateLeds(config.deviceIndex, deviceFrame.toList())
+                Thread.sleep(10) // avoid overwhelming OpenRGB
+            } catch (e: Exception) {
+                log.debug("Multi-device update failed for ${config.name}: ${e.message}")
+            }
+        }
+    }
+
+    /** Adjust frame to target LED count: truncate if larger, pad with idleColor if smaller */
+    private fun adjustFrameSize(frame: Array<Color>, targetSize: Int, padColor: Color): Array<Color> {
+        return when {
+            frame.size == targetSize -> frame
+            frame.size > targetSize -> Array(targetSize) { frame[it] }
+            else -> Array(targetSize) { i -> if (i < frame.size) frame[i] else padColor }
         }
     }
 

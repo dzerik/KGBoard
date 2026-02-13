@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.0] - 2026-02-13
+
+### Added
+- **Multi-device rendering in LedCompositor**: When `multiDeviceEnabled`, the compositor sends role-appropriate frames to each device — `primary/mirror` get the full frame (adjusted for LED count), `ambient` receives idle color only, `indicator` receives idle + per-key effects only. 10ms inter-device delay prevents overwhelming OpenRGB
+- **Device Config UI**: New table in "Multi-Device" settings section with columns: Enabled (checkbox), Name, Device Index, Role (dropdown: primary/mirror/ambient/indicator). Add/remove toolbar via `ToolbarDecorator`
+
 ## [0.4.0] - 2026-02-13
 
 ### Added

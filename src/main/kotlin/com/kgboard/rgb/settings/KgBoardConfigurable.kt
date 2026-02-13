@@ -4,15 +4,21 @@ import com.intellij.openapi.options.BoundConfigurable
 import com.intellij.openapi.ui.DialogPanel
 import com.intellij.ui.ColorPanel
 import com.intellij.ui.JBColor
+import com.intellij.ui.ToolbarDecorator
 import com.intellij.ui.components.JBLabel
 import com.intellij.ui.dsl.builder.*
+import com.intellij.ui.table.JBTable
 import com.intellij.util.Alarm
+import com.intellij.util.ui.ColumnInfo
+import com.intellij.util.ui.ListTableModel
 import com.kgboard.rgb.client.OpenRgbConnectionService
 import java.awt.Color
+import java.awt.Component
 import java.awt.Dimension
 import java.awt.FlowLayout
-import javax.swing.JButton
-import javax.swing.JPanel
+import javax.swing.*
+import javax.swing.table.TableCellEditor
+import javax.swing.table.TableCellRenderer
 
 class KgBoardConfigurable : BoundConfigurable("KGBoard RGB") {
 
@@ -36,6 +42,40 @@ class KgBoardConfigurable : BoundConfigurable("KGBoard RGB") {
     private val notifyLowMemoryColorPanel = colorPanel()
     private val notifyTodoColorPanel = colorPanel()
 
+    // Device config table model
+    private val deviceTableModel = ListTableModel<KgBoardSettings.DeviceConfig>(
+        object : ColumnInfo<KgBoardSettings.DeviceConfig, Boolean>("Enabled") {
+            override fun valueOf(item: KgBoardSettings.DeviceConfig): Boolean = item.enabled
+            override fun setValue(item: KgBoardSettings.DeviceConfig, value: Boolean) { item.enabled = value }
+            override fun isCellEditable(item: KgBoardSettings.DeviceConfig): Boolean = true
+            override fun getColumnClass(): Class<*> = java.lang.Boolean::class.java
+        },
+        object : ColumnInfo<KgBoardSettings.DeviceConfig, String>("Name") {
+            override fun valueOf(item: KgBoardSettings.DeviceConfig): String = item.name
+            override fun setValue(item: KgBoardSettings.DeviceConfig, value: String) { item.name = value }
+            override fun isCellEditable(item: KgBoardSettings.DeviceConfig): Boolean = true
+            override fun getEditor(item: KgBoardSettings.DeviceConfig): TableCellEditor = DefaultCellEditor(JTextField())
+        },
+        object : ColumnInfo<KgBoardSettings.DeviceConfig, String>("Device Index") {
+            override fun valueOf(item: KgBoardSettings.DeviceConfig): String = item.deviceIndex.toString()
+            override fun setValue(item: KgBoardSettings.DeviceConfig, value: String) {
+                item.deviceIndex = value.toIntOrNull() ?: 0
+            }
+            override fun isCellEditable(item: KgBoardSettings.DeviceConfig): Boolean = true
+            override fun getEditor(item: KgBoardSettings.DeviceConfig): TableCellEditor = DefaultCellEditor(JTextField())
+        },
+        object : ColumnInfo<KgBoardSettings.DeviceConfig, String>("Role") {
+            override fun valueOf(item: KgBoardSettings.DeviceConfig): String = item.role
+            override fun setValue(item: KgBoardSettings.DeviceConfig, value: String) { item.role = value }
+            override fun isCellEditable(item: KgBoardSettings.DeviceConfig): Boolean = true
+            override fun getEditor(item: KgBoardSettings.DeviceConfig): TableCellEditor {
+                val combo = JComboBox(arrayOf("primary", "mirror", "ambient", "indicator"))
+                return DefaultCellEditor(combo)
+            }
+            override fun getRenderer(item: KgBoardSettings.DeviceConfig): TableCellRenderer? = null
+        }
+    )
+
     private val statusLabel = JBLabel("Not connected")
     private val statusUpdateAlarm = Alarm(Alarm.ThreadToUse.SWING_THREAD)
 
@@ -47,8 +87,9 @@ class KgBoardConfigurable : BoundConfigurable("KGBoard RGB") {
         val settings = KgBoardSettings.getInstance()
         val connection = OpenRgbConnectionService.getInstance()
 
-        // Init color panels from settings
+        // Init color panels and device table from settings
         loadColorPanels(settings)
+        loadDeviceTable(settings)
         updateStatusLabel(connection)
 
         return panel {
@@ -191,8 +232,27 @@ class KgBoardConfigurable : BoundConfigurable("KGBoard RGB") {
                 }
                 row {
                     comment("Configure multiple OpenRGB devices. Each device can have a role:<br/>" +
-                            "<b>primary</b> — all effects, <b>ambient</b> — idle + dim only,<br/>" +
-                            "<b>indicator</b> — per-key only, <b>mirror</b> — copies primary.")
+                            "<b>primary</b> — all effects, <b>ambient</b> — idle color only,<br/>" +
+                            "<b>indicator</b> — per-key effects only, <b>mirror</b> — copies primary.")
+                }
+                row {
+                    val table = JBTable(deviceTableModel)
+                    val decorator = ToolbarDecorator.createDecorator(table)
+                        .setAddAction {
+                            deviceTableModel.addRow(KgBoardSettings.DeviceConfig(
+                                deviceIndex = deviceTableModel.items.size,
+                                name = "Device ${deviceTableModel.items.size}",
+                                enabled = true,
+                                role = "primary"
+                            ))
+                        }
+                        .setRemoveAction {
+                            val selected = table.selectedRow
+                            if (selected >= 0) deviceTableModel.removeRow(selected)
+                        }
+                        .disableUpDownActions()
+                    cell(decorator.createPanel())
+                        .align(AlignX.FILL)
                 }
             }
 
@@ -298,11 +358,17 @@ class KgBoardConfigurable : BoundConfigurable("KGBoard RGB") {
         s.state.notifyIndexingColor = toHex(notifyIndexingColorPanel.selectedColor)
         s.state.notifyLowMemoryColor = toHex(notifyLowMemoryColorPanel.selectedColor)
         s.state.notifyTodoColor = toHex(notifyTodoColorPanel.selectedColor)
+        // Save device configs
+        s.state.deviceConfigs = deviceTableModel.items.map {
+            KgBoardSettings.DeviceConfig(it.deviceIndex, it.name, it.enabled, it.role)
+        }.toMutableList()
     }
 
     override fun reset() {
         super.reset()
-        loadColorPanels(KgBoardSettings.getInstance())
+        val s = KgBoardSettings.getInstance()
+        loadColorPanels(s)
+        loadDeviceTable(s)
         updateStatusLabel(OpenRgbConnectionService.getInstance())
     }
 
@@ -324,7 +390,17 @@ class KgBoardConfigurable : BoundConfigurable("KGBoard RGB") {
                 colorChanged(pomodoroTransitionColorPanel, s.state.pomodoroTransitionColor) ||
                 colorChanged(notifyIndexingColorPanel, s.state.notifyIndexingColor) ||
                 colorChanged(notifyLowMemoryColorPanel, s.state.notifyLowMemoryColor) ||
-                colorChanged(notifyTodoColorPanel, s.state.notifyTodoColor)
+                colorChanged(notifyTodoColorPanel, s.state.notifyTodoColor) ||
+                deviceConfigsModified(s)
+    }
+
+    private fun deviceConfigsModified(s: KgBoardSettings): Boolean {
+        val current = deviceTableModel.items
+        val saved = s.state.deviceConfigs
+        if (current.size != saved.size) return true
+        return current.zip(saved).any { (a, b) ->
+            a.deviceIndex != b.deviceIndex || a.name != b.name || a.enabled != b.enabled || a.role != b.role
+        }
     }
 
     private fun loadColorPanels(s: KgBoardSettings) {
@@ -345,6 +421,12 @@ class KgBoardConfigurable : BoundConfigurable("KGBoard RGB") {
         notifyIndexingColorPanel.selectedColor = s.notifyIndexingColor
         notifyLowMemoryColorPanel.selectedColor = s.notifyLowMemoryColor
         notifyTodoColorPanel.selectedColor = s.notifyTodoColor
+    }
+
+    private fun loadDeviceTable(s: KgBoardSettings) {
+        deviceTableModel.items = s.state.deviceConfigs.map {
+            KgBoardSettings.DeviceConfig(it.deviceIndex, it.name, it.enabled, it.role)
+        }
     }
 
     private fun updateStatusLabel(connection: OpenRgbConnectionService) {
