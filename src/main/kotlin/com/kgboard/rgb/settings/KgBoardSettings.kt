@@ -52,6 +52,9 @@ class KgBoardSettings : PersistentStateComponent<KgBoardSettings.State> {
         var dimBrightness: Int = 15, // percent (0-100)
         var resetOnExit: Boolean = true,
 
+        // Connection behavior
+        var skipCustomMode: Boolean = false, // Skip setCustomMode before updateLeds (fixes EVision keyboards)
+
         // Multi-device
         var multiDeviceEnabled: Boolean = false,
         var deviceConfigs: MutableList<DeviceConfig> = mutableListOf(),
@@ -144,6 +147,10 @@ class KgBoardSettings : PersistentStateComponent<KgBoardSettings.State> {
     var resetOnExit: Boolean
         get() = state.resetOnExit
         set(value) { state.resetOnExit = value }
+
+    var skipCustomMode: Boolean
+        get() = state.skipCustomMode
+        set(value) { state.skipCustomMode = value }
 
     // Multi-device
     var multiDeviceEnabled: Boolean

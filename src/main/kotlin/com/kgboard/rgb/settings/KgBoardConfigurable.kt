@@ -166,6 +166,11 @@ class KgBoardConfigurable : BoundConfigurable("KGBoard RGB") {
                     checkBox("Connect automatically on IDE startup")
                         .bindSelected(settings::autoConnect)
                 }
+                row {
+                    checkBox("Skip setCustomMode before LED updates")
+                        .bindSelected(settings::skipCustomMode)
+                        .comment("Enable for EVision and other keyboards that break on setCustomMode")
+                }
             }
         }
         tabPanels.add(connectionPanel)

@@ -64,7 +64,8 @@ class OpenRgbConnectionService : Disposable {
         executor.submit {
             try {
                 synchronized(lock) {
-                    client?.setAllLeds(deviceIndex, color)
+                    val skip = KgBoardSettings.getInstance().skipCustomMode
+                    client?.setAllLeds(deviceIndex, color, skip)
                 }
             } catch (e: Exception) {
                 log.warn("Failed to set LEDs: ${e.message}")
@@ -77,7 +78,9 @@ class OpenRgbConnectionService : Disposable {
         executor.submit {
             try {
                 synchronized(lock) {
-                    client?.setCustomMode(deviceIndex)
+                    if (!KgBoardSettings.getInstance().skipCustomMode) {
+                        client?.setCustomMode(deviceIndex)
+                    }
                     client?.updateLeds(deviceIndex, colors)
                 }
             } catch (e: Exception) {
@@ -114,10 +117,11 @@ class OpenRgbConnectionService : Disposable {
             try {
                 synchronized(lock) {
                     val c = client ?: return@submit
+                    val skip = settings.skipCustomMode
                     for (config in settings.deviceConfigs) {
                         if (!config.enabled) continue
                         try {
-                            c.setAllLeds(config.deviceIndex, color)
+                            c.setAllLeds(config.deviceIndex, color, skip)
                             Thread.sleep(10)
                         } catch (e: Exception) {
                             log.warn("Failed to set LEDs on device ${config.deviceIndex}: ${e.message}")
@@ -144,12 +148,13 @@ class OpenRgbConnectionService : Disposable {
             try {
                 synchronized(lock) {
                     val c = client ?: return@submit
+                    val skip = settings.skipCustomMode
                     for (config in settings.deviceConfigs) {
                         if (!config.enabled) continue
                         try {
-                            c.setCustomMode(config.deviceIndex)
-                            // Mirror mode: send same colors
-                            // For devices with different LED counts, truncate or pad
+                            if (!skip) {
+                                c.setCustomMode(config.deviceIndex)
+                            }
                             val deviceInfo = cachedDevices.getOrNull(config.deviceIndex)
                             val adjustedColors = if (deviceInfo != null && deviceInfo.numLeds != colors.size) {
                                 if (deviceInfo.numLeds < colors.size) {

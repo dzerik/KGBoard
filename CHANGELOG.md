@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0] - 2026-02-13
+
+### Added
+- **`skipCustomMode` setting**: New checkbox in Connection tab — skips `setCustomMode` (1100) before `updateLeds`. Fixes EVision Keyboard and similar devices that break when custom mode is activated via SDK
+
+### Fixed
+- **EVision Keyboard compatibility**: `setCustomMode` command causes EVision keyboards to go black and ignore subsequent LED updates. With `skipCustomMode` enabled, `updateLeds` is sent directly without mode switch, which works correctly
+
 ## [1.0.0] - 2026-02-13
 
 ### Changed

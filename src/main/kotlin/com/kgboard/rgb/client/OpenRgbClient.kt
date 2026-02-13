@@ -142,10 +142,12 @@ class OpenRgbClient(
         }
     }
 
-    fun setAllLeds(deviceIndex: Int, color: Color) {
+    fun setAllLeds(deviceIndex: Int, color: Color, skipCustomMode: Boolean = false) {
         val device = getControllerData(deviceIndex)
         val colors = List(device.numLeds) { color }
-        setCustomMode(deviceIndex)
+        if (!skipCustomMode) {
+            setCustomMode(deviceIndex)
+        }
         updateLeds(deviceIndex, colors)
     }
 
