@@ -5,6 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.2] - 2026-02-13
+
+### Added
+- **Unit tests for per-key settings**: 18 new tests — `parseLedIndices` (7 cases), `resolveTarget` (3 cases), default values (1), property accessors (5), integration (2). Total ~124 tests
+
 ## [0.8.1] - 2026-02-13
 
 ### Added
