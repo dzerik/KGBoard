@@ -1,10 +1,15 @@
 package com.kgboard.rgb.bridge
 
 import com.intellij.codeInsight.daemon.DaemonCodeAnalyzer
+import com.intellij.codeInsight.daemon.impl.HighlightInfo
+import com.intellij.lang.annotation.HighlightSeverity
 import com.intellij.openapi.Disposable
+import com.intellij.openapi.application.ReadAction
 import com.intellij.openapi.components.Service
 import com.intellij.openapi.diagnostic.Logger
+import com.intellij.openapi.editor.impl.DocumentMarkupModel
 import com.intellij.openapi.fileEditor.FileEditor
+import com.intellij.openapi.fileEditor.FileEditorManager
 import com.intellij.openapi.project.Project
 import com.intellij.problems.WolfTheProblemSolver
 import com.kgboard.rgb.effect.EffectManagerService
@@ -64,8 +69,12 @@ class CodeAnalysisListener(private val project: Project) : Disposable {
 
             val hasErrors = wolf.hasProblemFilesBeneath { true }
 
+            // Check warnings only when no errors (optimization)
+            val hasWarnings = if (!hasErrors) checkCurrentFileWarnings() else false
+
             val color = when {
                 hasErrors -> settings.parseColor(projectSettings.analysisErrorColor)
+                hasWarnings -> settings.parseColor(projectSettings.analysisWarningColor)
                 else -> settings.parseColor(projectSettings.analysisCleanColor)
             }
 
@@ -81,6 +90,27 @@ class CodeAnalysisListener(private val project: Project) : Disposable {
             )
         } catch (e: Exception) {
             log.warn("Code analysis update error: ${e.message}")
+        }
+    }
+
+    /**
+     * Checks the current editor's document for warning-level highlights.
+     * Uses ReadAction for PSI thread safety.
+     */
+    private fun checkCurrentFileWarnings(): Boolean {
+        return try {
+            ReadAction.compute<Boolean, Throwable> {
+                val editor = FileEditorManager.getInstance(project).selectedTextEditor ?: return@compute false
+                val document = editor.document
+                val markupModel = DocumentMarkupModel.forDocument(document, project, false) ?: return@compute false
+                markupModel.allHighlighters.any { highlighter ->
+                    val info = highlighter.errorStripeTooltip as? HighlightInfo
+                    info != null && info.severity == HighlightSeverity.WARNING
+                }
+            }
+        } catch (e: Exception) {
+            log.debug("Warning check failed: ${e.message}")
+            false
         }
     }
 
