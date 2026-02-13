@@ -57,6 +57,9 @@ class IdeNotificationListener(private val project: Project) : Disposable {
         val settings = KgBoardSettings.getInstance()
         if (!settings.enabled || !settings.notifyIndexingEnabled) return
 
+        val ledIndices = settings.notifyIndexingLedIndices
+        val target = if (ledIndices.isNotEmpty()) EffectTarget.LedSet(ledIndices) else EffectTarget.AllLeds
+
         val effectManager = EffectManagerService.getInstance(project)
         effectManager.addTargetedEffect(
             INDEXING_EFFECT_ID,
@@ -65,7 +68,7 @@ class IdeNotificationListener(private val project: Project) : Disposable {
                 periodMs = 1500,
                 name = "indexing",
                 priority = 1,
-                target = EffectTarget.AllLeds
+                target = target
             )
         )
     }
@@ -79,6 +82,9 @@ class IdeNotificationListener(private val project: Project) : Disposable {
         val settings = KgBoardSettings.getInstance()
         if (!settings.enabled || !settings.notifyLowMemoryEnabled) return
 
+        val ledIndices = settings.notifyLowMemoryLedIndices
+        val target = if (ledIndices.isNotEmpty()) EffectTarget.LedSet(ledIndices) else EffectTarget.AllLeds
+
         val effectManager = EffectManagerService.getInstance(project)
         effectManager.addTargetedEffect(
             MEMORY_EFFECT_ID,
@@ -87,11 +93,19 @@ class IdeNotificationListener(private val project: Project) : Disposable {
                 durationMs = 2000,
                 name = "low-memory",
                 priority = 10,
-                target = EffectTarget.AllLeds
+                target = target
             ),
             timeoutMs = 3000
         )
     }
 
-    override fun dispose() {}
+    override fun dispose() {
+        try {
+            val effectManager = EffectManagerService.getInstance(project)
+            effectManager.removeTargetedEffect(INDEXING_EFFECT_ID)
+            effectManager.removeTargetedEffect(MEMORY_EFFECT_ID)
+        } catch (_: Exception) {
+            // project may already be disposed
+        }
+    }
 }

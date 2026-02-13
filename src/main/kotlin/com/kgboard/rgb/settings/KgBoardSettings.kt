@@ -68,8 +68,10 @@ class KgBoardSettings : PersistentStateComponent<KgBoardSettings.State> {
         // IDE Notifications
         var notifyIndexingEnabled: Boolean = true,
         var notifyIndexingColor: String = "#FF9100",
+        var notifyIndexingLedIndices: String = "", // comma-separated
         var notifyLowMemoryEnabled: Boolean = true,
         var notifyLowMemoryColor: String = "#FF1744",
+        var notifyLowMemoryLedIndices: String = "", // comma-separated
         var notifyTodoEnabled: Boolean = false,
         var notifyTodoColor: String = "#FFD600",
         var notifyTodoLedIndices: String = "" // comma-separated
@@ -166,11 +168,17 @@ class KgBoardSettings : PersistentStateComponent<KgBoardSettings.State> {
 
     val notifyIndexingColor: Color get() = parseColor(state.notifyIndexingColor)
 
+    val notifyIndexingLedIndices: List<Int>
+        get() = parseLedIndices(state.notifyIndexingLedIndices)
+
     var notifyLowMemoryEnabled: Boolean
         get() = state.notifyLowMemoryEnabled
         set(value) { state.notifyLowMemoryEnabled = value }
 
     val notifyLowMemoryColor: Color get() = parseColor(state.notifyLowMemoryColor)
+
+    val notifyLowMemoryLedIndices: List<Int>
+        get() = parseLedIndices(state.notifyLowMemoryLedIndices)
 
     var notifyTodoEnabled: Boolean
         get() = state.notifyTodoEnabled
@@ -179,9 +187,10 @@ class KgBoardSettings : PersistentStateComponent<KgBoardSettings.State> {
     val notifyTodoColor: Color get() = parseColor(state.notifyTodoColor)
 
     val notifyTodoLedIndices: List<Int>
-        get() = state.notifyTodoLedIndices.split(",")
-            .mapNotNull { it.trim().toIntOrNull() }
-            .filter { it >= 0 }
+        get() = parseLedIndices(state.notifyTodoLedIndices)
+
+    private fun parseLedIndices(raw: String): List<Int> =
+        raw.split(",").mapNotNull { it.trim().toIntOrNull() }.filter { it >= 0 }
 
     fun parseColor(hex: String): Color {
         return try {

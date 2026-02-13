@@ -40,7 +40,11 @@ class KgBoardProjectSettings : PersistentStateComponent<KgBoardProjectSettings.S
 
         // Shortcut highlight
         var shortcutHighlightEnabled: Boolean = false,
-        var shortcutContexts: MutableList<String> = mutableListOf("debug", "search")
+        var shortcutContexts: MutableList<String> = mutableListOf("debug", "search"),
+        var shortcutDebugColor: String = "#651FFF",
+        var shortcutSearchColor: String = "#2979FF",
+        var shortcutEditingColor: String = "#00C853",
+        var shortcutVcsColor: String = "#FF9100"
     )
 
     private var state = State()
@@ -74,6 +78,10 @@ class KgBoardProjectSettings : PersistentStateComponent<KgBoardProjectSettings.S
 
     val shortcutHighlightEnabled: Boolean get() = state.shortcutHighlightEnabled
     val shortcutContexts: List<String> get() = state.shortcutContexts
+    val shortcutDebugColor: String get() = state.shortcutDebugColor
+    val shortcutSearchColor: String get() = state.shortcutSearchColor
+    val shortcutEditingColor: String get() = state.shortcutEditingColor
+    val shortcutVcsColor: String get() = state.shortcutVcsColor
 
     companion object {
         fun getInstance(project: Project): KgBoardProjectSettings =

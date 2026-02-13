@@ -5,6 +5,30 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.2] - 2026-02-12
+
+### Fixed
+- **Critical: Race condition in LedCompositor** — `renderTask` is now guarded by `ReentrantLock`, preventing double render loop start from concurrent threads
+- **Critical: Daemon thread leak in EffectManagerService** — replaced `Thread { sleep(N) }` per timed effect with single `ScheduledExecutorService` for cleanup
+- **Critical: Race condition in GitStatusListener** — added `AtomicBoolean` disposed guard to prevent `updateGitStatus()` calls during/after dispose
+- **Critical: EDT freeze in KgBoardConfigurable** — replaced `Thread.sleep(600)` inside `SwingUtilities.invokeLater` with non-blocking `Alarm`
+- Race condition in `OpenRgbClient.getAllDevices()` — count + data reads now in single `synchronized` block
+- Empty `dispose()` in CodeAnalysisListener, IdeNotificationListener, ShortcutHighlightService — now properly clean up per-key effects
+- Missing error handling in BuildEventListener, ExecutionEventListener, TestEventListener, FocusEventListener — all event callbacks now wrapped in try-catch
+- Hardcoded shortcut highlight colors — moved to `KgBoardProjectSettings` (shortcutDebugColor, shortcutSearchColor, shortcutEditingColor, shortcutVcsColor)
+
+### Changed
+- `LedCompositor.dispose()` now uses graceful shutdown with 2s timeout before `shutdownNow()`
+- `LedCompositor.previousFrame` is now `@Volatile` for cross-thread visibility
+- `EffectManagerService.currentGlobalEffectId` and `currentGlobalPriority` are now `@Volatile`
+
+## [0.2.1] - 2026-02-12
+
+### Changed
+- Color picker elements are now 2x wider (90px) for easier color selection
+- Per-key LED indices configuration for all notification types (indexing, low memory, TODO)
+- IdeNotificationListener uses EffectTarget.LedSet when LED indices are specified, falls back to AllLeds when empty
+
 ## [0.2.0] - 2026-02-12
 
 ### Added

@@ -21,43 +21,47 @@ class BuildEventListener(private val project: Project) : CompilationStatusListen
     private val log = Logger.getInstance(BuildEventListener::class.java)
 
     override fun compilationFinished(aborted: Boolean, errors: Int, warnings: Int, compileContext: CompileContext) {
-        val settings = KgBoardSettings.getInstance()
-        if (!settings.enabled) return
+        try {
+            val settings = KgBoardSettings.getInstance()
+            if (!settings.enabled) return
 
-        val effectManager = EffectManagerService.getInstance(project)
+            val effectManager = EffectManagerService.getInstance(project)
 
-        if (aborted) {
-            log.info("Build aborted")
-            effectManager.applyTemporary(
-                FlashEffect(
-                    color = settings.stopColor,
-                    durationMs = 1000,
-                    name = "build-aborted",
-                    priority = 8
+            if (aborted) {
+                log.info("Build aborted")
+                effectManager.applyTemporary(
+                    FlashEffect(
+                        color = settings.stopColor,
+                        durationMs = 1000,
+                        name = "build-aborted",
+                        priority = 8
+                    )
                 )
-            )
-            return
-        }
+                return
+            }
 
-        if (errors > 0) {
-            log.info("Build failed with $errors errors")
-            effectManager.applyEffect(
-                StaticEffect(
-                    color = settings.buildFailureColor,
-                    name = "build-failure",
-                    priority = 9
+            if (errors > 0) {
+                log.info("Build failed with $errors errors")
+                effectManager.applyEffect(
+                    StaticEffect(
+                        color = settings.buildFailureColor,
+                        name = "build-failure",
+                        priority = 9
+                    )
                 )
-            )
-        } else {
-            log.info("Build succeeded (warnings: $warnings)")
-            effectManager.applyTemporary(
-                FlashEffect(
-                    color = settings.buildSuccessColor,
-                    durationMs = 2000,
-                    name = "build-success",
-                    priority = 7
+            } else {
+                log.info("Build succeeded (warnings: $warnings)")
+                effectManager.applyTemporary(
+                    FlashEffect(
+                        color = settings.buildSuccessColor,
+                        durationMs = 2000,
+                        name = "build-success",
+                        priority = 7
+                    )
                 )
-            )
+            }
+        } catch (e: Exception) {
+            log.warn("Build event listener error: ${e.message}")
         }
     }
 
@@ -66,17 +70,21 @@ class BuildEventListener(private val project: Project) : CompilationStatusListen
     }
 
     override fun fileGenerated(outputRoot: String, relativePath: String) {
-        val settings = KgBoardSettings.getInstance()
-        if (!settings.enabled) return
+        try {
+            val settings = KgBoardSettings.getInstance()
+            if (!settings.enabled) return
 
-        val effectManager = EffectManagerService.getInstance(project)
-        effectManager.applyPersistent(
-            PulseEffect(
-                color = settings.buildInProgressColor,
-                periodMs = settings.pulseSpeedMs,
-                name = "build-progress",
-                priority = 5
+            val effectManager = EffectManagerService.getInstance(project)
+            effectManager.applyPersistent(
+                PulseEffect(
+                    color = settings.buildInProgressColor,
+                    periodMs = settings.pulseSpeedMs,
+                    name = "build-progress",
+                    priority = 5
+                )
             )
-        )
+        } catch (e: Exception) {
+            log.warn("Build progress event error: ${e.message}")
+        }
     }
 }

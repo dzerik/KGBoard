@@ -6,13 +6,13 @@ import com.intellij.ui.ColorPanel
 import com.intellij.ui.JBColor
 import com.intellij.ui.components.JBLabel
 import com.intellij.ui.dsl.builder.*
+import com.intellij.util.Alarm
 import com.kgboard.rgb.client.OpenRgbConnectionService
 import java.awt.Color
 import java.awt.Dimension
 import java.awt.FlowLayout
 import javax.swing.JButton
 import javax.swing.JPanel
-import javax.swing.SwingUtilities
 
 class KgBoardConfigurable : BoundConfigurable("KGBoard RGB") {
 
@@ -37,9 +37,10 @@ class KgBoardConfigurable : BoundConfigurable("KGBoard RGB") {
     private val notifyTodoColorPanel = colorPanel()
 
     private val statusLabel = JBLabel("Not connected")
+    private val statusUpdateAlarm = Alarm(Alarm.ThreadToUse.SWING_THREAD)
 
     private fun colorPanel(): ColorPanel = ColorPanel().apply {
-        preferredSize = Dimension(45, 25)
+        preferredSize = Dimension(90, 25)
     }
 
     override fun createPanel(): DialogPanel {
@@ -68,10 +69,8 @@ class KgBoardConfigurable : BoundConfigurable("KGBoard RGB") {
                     val connectBtn = JButton("Connect").apply {
                         addActionListener {
                             connection.reconnect()
-                            SwingUtilities.invokeLater {
-                                Thread.sleep(600)
-                                updateStatusLabel(connection)
-                            }
+                            statusUpdateAlarm.cancelAllRequests()
+                            statusUpdateAlarm.addRequest({ updateStatusLabel(connection) }, 600)
                         }
                     }
                     val disconnectBtn = JButton("Disconnect").apply {
@@ -238,16 +237,34 @@ class KgBoardConfigurable : BoundConfigurable("KGBoard RGB") {
                         .bindSelected(settings::notifyIndexingEnabled)
                 }
                 colorRow("Indexing color:", notifyIndexingColorPanel, "Pulse color during IDE indexing")
+                row("Indexing LED indices:") {
+                    textField()
+                        .columns(20)
+                        .bindText(settings.state::notifyIndexingLedIndices)
+                        .comment("Comma-separated LED indices (e.g., 0,1,2). Empty = all LEDs.")
+                }
                 row {
                     checkBox("Low memory warning (red flash)")
                         .bindSelected(settings::notifyLowMemoryEnabled)
                 }
                 colorRow("Low memory color:", notifyLowMemoryColorPanel, "Flash color on low memory")
+                row("Low memory LED indices:") {
+                    textField()
+                        .columns(20)
+                        .bindText(settings.state::notifyLowMemoryLedIndices)
+                        .comment("Comma-separated LED indices. Empty = all LEDs.")
+                }
                 row {
                     checkBox("TODO indicator in current file")
                         .bindSelected(settings::notifyTodoEnabled)
                 }
                 colorRow("TODO color:", notifyTodoColorPanel, "Indicator color for TODO items")
+                row("TODO LED indices:") {
+                    textField()
+                        .columns(20)
+                        .bindText(settings.state::notifyTodoLedIndices)
+                        .comment("Comma-separated LED indices. Empty = all LEDs.")
+                }
             }
         }
     }

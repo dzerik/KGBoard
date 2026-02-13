@@ -23,7 +23,7 @@ class KgBoardProjectConfigurable(private val project: Project) : BoundConfigurab
     private val analysisCleanColor = colorPanel()
 
     private fun colorPanel(): ColorPanel = ColorPanel().apply {
-        preferredSize = Dimension(45, 25)
+        preferredSize = Dimension(90, 25)
     }
 
     override fun createPanel(): DialogPanel {

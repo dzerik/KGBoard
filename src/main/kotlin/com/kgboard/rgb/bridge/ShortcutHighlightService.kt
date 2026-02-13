@@ -123,15 +123,27 @@ class ShortcutHighlightService(private val project: Project) : Disposable {
         effectManager.removeTargetedEffect("$EFFECT_ID_PREFIX$context")
     }
 
-    private fun contextColor(context: String): Color = when (context) {
-        "debug" -> Color(101, 31, 255)  // purple
-        "search" -> Color(41, 121, 255) // blue
-        "editing" -> Color(0, 200, 83)  // green
-        "vcs" -> Color(255, 145, 0)     // orange
-        else -> Color(255, 255, 255)    // white
+    private fun contextColor(context: String): Color {
+        val settings = KgBoardSettings.getInstance()
+        val projectSettings = KgBoardProjectSettings.getInstance(project)
+        return when (context) {
+            "debug" -> settings.parseColor(projectSettings.shortcutDebugColor)
+            "search" -> settings.parseColor(projectSettings.shortcutSearchColor)
+            "editing" -> settings.parseColor(projectSettings.shortcutEditingColor)
+            "vcs" -> settings.parseColor(projectSettings.shortcutVcsColor)
+            else -> Color.WHITE
+        }
     }
 
     override fun dispose() {
+        try {
+            val effectManager = EffectManagerService.getInstance(project)
+            for (context in activeContexts) {
+                effectManager.removeTargetedEffect("$EFFECT_ID_PREFIX$context")
+            }
+        } catch (_: Exception) {
+            // project may already be disposed
+        }
         activeContexts.clear()
     }
 }

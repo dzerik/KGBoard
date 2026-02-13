@@ -25,60 +25,68 @@ class ExecutionEventListener(private val project: Project) : ExecutionListener {
     private val log = Logger.getInstance(ExecutionEventListener::class.java)
 
     override fun processStarted(executorId: String, env: ExecutionEnvironment, handler: ProcessHandler) {
-        val settings = KgBoardSettings.getInstance()
-        if (!settings.enabled) return
+        try {
+            val settings = KgBoardSettings.getInstance()
+            if (!settings.enabled) return
 
-        val effectManager = EffectManagerService.getInstance(project)
-        val profileName = env.runProfile.name
+            val effectManager = EffectManagerService.getInstance(project)
+            val profileName = env.runProfile.name
 
-        when (executorId) {
-            DefaultDebugExecutor.EXECUTOR_ID -> {
-                log.info("Debug started: $profileName")
-                effectManager.applyPersistent(
-                    PulseEffect(
-                        color = settings.debugColor,
-                        periodMs = settings.pulseSpeedMs,
-                        name = "debug-active",
-                        priority = 6
+            when (executorId) {
+                DefaultDebugExecutor.EXECUTOR_ID -> {
+                    log.info("Debug started: $profileName")
+                    effectManager.applyPersistent(
+                        PulseEffect(
+                            color = settings.debugColor,
+                            periodMs = settings.pulseSpeedMs,
+                            name = "debug-active",
+                            priority = 6
+                        )
                     )
-                )
-            }
-            DefaultRunExecutor.EXECUTOR_ID -> {
-                log.info("Run started: $profileName")
-                effectManager.applyPersistent(
-                    StaticEffect(
-                        color = settings.runColor,
-                        name = "run-active",
-                        priority = 4
+                }
+                DefaultRunExecutor.EXECUTOR_ID -> {
+                    log.info("Run started: $profileName")
+                    effectManager.applyPersistent(
+                        StaticEffect(
+                            color = settings.runColor,
+                            name = "run-active",
+                            priority = 4
+                        )
                     )
-                )
+                }
+                else -> {
+                    log.debug("Execution started with executor: $executorId")
+                }
             }
-            else -> {
-                log.debug("Execution started with executor: $executorId")
-            }
+        } catch (e: Exception) {
+            log.warn("Execution event listener error: ${e.message}")
         }
     }
 
     override fun processTerminated(executorId: String, env: ExecutionEnvironment, handler: ProcessHandler, exitCode: Int) {
-        val settings = KgBoardSettings.getInstance()
-        if (!settings.enabled) return
+        try {
+            val settings = KgBoardSettings.getInstance()
+            if (!settings.enabled) return
 
-        val effectManager = EffectManagerService.getInstance(project)
-        val profileName = env.runProfile.name
+            val effectManager = EffectManagerService.getInstance(project)
+            val profileName = env.runProfile.name
 
-        log.info("Process terminated: $profileName (exit code: $exitCode)")
+            log.info("Process terminated: $profileName (exit code: $exitCode)")
 
-        if (exitCode != 0) {
-            effectManager.applyTemporary(
-                FlashEffect(
-                    color = settings.stopColor,
-                    durationMs = 1500,
-                    name = "process-error",
-                    priority = 7
+            if (exitCode != 0) {
+                effectManager.applyTemporary(
+                    FlashEffect(
+                        color = settings.stopColor,
+                        durationMs = 1500,
+                        name = "process-error",
+                        priority = 7
+                    )
                 )
-            )
-        } else {
-            effectManager.returnToIdle()
+            } else {
+                effectManager.returnToIdle()
+            }
+        } catch (e: Exception) {
+            log.warn("Process termination event error: ${e.message}")
         }
     }
 }

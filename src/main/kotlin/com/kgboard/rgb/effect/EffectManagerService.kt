@@ -6,6 +6,9 @@ import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.project.Project
 import com.kgboard.rgb.client.OpenRgbConnectionService
 import com.kgboard.rgb.settings.KgBoardSettings
+import java.util.concurrent.Executors
+import java.util.concurrent.ScheduledFuture
+import java.util.concurrent.TimeUnit
 
 /**
  * Project-level service managing RGB effects lifecycle.
@@ -28,9 +31,16 @@ class EffectManagerService(private val project: Project) : Disposable {
     private val settings: KgBoardSettings
         get() = KgBoardSettings.getInstance()
 
+    private val cleanupScheduler = Executors.newSingleThreadScheduledExecutor { r ->
+        Thread(r, "KGBoard-EffectCleanup-${project.name}").apply { isDaemon = true }
+    }
+
     /** Current "main" global effect ID (for Phase 1 priority logic) */
+    @Volatile
     private var currentGlobalEffectId: String? = null
+    @Volatile
     private var currentGlobalPriority: Int = -1
+    private var cleanupTask: ScheduledFuture<*>? = null
 
     // ─── Phase 1 API (backward-compatible) ───
 
@@ -106,26 +116,20 @@ class EffectManagerService(private val project: Project) : Disposable {
     // ─── Internal ───
 
     private fun scheduleGlobalCleanup(effectId: String, delayMs: Long) {
-        // Use a simple thread to clear our tracking state after timeout
-        Thread {
-            try {
-                Thread.sleep(delayMs + 100) // small buffer after compositor removes it
-                if (currentGlobalEffectId == effectId) {
-                    currentGlobalEffectId = null
-                    currentGlobalPriority = -1
-                }
-            } catch (_: InterruptedException) {
+        cleanupTask?.cancel(false)
+        cleanupTask = cleanupScheduler.schedule({
+            if (currentGlobalEffectId == effectId) {
+                currentGlobalEffectId = null
+                currentGlobalPriority = -1
             }
-        }.apply {
-            isDaemon = true
-            name = "KGBoard-Cleanup"
-            start()
-        }
+        }, delayMs + 100, TimeUnit.MILLISECONDS)
     }
 
     override fun dispose() {
         currentGlobalEffectId = null
         currentGlobalPriority = -1
+        cleanupTask?.cancel(false)
+        cleanupScheduler.shutdown()
     }
 
     companion object {

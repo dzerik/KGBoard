@@ -17,26 +17,33 @@ class FocusEventListener : ApplicationActivationListener {
     private val log = Logger.getInstance(FocusEventListener::class.java)
 
     override fun applicationActivated(ideFrame: IdeFrame) {
-        val settings = KgBoardSettings.getInstance()
-        if (!settings.enabled) return
+        try {
+            val settings = KgBoardSettings.getInstance()
+            if (!settings.enabled) return
 
-        log.info("IDE gained focus — restoring RGB")
-        val project = ideFrame.project ?: return
-        val effectManager = com.kgboard.rgb.effect.EffectManagerService.getInstance(project)
-        // Re-apply current effect or idle
-        effectManager.restoreCurrentEffect()
+            log.info("IDE gained focus — restoring RGB")
+            val project = ideFrame.project ?: return
+            val effectManager = com.kgboard.rgb.effect.EffectManagerService.getInstance(project)
+            effectManager.restoreCurrentEffect()
+        } catch (e: Exception) {
+            log.warn("Focus activated error: ${e.message}")
+        }
     }
 
     override fun applicationDeactivated(ideFrame: IdeFrame) {
-        val settings = KgBoardSettings.getInstance()
-        if (!settings.enabled || !settings.dimOnFocusLoss) return
+        try {
+            val settings = KgBoardSettings.getInstance()
+            if (!settings.enabled || !settings.dimOnFocusLoss) return
 
-        log.info("IDE lost focus — dimming RGB")
-        val connection = OpenRgbConnectionService.getInstance()
-        if (connection.isConnected) {
-            val factor = settings.dimBrightness / 100f
-            val dimColor = dimColor(settings.idleColor, factor)
-            connection.setAllLedsMultiDevice(dimColor)
+            log.info("IDE lost focus — dimming RGB")
+            val connection = OpenRgbConnectionService.getInstance()
+            if (connection.isConnected) {
+                val factor = settings.dimBrightness / 100f
+                val dimColor = dimColor(settings.idleColor, factor)
+                connection.setAllLedsMultiDevice(dimColor)
+            }
+        } catch (e: Exception) {
+            log.warn("Focus deactivated error: ${e.message}")
         }
     }
 

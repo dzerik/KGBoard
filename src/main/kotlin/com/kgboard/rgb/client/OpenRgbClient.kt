@@ -82,8 +82,27 @@ class OpenRgbClient(
     }
 
     fun getAllDevices(): List<RgbDeviceInfo> {
-        val count = getControllerCount()
-        return (0 until count).map { getControllerData(it) }
+        synchronized(lock) {
+            val s = requireConnection()
+            // Get count and all devices in a single lock to prevent race
+            OpenRgbProtocol.writeHeader(s.getOutputStream(), 0, OpenRgbProtocol.NET_PACKET_ID_REQUEST_CONTROLLER_COUNT, 0)
+            val countHeader = OpenRgbProtocol.readHeader(s.getInputStream())
+            val countPayload = OpenRgbProtocol.readPayload(s.getInputStream(), countHeader.dataSize)
+            val count = OpenRgbProtocol.parseControllerCount(countPayload)
+
+            return (0 until count).map { deviceIndex ->
+                val versionData = java.nio.ByteBuffer.allocate(4)
+                    .order(java.nio.ByteOrder.LITTLE_ENDIAN)
+                    .putInt(OpenRgbProtocol.CLIENT_PROTOCOL_VERSION)
+                    .array()
+                OpenRgbProtocol.writeHeader(s.getOutputStream(), deviceIndex, OpenRgbProtocol.NET_PACKET_ID_REQUEST_CONTROLLER_DATA, versionData.size)
+                s.getOutputStream().write(versionData)
+                s.getOutputStream().flush()
+                val header = OpenRgbProtocol.readHeader(s.getInputStream())
+                val payload = OpenRgbProtocol.readPayload(s.getInputStream(), header.dataSize)
+                OpenRgbProtocol.parseControllerData(payload)
+            }
+        }
     }
 
     fun setCustomMode(deviceIndex: Int) {

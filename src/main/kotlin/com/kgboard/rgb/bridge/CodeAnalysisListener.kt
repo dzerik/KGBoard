@@ -84,5 +84,11 @@ class CodeAnalysisListener(private val project: Project) : Disposable {
         }
     }
 
-    override fun dispose() {}
+    override fun dispose() {
+        try {
+            EffectManagerService.getInstance(project).removeTargetedEffect(EFFECT_ID)
+        } catch (_: Exception) {
+            // project may already be disposed
+        }
+    }
 }

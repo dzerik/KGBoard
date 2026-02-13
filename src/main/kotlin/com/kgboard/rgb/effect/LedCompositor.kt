@@ -11,6 +11,8 @@ import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Executors
 import java.util.concurrent.ScheduledFuture
 import java.util.concurrent.TimeUnit
+import kotlin.concurrent.withLock
+import java.util.concurrent.locks.ReentrantLock
 
 /**
  * LED Compositor — buffers and composites multiple effects onto a single LED frame.
@@ -37,10 +39,14 @@ class LedCompositor(private val project: Project) : Disposable {
     private val activeEffects = ConcurrentHashMap<String, ActiveEffect>()
 
     /** Previous frame for dirty-check */
+    @Volatile
     private var previousFrame: Array<Color>? = null
 
-    /** Render loop handle */
+    /** Render loop handle — guarded by [renderLock] */
     private var renderTask: ScheduledFuture<*>? = null
+
+    /** Lock for render loop start/stop to prevent double-start race */
+    private val renderLock = ReentrantLock()
 
     private val connection: OpenRgbConnectionService
         get() = OpenRgbConnectionService.getInstance()
@@ -113,17 +119,21 @@ class LedCompositor(private val project: Project) : Disposable {
     }
 
     private fun ensureRenderLoop() {
-        if (renderTask != null) return
-        renderTask = scheduler.scheduleAtFixedRate(
-            { doRender() },
-            0, RENDER_INTERVAL_MS, TimeUnit.MILLISECONDS
-        )
+        renderLock.withLock {
+            if (renderTask != null) return
+            renderTask = scheduler.scheduleAtFixedRate(
+                { doRender() },
+                0, RENDER_INTERVAL_MS, TimeUnit.MILLISECONDS
+            )
+        }
     }
 
     private fun maybeStopRenderLoop() {
-        if (!hasAnimatedEffects()) {
-            renderTask?.cancel(false)
-            renderTask = null
+        renderLock.withLock {
+            if (!hasAnimatedEffects()) {
+                renderTask?.cancel(false)
+                renderTask = null
+            }
         }
     }
 
@@ -277,10 +287,15 @@ class LedCompositor(private val project: Project) : Disposable {
     }
 
     override fun dispose() {
-        renderTask?.cancel(false)
-        renderTask = null
+        renderLock.withLock {
+            renderTask?.cancel(false)
+            renderTask = null
+        }
         activeEffects.clear()
-        scheduler.shutdownNow()
+        scheduler.shutdown()
+        if (!scheduler.awaitTermination(2, TimeUnit.SECONDS)) {
+            scheduler.shutdownNow()
+        }
     }
 }
 

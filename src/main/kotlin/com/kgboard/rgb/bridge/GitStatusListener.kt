@@ -14,6 +14,7 @@ import git4idea.repo.GitRepositoryManager
 import java.util.concurrent.Executors
 import java.util.concurrent.ScheduledFuture
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicBoolean
 
 /**
  * Monitors Git repository state and displays per-key RGB indicators.
@@ -31,6 +32,7 @@ class GitStatusListener(private val project: Project) : Disposable {
     }
 
     private var pollingTask: ScheduledFuture<*>? = null
+    private val disposed = AtomicBoolean(false)
 
     companion object {
         const val EFFECT_ID = "git-status"
@@ -60,6 +62,7 @@ class GitStatusListener(private val project: Project) : Disposable {
     }
 
     private fun updateGitStatus() {
+        if (disposed.get()) return
         try {
             val settings = KgBoardSettings.getInstance()
             val projectSettings = KgBoardProjectSettings.getInstance(project)
@@ -143,8 +146,14 @@ class GitStatusListener(private val project: Project) : Disposable {
     }
 
     override fun dispose() {
+        disposed.set(true)
         pollingTask?.cancel(false)
         pollingTask = null
         scheduler.shutdownNow()
+        try {
+            EffectManagerService.getInstance(project).removeTargetedEffect(EFFECT_ID)
+        } catch (_: Exception) {
+            // project may already be disposed
+        }
     }
 }

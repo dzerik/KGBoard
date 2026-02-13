@@ -21,48 +21,56 @@ class TestEventListener(private val project: Project) : SMTRunnerEventsListener 
     private val log = Logger.getInstance(TestEventListener::class.java)
 
     override fun onTestingStarted(testsRoot: SMTestProxy.SMRootTestProxy) {
-        val settings = KgBoardSettings.getInstance()
-        if (!settings.enabled) return
+        try {
+            val settings = KgBoardSettings.getInstance()
+            if (!settings.enabled) return
 
-        log.info("Testing started")
-        EffectManagerService.getInstance(project).applyPersistent(
-            PulseEffect(
-                color = settings.testRunningColor,
-                periodMs = settings.pulseSpeedMs,
-                name = "tests-running",
-                priority = 6
+            log.info("Testing started")
+            EffectManagerService.getInstance(project).applyPersistent(
+                PulseEffect(
+                    color = settings.testRunningColor,
+                    periodMs = settings.pulseSpeedMs,
+                    name = "tests-running",
+                    priority = 6
+                )
             )
-        )
+        } catch (e: Exception) {
+            log.warn("Test started event error: ${e.message}")
+        }
     }
 
     override fun onTestingFinished(testsRoot: SMTestProxy.SMRootTestProxy) {
-        val settings = KgBoardSettings.getInstance()
-        if (!settings.enabled) return
+        try {
+            val settings = KgBoardSettings.getInstance()
+            if (!settings.enabled) return
 
-        val effectManager = EffectManagerService.getInstance(project)
-        val allTests = testsRoot.allTests
-        val failed = allTests.count { it.isDefect }
-        val total = allTests.size
+            val effectManager = EffectManagerService.getInstance(project)
+            val allTests = testsRoot.allTests
+            val failed = allTests.count { it.isDefect }
+            val total = allTests.size
 
-        if (failed > 0) {
-            log.info("Tests finished: $failed/$total failed")
-            effectManager.applyEffect(
-                StaticEffect(
-                    color = settings.testFailColor,
-                    name = "tests-failed",
-                    priority = 8
+            if (failed > 0) {
+                log.info("Tests finished: $failed/$total failed")
+                effectManager.applyEffect(
+                    StaticEffect(
+                        color = settings.testFailColor,
+                        name = "tests-failed",
+                        priority = 8
+                    )
                 )
-            )
-        } else {
-            log.info("All $total tests passed")
-            effectManager.applyTemporary(
-                FlashEffect(
-                    color = settings.testPassColor,
-                    durationMs = 2000,
-                    name = "tests-passed",
-                    priority = 7
+            } else {
+                log.info("All $total tests passed")
+                effectManager.applyTemporary(
+                    FlashEffect(
+                        color = settings.testPassColor,
+                        durationMs = 2000,
+                        name = "tests-passed",
+                        priority = 7
+                    )
                 )
-            )
+            }
+        } catch (e: Exception) {
+            log.warn("Test finished event error: ${e.message}")
         }
     }
 
