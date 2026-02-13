@@ -41,6 +41,7 @@ class KgBoardConfigurable : BoundConfigurable("KGBoard RGB") {
     private val notifyIndexingColorPanel = colorPanel()
     private val notifyLowMemoryColorPanel = colorPanel()
     private val notifyTodoColorPanel = colorPanel()
+    private val fileSaveFlashColorPanel = colorPanel()
 
     // Device config table model
     private val deviceTableModel = ListTableModel<KgBoardSettings.DeviceConfig>(
@@ -326,6 +327,15 @@ class KgBoardConfigurable : BoundConfigurable("KGBoard RGB") {
                         .comment("Comma-separated LED indices. Empty = all LEDs.")
                 }
             }
+
+            // ── File Save Flash ──
+            group("File Save Flash") {
+                row {
+                    checkBox("Flash on file save (Ctrl+S)")
+                        .bindSelected(settings.state::fileSaveFlashEnabled)
+                }
+                colorRow("Flash color:", fileSaveFlashColorPanel, "Short flash color on file save")
+            }
         }
     }
 
@@ -358,6 +368,7 @@ class KgBoardConfigurable : BoundConfigurable("KGBoard RGB") {
         s.state.notifyIndexingColor = toHex(notifyIndexingColorPanel.selectedColor)
         s.state.notifyLowMemoryColor = toHex(notifyLowMemoryColorPanel.selectedColor)
         s.state.notifyTodoColor = toHex(notifyTodoColorPanel.selectedColor)
+        s.state.fileSaveFlashColor = toHex(fileSaveFlashColorPanel.selectedColor)
         // Save device configs
         s.state.deviceConfigs = deviceTableModel.items.map {
             KgBoardSettings.DeviceConfig(it.deviceIndex, it.name, it.enabled, it.role)
@@ -391,6 +402,7 @@ class KgBoardConfigurable : BoundConfigurable("KGBoard RGB") {
                 colorChanged(notifyIndexingColorPanel, s.state.notifyIndexingColor) ||
                 colorChanged(notifyLowMemoryColorPanel, s.state.notifyLowMemoryColor) ||
                 colorChanged(notifyTodoColorPanel, s.state.notifyTodoColor) ||
+                colorChanged(fileSaveFlashColorPanel, s.state.fileSaveFlashColor) ||
                 deviceConfigsModified(s)
     }
 
@@ -421,6 +433,7 @@ class KgBoardConfigurable : BoundConfigurable("KGBoard RGB") {
         notifyIndexingColorPanel.selectedColor = s.notifyIndexingColor
         notifyLowMemoryColorPanel.selectedColor = s.notifyLowMemoryColor
         notifyTodoColorPanel.selectedColor = s.notifyTodoColor
+        fileSaveFlashColorPanel.selectedColor = s.parseColor(s.state.fileSaveFlashColor)
     }
 
     private fun loadDeviceTable(s: KgBoardSettings) {

@@ -56,3 +56,21 @@ class GradientEffect(
     priority: Int = 0,
     target: EffectTarget = EffectTarget.AllLeds
 ) : RgbEffect(priority, target)
+
+/** Rainbow HSV hue rotation across LED indices */
+class RainbowEffect(
+    val speedMs: Long = 3000, // full cycle period
+    override val name: String = "rainbow",
+    priority: Int = 0,
+    target: EffectTarget = EffectTarget.AllLeds
+) : RgbEffect(priority, target)
+
+/** Sinusoidal brightness wave traveling across keyboard */
+class WaveEffect(
+    val color: Color,
+    val speedMs: Long = 2000, // wave travel period
+    val minBrightness: Float = 0.1f,
+    override val name: String = "wave",
+    priority: Int = 0,
+    target: EffectTarget = EffectTarget.AllLeds
+) : RgbEffect(priority, target)

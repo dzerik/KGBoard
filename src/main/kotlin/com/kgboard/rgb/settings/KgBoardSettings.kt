@@ -74,7 +74,11 @@ class KgBoardSettings : PersistentStateComponent<KgBoardSettings.State> {
         var notifyLowMemoryLedIndices: String = "", // comma-separated
         var notifyTodoEnabled: Boolean = false,
         var notifyTodoColor: String = "#FFD600",
-        var notifyTodoLedIndices: String = "" // comma-separated
+        var notifyTodoLedIndices: String = "", // comma-separated
+
+        // File Save Flash
+        var fileSaveFlashEnabled: Boolean = false,
+        var fileSaveFlashColor: String = "#FFFFFF"
     )
 
     private var state = State()

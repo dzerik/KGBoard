@@ -53,6 +53,24 @@ object EffectColorComputer {
                 val color = interpolateColor(effect.startColor, effect.endColor, ratio)
                 List(count) { color }
             }
+
+            is RainbowEffect -> {
+                val hueOffset = (elapsedMs % effect.speedMs).toFloat() / effect.speedMs
+                List(count) { i ->
+                    val hue = (hueOffset + i.toFloat() / count.coerceAtLeast(1)) % 1f
+                    Color.getHSBColor(hue, 1f, 1f)
+                }
+            }
+
+            is WaveEffect -> {
+                val phase = (elapsedMs % effect.speedMs).toFloat() / effect.speedMs
+                List(count) { i ->
+                    val position = i.toFloat() / count.coerceAtLeast(1)
+                    val wave = (Math.sin(2.0 * Math.PI * (position - phase)).toFloat() + 1f) / 2f
+                    val brightness = effect.minBrightness + (1f - effect.minBrightness) * wave
+                    scaleBrightness(effect.color, brightness)
+                }
+            }
         }
     }
 

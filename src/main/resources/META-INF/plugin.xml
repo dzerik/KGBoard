@@ -103,6 +103,11 @@
         <listener
                 class="com.kgboard.rgb.bridge.ProjectFocusListener"
                 topic="com.intellij.openapi.project.ProjectManagerListener"/>
+
+        <!-- File save flash -->
+        <listener
+                class="com.kgboard.rgb.bridge.FileSaveListener"
+                topic="com.intellij.openapi.fileEditor.FileDocumentManagerListener"/>
     </applicationListeners>
 
     <projectListeners>

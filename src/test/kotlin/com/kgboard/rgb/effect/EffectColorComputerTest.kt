@@ -152,6 +152,63 @@ class EffectColorComputerTest {
         assertEquals(Color.BLUE, colors[0])
     }
 
+    // ── RainbowEffect ──
+
+    @Test
+    fun `rainbow effect returns different hues per LED`() {
+        val effect = RainbowEffect(speedMs = 1000)
+        val colors = EffectColorComputer.computeColors(effect, 0, 10, 10, idle)
+        assertEquals(10, colors.size)
+        // Adjacent LEDs should have different hues
+        assertNotEquals(colors[0], colors[5])
+    }
+
+    @Test
+    fun `rainbow effect is periodic`() {
+        val effect = RainbowEffect(speedMs = 1000)
+        val c0 = EffectColorComputer.computeColors(effect, 0, 5, 5, idle)
+        val c1000 = EffectColorComputer.computeColors(effect, 1000, 5, 5, idle)
+        assertEquals(c0, c1000) // same phase after full period
+    }
+
+    @Test
+    fun `rainbow effect count 1 returns single color`() {
+        val effect = RainbowEffect(speedMs = 1000)
+        val colors = EffectColorComputer.computeColors(effect, 0, 1, 1, idle)
+        assertEquals(1, colors.size)
+    }
+
+    // ── WaveEffect ──
+
+    @Test
+    fun `wave effect returns varying brightness`() {
+        val effect = WaveEffect(Color.WHITE, speedMs = 1000, minBrightness = 0.0f)
+        val colors = EffectColorComputer.computeColors(effect, 0, 10, 10, idle)
+        assertEquals(10, colors.size)
+        // Not all LEDs should have the same brightness
+        val unique = colors.toSet()
+        assertTrue(unique.size > 1)
+    }
+
+    @Test
+    fun `wave effect is periodic`() {
+        val effect = WaveEffect(Color.RED, speedMs = 1000)
+        val c0 = EffectColorComputer.computeColors(effect, 0, 5, 5, idle)
+        val c1000 = EffectColorComputer.computeColors(effect, 1000, 5, 5, idle)
+        assertEquals(c0, c1000)
+    }
+
+    @Test
+    fun `wave effect brightness stays within bounds`() {
+        val effect = WaveEffect(Color(200, 200, 200), speedMs = 1000, minBrightness = 0.2f)
+        val colors = EffectColorComputer.computeColors(effect, 250, 20, 20, idle)
+        for (c in colors) {
+            assertTrue(c.red in 0..200)
+            assertTrue(c.green in 0..200)
+            assertTrue(c.blue in 0..200)
+        }
+    }
+
     // ── scaleBrightness ──
 
     @Test

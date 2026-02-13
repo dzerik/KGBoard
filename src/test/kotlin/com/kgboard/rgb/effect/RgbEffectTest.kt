@@ -74,6 +74,26 @@ class RgbEffectTest {
         assertEquals(25 * 60 * 1000L, e.durationMs)
     }
 
+    // ── RainbowEffect ──
+
+    @Test
+    fun `RainbowEffect has correct defaults`() {
+        val e = RainbowEffect()
+        assertEquals(3000L, e.speedMs)
+        assertEquals("rainbow", e.name)
+        assertEquals(0, e.priority)
+    }
+
+    // ── WaveEffect ──
+
+    @Test
+    fun `WaveEffect has correct defaults`() {
+        val e = WaveEffect(color = Color.CYAN)
+        assertEquals(2000L, e.speedMs)
+        assertEquals(0.1f, e.minBrightness)
+        assertEquals("wave", e.name)
+    }
+
     // ── Comparable (priority ordering) ──
 
     @Test

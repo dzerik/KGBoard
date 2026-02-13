@@ -144,7 +144,7 @@ class LedCompositor(private val project: Project) : Disposable {
     private fun hasAnimatedEffects(): Boolean {
         return activeEffects.values.any { ae ->
             val e = ae.effect
-            e is PulseEffect || e is GradientEffect || e is FlashEffect
+            e is PulseEffect || e is GradientEffect || e is FlashEffect || e is RainbowEffect || e is WaveEffect
         }
     }
 
