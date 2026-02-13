@@ -41,7 +41,7 @@ class FlashEffect(
 class ProgressEffect(
     val color: Color,
     val backgroundColor: Color = Color(20, 20, 20),
-    var progress: Float = 0f, // 0.0 - 1.0
+    val progress: Float = 0f, // 0.0 - 1.0
     override val name: String = "progress",
     priority: Int = 0,
     target: EffectTarget = EffectTarget.AllLeds

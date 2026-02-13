@@ -13,6 +13,9 @@ import com.kgboard.rgb.layout.KeyboardLayoutService
 import com.kgboard.rgb.settings.KgBoardProjectSettings
 import com.kgboard.rgb.settings.KgBoardSettings
 import java.awt.Color
+import java.util.concurrent.Executors
+import java.util.concurrent.ScheduledFuture
+import java.util.concurrent.TimeUnit
 
 /**
  * Highlights keyboard shortcuts relevant to the current context.
@@ -57,13 +60,18 @@ class ShortcutHighlightService(private val project: Project) : Disposable {
 
     private var activeContexts = mutableSetOf<String>()
 
+    private val debounceScheduler = Executors.newSingleThreadScheduledExecutor { r ->
+        Thread(r, "KGBoard-ShortcutDebounce-${project.name}").apply { isDaemon = true }
+    }
+    private var debounceTask: ScheduledFuture<*>? = null
+
     fun activateContext(context: String) {
         val projectSettings = KgBoardProjectSettings.getInstance(project)
         if (!projectSettings.shortcutHighlightEnabled) return
         if (context !in projectSettings.shortcutContexts) return
 
         activeContexts.add(context)
-        updateHighlights()
+        scheduleUpdateHighlights()
     }
 
     fun deactivateContext(context: String) {
@@ -78,6 +86,11 @@ class ShortcutHighlightService(private val project: Project) : Disposable {
             effectManager.removeTargetedEffect("$EFFECT_ID_PREFIX$context")
         }
         activeContexts.clear()
+    }
+
+    private fun scheduleUpdateHighlights() {
+        debounceTask?.cancel(false)
+        debounceTask = debounceScheduler.schedule({ updateHighlights() }, 150, TimeUnit.MILLISECONDS)
     }
 
     private fun updateHighlights() {
@@ -136,6 +149,8 @@ class ShortcutHighlightService(private val project: Project) : Disposable {
     }
 
     override fun dispose() {
+        debounceTask?.cancel(false)
+        debounceScheduler.shutdownNow()
         try {
             val effectManager = EffectManagerService.getInstance(project)
             for (context in activeContexts) {

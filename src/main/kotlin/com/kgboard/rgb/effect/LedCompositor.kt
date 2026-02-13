@@ -38,9 +38,13 @@ class LedCompositor(private val project: Project) : Disposable {
     /** All active effects keyed by unique ID */
     private val activeEffects = ConcurrentHashMap<String, ActiveEffect>()
 
-    /** Previous frame for dirty-check */
-    @Volatile
+    /** Double-buffered frames to avoid per-cycle allocation */
+    private var frameBuffer: Array<Color>? = null
     private var previousFrame: Array<Color>? = null
+
+    /** Cached AllLeds index list — invalidated when numLeds changes */
+    private var cachedAllLeds: List<Int> = emptyList()
+    private var cachedAllLedsSize: Int = -1
 
     /** Render loop handle — guarded by [renderLock] */
     private var renderTask: ScheduledFuture<*>? = null
@@ -158,17 +162,17 @@ class LedCompositor(private val project: Project) : Disposable {
             val now = System.currentTimeMillis()
             val idleColor = settings.idleColor
 
-            // 1. Fill buffer with idle
-            val frame = Array(numLeds) { idleColor }
+            // 1. Reuse frame buffer (double buffering)
+            val frame = if (frameBuffer != null && frameBuffer!!.size == numLeds) {
+                frameBuffer!!.also { it.fill(idleColor) }
+            } else {
+                Array(numLeds) { idleColor }.also { frameBuffer = it }
+            }
 
             // 2. Remove expired effects
-            val expired = mutableListOf<String>()
-            activeEffects.forEach { (id, ae) ->
-                if (ae.timeoutMs > 0 && now - ae.startTime >= ae.timeoutMs) {
-                    expired.add(id)
-                }
+            activeEffects.entries.removeIf { (_, ae) ->
+                ae.timeoutMs > 0 && now - ae.startTime >= ae.timeoutMs
             }
-            expired.forEach { activeEffects.remove(it) }
 
             // 3. Get snapshot sorted by priority ascending (low priority first, high overwrites)
             val snapshot = activeEffects.values.toList().sortedBy { it.effect.priority }
@@ -187,12 +191,17 @@ class LedCompositor(private val project: Project) : Disposable {
                 }
             }
 
-            // 5. Dirty check
+            // 5. Dirty check against previous frame
             val prev = previousFrame
             if (prev != null && prev.size == frame.size && prev.contentEquals(frame)) {
                 return // no change
             }
-            previousFrame = frame.copyOf()
+            // Swap buffers: current frame becomes previous
+            if (previousFrame == null || previousFrame!!.size != numLeds) {
+                previousFrame = frame.copyOf()
+            } else {
+                System.arraycopy(frame, 0, previousFrame!!, 0, numLeds)
+            }
 
             // 6. Send to device
             connection.updateLeds(deviceIndex, frame.toList())
@@ -203,7 +212,13 @@ class LedCompositor(private val project: Project) : Disposable {
 
     private fun resolveIndices(target: EffectTarget, numLeds: Int): List<Int> {
         return when (target) {
-            is EffectTarget.AllLeds -> (0 until numLeds).toList()
+            is EffectTarget.AllLeds -> {
+                if (cachedAllLedsSize != numLeds) {
+                    cachedAllLeds = (0 until numLeds).toList()
+                    cachedAllLedsSize = numLeds
+                }
+                cachedAllLeds
+            }
             is EffectTarget.SingleLed -> listOf(target.ledIndex)
             is EffectTarget.LedSet -> target.ledIndices.filter { it in 0 until numLeds }
             is EffectTarget.Zone -> {

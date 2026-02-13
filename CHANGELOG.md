@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.3] - 2026-02-13
+
+### Fixed
+- ProgressEffect `var progress` changed to `val` to enforce immutability of sealed class hierarchy
+- Pomodoro race condition: `completedSessions` now uses `AtomicInteger` with `synchronized` state transitions to prevent double-increment from concurrent `skip()`/`onPhaseComplete()`
+- Pomodoro listener leak: `listeners` now uses `CopyOnWriteArrayList`, added `removeChangeListener()`
+- Pomodoro `dispose()` now properly cleans up targeted effects
+
+### Added
+- LED index validation in `EffectTarget` — `SingleLed`, `LedSet`, `Zone` now throw `IllegalArgumentException` on negative indices
+- 150ms debounce in `ShortcutHighlightService.activateContext()` to prevent flooding OpenRGB
+- `LedCompositor` render cycle optimization: double buffering for frame array, cached AllLeds index list, `removeIf` for expired effects
+
 ## [0.2.2] - 2026-02-12
 
 ### Fixed
