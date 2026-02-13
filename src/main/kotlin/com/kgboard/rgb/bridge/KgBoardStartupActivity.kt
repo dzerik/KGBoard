@@ -25,5 +25,6 @@ class KgBoardStartupActivity : ProjectActivity {
         CodeAnalysisListener.getInstance(project).start()
         IdeNotificationListener.getInstance(project).start()
         TodoIndicatorListener.getInstance(project).start()
+        DebuggerBreakpointListener.getInstance(project).start()
     }
 }

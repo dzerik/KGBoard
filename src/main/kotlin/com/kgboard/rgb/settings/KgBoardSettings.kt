@@ -78,7 +78,11 @@ class KgBoardSettings : PersistentStateComponent<KgBoardSettings.State> {
 
         // File Save Flash
         var fileSaveFlashEnabled: Boolean = false,
-        var fileSaveFlashColor: String = "#FFFFFF"
+        var fileSaveFlashColor: String = "#FFFFFF",
+
+        // Debugger Breakpoint
+        var debugBreakpointFlashEnabled: Boolean = false,
+        var debugBreakpointFlashColor: String = "#FF1744"
     )
 
     private var state = State()

@@ -4,8 +4,32 @@
     <vendor>KGBoard</vendor>
 
     <description><![CDATA[
-    RGB keyboard integration for JetBrains IDEs.<br/>
-    Visualize build status, test results, debug state through your RGB keyboard via OpenRGB.
+    <h2>KGBoard — RGB Keyboard Integration for JetBrains IDEs</h2>
+
+    <p>Transform your RGB keyboard into a real-time IDE status display using <b>OpenRGB</b>.</p>
+
+    <h3>Features</h3>
+    <ul>
+        <li><b>Build events</b> — green flash on success, red on failure, yellow pulse in progress</li>
+        <li><b>Test results</b> — blue pulse while running, green on pass, red on fail</li>
+        <li><b>Debug mode</b> — purple pulse, flash on breakpoint hit</li>
+        <li><b>Git status</b> — per-key indicator (uncommitted, conflict, unpushed, clean)</li>
+        <li><b>Git branch rules</b> — regex-based background color per branch name</li>
+        <li><b>Code analysis</b> — three-state indicator (errors/warnings/clean)</li>
+        <li><b>TODO indicator</b> — lights up when current file has TODO items</li>
+        <li><b>File save flash</b> — brief flash on Ctrl+S</li>
+        <li><b>Pomodoro timer</b> — gradient during work, pulse during break</li>
+        <li><b>Rainbow &amp; Wave effects</b> — animated lighting patterns</li>
+        <li><b>Multi-device</b> — control multiple RGB devices with different roles</li>
+        <li><b>IDE notifications</b> — indexing (orange), low memory (red)</li>
+        <li><b>Focus handling</b> — dim keyboard when IDE loses focus</li>
+    </ul>
+
+    <h3>Requirements</h3>
+    <ul>
+        <li><a href="https://openrgb.org">OpenRGB</a> running with SDK Server enabled (port 6742)</li>
+        <li>IntelliJ IDEA 2024.3+</li>
+    </ul>
     ]]></description>
 
     <depends>com.intellij.modules.platform</depends>
@@ -60,6 +84,8 @@
                 serviceImplementation="com.kgboard.rgb.bridge.ShortcutHighlightService"/>
         <projectService
                 serviceImplementation="com.kgboard.rgb.bridge.TodoIndicatorListener"/>
+        <projectService
+                serviceImplementation="com.kgboard.rgb.bridge.DebuggerBreakpointListener"/>
         <projectService
                 serviceImplementation="com.kgboard.rgb.pomodoro.PomodoroTimerService"/>
 

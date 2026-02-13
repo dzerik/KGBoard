@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.0] - 2026-02-13
+
+### Added
+- **Debugger Breakpoint Listener**: Flash on breakpoint hit (`sessionPaused`), cleanup on resume/stop. Uses `XDebuggerManagerListener` + `XDebugSessionListener`. `AtomicBoolean` disposed guard
+- **Debugger Settings UI**: Enable checkbox and color picker in app settings
+- **Plugin Marketplace Icon**: `pluginIcon.svg` (40x40) with keyboard + RGB glow design
+
+### Changed
+- Plugin description enhanced with full feature list, formatted HTML for JetBrains Marketplace
+
 ## [0.6.0] - 2026-02-13
 
 ### Added

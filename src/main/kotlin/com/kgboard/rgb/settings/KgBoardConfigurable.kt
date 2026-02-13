@@ -42,6 +42,7 @@ class KgBoardConfigurable : BoundConfigurable("KGBoard RGB") {
     private val notifyLowMemoryColorPanel = colorPanel()
     private val notifyTodoColorPanel = colorPanel()
     private val fileSaveFlashColorPanel = colorPanel()
+    private val debugBreakpointColorPanel = colorPanel()
 
     // Device config table model
     private val deviceTableModel = ListTableModel<KgBoardSettings.DeviceConfig>(
@@ -336,6 +337,15 @@ class KgBoardConfigurable : BoundConfigurable("KGBoard RGB") {
                 }
                 colorRow("Flash color:", fileSaveFlashColorPanel, "Short flash color on file save")
             }
+
+            // ── Debugger Breakpoint ──
+            group("Debugger Breakpoint") {
+                row {
+                    checkBox("Flash on breakpoint hit")
+                        .bindSelected(settings.state::debugBreakpointFlashEnabled)
+                }
+                colorRow("Flash color:", debugBreakpointColorPanel, "Flash color when debugger pauses at breakpoint")
+            }
         }
     }
 
@@ -369,6 +379,7 @@ class KgBoardConfigurable : BoundConfigurable("KGBoard RGB") {
         s.state.notifyLowMemoryColor = toHex(notifyLowMemoryColorPanel.selectedColor)
         s.state.notifyTodoColor = toHex(notifyTodoColorPanel.selectedColor)
         s.state.fileSaveFlashColor = toHex(fileSaveFlashColorPanel.selectedColor)
+        s.state.debugBreakpointFlashColor = toHex(debugBreakpointColorPanel.selectedColor)
         // Save device configs
         s.state.deviceConfigs = deviceTableModel.items.map {
             KgBoardSettings.DeviceConfig(it.deviceIndex, it.name, it.enabled, it.role)
@@ -403,6 +414,7 @@ class KgBoardConfigurable : BoundConfigurable("KGBoard RGB") {
                 colorChanged(notifyLowMemoryColorPanel, s.state.notifyLowMemoryColor) ||
                 colorChanged(notifyTodoColorPanel, s.state.notifyTodoColor) ||
                 colorChanged(fileSaveFlashColorPanel, s.state.fileSaveFlashColor) ||
+                colorChanged(debugBreakpointColorPanel, s.state.debugBreakpointFlashColor) ||
                 deviceConfigsModified(s)
     }
 
@@ -434,6 +446,7 @@ class KgBoardConfigurable : BoundConfigurable("KGBoard RGB") {
         notifyLowMemoryColorPanel.selectedColor = s.notifyLowMemoryColor
         notifyTodoColorPanel.selectedColor = s.notifyTodoColor
         fileSaveFlashColorPanel.selectedColor = s.parseColor(s.state.fileSaveFlashColor)
+        debugBreakpointColorPanel.selectedColor = s.parseColor(s.state.debugBreakpointFlashColor)
     }
 
     private fun loadDeviceTable(s: KgBoardSettings) {
