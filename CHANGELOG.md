@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.1] - 2026-02-13
+
+### Added
+- **Unit test infrastructure**: JUnit 5 + MockK dependencies, `useJUnitPlatform()` in Gradle
+- **98 unit tests**: OpenRgbProtocol (23), EffectColorComputer (23), KeyboardLayoutService (19), KgBoardSettings (14), RgbEffect (10), EffectTarget (9)
+- **EffectColorComputer**: Extracted `computeColors()`, `scaleBrightness()`, `interpolateColor()` from LedCompositor into standalone testable `object`
+
+### Changed
+- LedCompositor now delegates color computation to `EffectColorComputer`
+
 ## [0.5.0] - 2026-02-13
 
 ### Added

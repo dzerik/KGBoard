@@ -21,6 +21,8 @@ dependencies {
         bundledPlugin("Git4Idea")
         testFramework(org.jetbrains.intellij.platform.gradle.TestFrameworkType.Platform)
     }
+    testImplementation("org.junit.jupiter:junit-jupiter:5.10.2")
+    testImplementation("io.mockk:mockk:1.13.13")
 }
 
 intellijPlatform {
@@ -55,5 +57,9 @@ tasks {
 
     buildSearchableOptions {
         enabled = false
+    }
+
+    test {
+        useJUnitPlatform()
     }
 }
