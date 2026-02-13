@@ -6,6 +6,7 @@ import com.intellij.ui.ColorPanel
 import com.intellij.ui.JBColor
 import com.intellij.ui.ToolbarDecorator
 import com.intellij.ui.components.JBLabel
+import com.intellij.ui.components.JBTabbedPane
 import com.intellij.ui.dsl.builder.*
 import com.intellij.ui.table.JBTable
 import com.intellij.util.Alarm
@@ -13,8 +14,8 @@ import com.intellij.util.ui.ColumnInfo
 import com.intellij.util.ui.ListTableModel
 import com.intellij.openapi.ui.popup.JBPopupFactory
 import com.kgboard.rgb.client.OpenRgbConnectionService
-import com.kgboard.rgb.preset.KeyGroupDefinitions
 import com.kgboard.rgb.preset.KeyGroupService
+import java.awt.BorderLayout
 import java.awt.Color
 import java.awt.Dimension
 import java.awt.FlowLayout
@@ -83,6 +84,9 @@ class KgBoardConfigurable : BoundConfigurable("KGBoard RGB") {
     private val statusLabel = JBLabel("Not connected")
     private val statusUpdateAlarm = Alarm(Alarm.ThreadToUse.SWING_THREAD)
 
+    /** Tab panels that need apply/reset/isModified delegation */
+    private val tabPanels = mutableListOf<DialogPanel>()
+
     private fun colorPanel(): ColorPanel = ColorPanel().apply {
         preferredSize = Dimension(90, 25)
     }
@@ -96,16 +100,18 @@ class KgBoardConfigurable : BoundConfigurable("KGBoard RGB") {
         loadDeviceTable(settings)
         updateStatusLabel(connection)
 
-        return panel {
-            // ── General ──
+        tabPanels.clear()
+
+        val tabbedPane = JBTabbedPane()
+
+        // Tab 1: Connection
+        val connectionPanel = panel {
             group("General") {
                 row {
                     checkBox("Enable KGBoard RGB integration")
                         .bindSelected(settings::enabled)
                 }
             }
-
-            // ── Connection ──
             group("OpenRGB Connection") {
                 row("Status:") {
                     cell(statusLabel)
@@ -161,8 +167,12 @@ class KgBoardConfigurable : BoundConfigurable("KGBoard RGB") {
                         .bindSelected(settings::autoConnect)
                 }
             }
+        }
+        tabPanels.add(connectionPanel)
+        tabbedPane.addTab("Connection", connectionPanel)
 
-            // ── Effects ──
+        // Tab 2: Effects
+        val effectsPanel = panel {
             group("Effect Timing") {
                 row("Effect duration:") {
                     intTextField(100..30000)
@@ -183,37 +193,9 @@ class KgBoardConfigurable : BoundConfigurable("KGBoard RGB") {
                         .comment("Breathing animation period (ms)")
                 }
             }
-
-            // ── Build Colors ──
-            group("Build Events") {
-                colorRow("Build success:", buildSuccessColorPanel, "Green flash on successful compilation")
-                colorRow("Build failure:", buildFailureColorPanel, "Red static when build has errors")
-                colorRow("Build in progress:", buildProgressColorPanel, "Yellow pulse during compilation")
-                ledIndicesRow("Build LED indices:", settings.state::buildLedIndices)
-            }
-
-            // ── Execution Colors ──
-            group("Execution Events") {
-                colorRow("Run:", runColorPanel, "Green static while application is running")
-                colorRow("Debug:", debugColorPanel, "Purple pulse in debug mode")
-                colorRow("Stop / error:", stopColorPanel, "Orange flash on abnormal termination")
-                ledIndicesRow("Execution LED indices:", settings.state::executionLedIndices)
-            }
-
-            // ── Test Colors ──
-            group("Test Events") {
-                colorRow("Tests passed:", testPassColorPanel, "Green flash when all tests pass")
-                colorRow("Tests failed:", testFailColorPanel, "Red static when tests fail")
-                colorRow("Tests running:", testRunningColorPanel, "Blue pulse while tests execute")
-                ledIndicesRow("Test LED indices:", settings.state::testLedIndices)
-            }
-
-            // ── Idle ──
             group("Idle State") {
                 colorRow("Idle color:", idleColorPanel, "Dim background color when nothing is happening")
             }
-
-            // ── Focus & Shutdown ──
             group("Focus & Shutdown") {
                 row {
                     checkBox("Dim keyboard when IDE loses focus")
@@ -223,47 +205,43 @@ class KgBoardConfigurable : BoundConfigurable("KGBoard RGB") {
                     intTextField(0..100)
                         .columns(4)
                         .bindIntText(settings::dimBrightness)
-                        .comment("Brightness level when dimmed (0–100%)")
+                        .comment("Brightness level when dimmed (0-100%)")
                 }
                 row {
                     checkBox("Reset LEDs to black on IDE exit")
                         .bindSelected(settings::resetOnExit)
                 }
             }
+        }
+        tabPanels.add(effectsPanel)
+        tabbedPane.addTab("Effects", effectsPanel)
 
-            // ── Multi-Device ──
-            group("Multi-Device") {
-                row {
-                    checkBox("Enable multi-device support")
-                        .bindSelected(settings::multiDeviceEnabled)
-                }
-                row {
-                    comment("Configure multiple OpenRGB devices. Each device can have a role:<br/>" +
-                            "<b>primary</b> — all effects, <b>ambient</b> — idle color only,<br/>" +
-                            "<b>indicator</b> — per-key effects only, <b>mirror</b> — copies primary.")
-                }
-                row {
-                    val table = JBTable(deviceTableModel)
-                    val decorator = ToolbarDecorator.createDecorator(table)
-                        .setAddAction {
-                            deviceTableModel.addRow(KgBoardSettings.DeviceConfig(
-                                deviceIndex = deviceTableModel.items.size,
-                                name = "Device ${deviceTableModel.items.size}",
-                                enabled = true,
-                                role = "primary"
-                            ))
-                        }
-                        .setRemoveAction {
-                            val selected = table.selectedRow
-                            if (selected >= 0) deviceTableModel.removeRow(selected)
-                        }
-                        .disableUpDownActions()
-                    cell(decorator.createPanel())
-                        .align(AlignX.FILL)
-                }
+        // Tab 3: Events
+        val eventsPanel = panel {
+            group("Build Events") {
+                colorRow("Build success:", buildSuccessColorPanel, "Green flash on successful compilation")
+                colorRow("Build failure:", buildFailureColorPanel, "Red static when build has errors")
+                colorRow("Build in progress:", buildProgressColorPanel, "Yellow pulse during compilation")
+                ledIndicesRow("Build LEDs:", settings.state::buildLedIndices)
             }
+            group("Execution Events") {
+                colorRow("Run:", runColorPanel, "Green static while application is running")
+                colorRow("Debug:", debugColorPanel, "Purple pulse in debug mode")
+                colorRow("Stop / error:", stopColorPanel, "Orange flash on abnormal termination")
+                ledIndicesRow("Execution LEDs:", settings.state::executionLedIndices)
+            }
+            group("Test Events") {
+                colorRow("Tests passed:", testPassColorPanel, "Green flash when all tests pass")
+                colorRow("Tests failed:", testFailColorPanel, "Red static when tests fail")
+                colorRow("Tests running:", testRunningColorPanel, "Blue pulse while tests execute")
+                ledIndicesRow("Test LEDs:", settings.state::testLedIndices)
+            }
+        }
+        tabPanels.add(eventsPanel)
+        tabbedPane.addTab("Events", eventsPanel)
 
-            // ── Pomodoro ──
+        // Tab 4: Features
+        val featuresPanel = panel {
             group("Pomodoro Timer") {
                 row {
                     checkBox("Enable Pomodoro timer")
@@ -295,50 +273,101 @@ class KgBoardConfigurable : BoundConfigurable("KGBoard RGB") {
                 colorRow("Work color:", pomodoroWorkColorPanel, "Keyboard color during work phase")
                 colorRow("Break color:", pomodoroBreakColorPanel, "Keyboard color during break")
                 colorRow("Transition:", pomodoroTransitionColorPanel, "Flash color on phase change")
-                ledIndicesRow("Pomodoro LED indices:", settings.state::pomodoroLedIndices)
+                ledIndicesRow("Pomodoro LEDs:", settings.state::pomodoroLedIndices)
             }
-
-            // ── IDE Notifications ──
-            group("IDE Notifications") {
-                row {
-                    checkBox("Indexing indicator (orange pulse during indexing)")
-                        .bindSelected(settings::notifyIndexingEnabled)
-                }
-                colorRow("Indexing color:", notifyIndexingColorPanel, "Pulse color during IDE indexing")
-                ledIndicesRow("Indexing LED indices:", settings.state::notifyIndexingLedIndices)
-                row {
-                    checkBox("Low memory warning (red flash)")
-                        .bindSelected(settings::notifyLowMemoryEnabled)
-                }
-                colorRow("Low memory color:", notifyLowMemoryColorPanel, "Flash color on low memory")
-                ledIndicesRow("Low memory LED indices:", settings.state::notifyLowMemoryLedIndices)
-                row {
-                    checkBox("TODO indicator in current file")
-                        .bindSelected(settings::notifyTodoEnabled)
-                }
-                colorRow("TODO color:", notifyTodoColorPanel, "Indicator color for TODO items")
-                ledIndicesRow("TODO LED indices:", settings.state::notifyTodoLedIndices)
-            }
-
-            // ── File Save Flash ──
             group("File Save Flash") {
                 row {
                     checkBox("Flash on file save (Ctrl+S)")
                         .bindSelected(settings.state::fileSaveFlashEnabled)
                 }
                 colorRow("Flash color:", fileSaveFlashColorPanel, "Short flash color on file save")
-                ledIndicesRow("File Save LED indices:", settings.state::fileSaveLedIndices)
+                ledIndicesRow("File Save LEDs:", settings.state::fileSaveLedIndices)
             }
-
-            // ── Debugger Breakpoint ──
             group("Debugger Breakpoint") {
                 row {
                     checkBox("Flash on breakpoint hit")
                         .bindSelected(settings.state::debugBreakpointFlashEnabled)
                 }
                 colorRow("Flash color:", debugBreakpointColorPanel, "Flash color when debugger pauses at breakpoint")
-                ledIndicesRow("Debugger LED indices:", settings.state::debugBreakpointLedIndices)
+                ledIndicesRow("Debugger LEDs:", settings.state::debugBreakpointLedIndices)
             }
+        }
+        tabPanels.add(featuresPanel)
+        tabbedPane.addTab("Features", featuresPanel)
+
+        // Tab 5: Notifications
+        val notificationsPanel = panel {
+            group("Indexing") {
+                row {
+                    checkBox("Indexing indicator (orange pulse during indexing)")
+                        .bindSelected(settings::notifyIndexingEnabled)
+                }
+                colorRow("Indexing color:", notifyIndexingColorPanel, "Pulse color during IDE indexing")
+                ledIndicesRow("Indexing LEDs:", settings.state::notifyIndexingLedIndices)
+            }
+            group("Low Memory") {
+                row {
+                    checkBox("Low memory warning (red flash)")
+                        .bindSelected(settings::notifyLowMemoryEnabled)
+                }
+                colorRow("Low memory color:", notifyLowMemoryColorPanel, "Flash color on low memory")
+                ledIndicesRow("Low memory LEDs:", settings.state::notifyLowMemoryLedIndices)
+            }
+            group("TODO Indicator") {
+                row {
+                    checkBox("TODO indicator in current file")
+                        .bindSelected(settings::notifyTodoEnabled)
+                }
+                colorRow("TODO color:", notifyTodoColorPanel, "Indicator color for TODO items")
+                ledIndicesRow("TODO LEDs:", settings.state::notifyTodoLedIndices)
+            }
+        }
+        tabPanels.add(notificationsPanel)
+        tabbedPane.addTab("Notifications", notificationsPanel)
+
+        // Tab 6: Devices
+        val devicesPanel = panel {
+            group("Multi-Device") {
+                row {
+                    checkBox("Enable multi-device support")
+                        .bindSelected(settings::multiDeviceEnabled)
+                }
+                row {
+                    comment("Configure multiple OpenRGB devices. Each device can have a role:<br/>" +
+                            "<b>primary</b> — all effects, <b>ambient</b> — idle color only,<br/>" +
+                            "<b>indicator</b> — per-key effects only, <b>mirror</b> — copies primary.")
+                }
+                row {
+                    val table = JBTable(deviceTableModel)
+                    val decorator = ToolbarDecorator.createDecorator(table)
+                        .setAddAction {
+                            deviceTableModel.addRow(KgBoardSettings.DeviceConfig(
+                                deviceIndex = deviceTableModel.items.size,
+                                name = "Device ${deviceTableModel.items.size}",
+                                enabled = true,
+                                role = "primary"
+                            ))
+                        }
+                        .setRemoveAction {
+                            val selected = table.selectedRow
+                            if (selected >= 0) deviceTableModel.removeRow(selected)
+                        }
+                        .disableUpDownActions()
+                    cell(decorator.createPanel())
+                        .align(AlignX.FILL)
+                }
+            }
+        }
+        tabPanels.add(devicesPanel)
+        tabbedPane.addTab("Devices", devicesPanel)
+
+        // Wrap in a DialogPanel so BoundConfigurable works
+        return panel {
+            row {
+                cell(tabbedPane)
+                    .align(AlignX.FILL)
+                    .align(AlignY.FILL)
+            }.resizableRow()
         }
     }
 
@@ -394,6 +423,7 @@ class KgBoardConfigurable : BoundConfigurable("KGBoard RGB") {
 
     override fun apply() {
         super.apply()
+        tabPanels.forEach { it.apply() }
         // Save color panels to settings
         val s = KgBoardSettings.getInstance()
         s.state.buildSuccessColor = toHex(buildSuccessColorPanel.selectedColor)
@@ -406,7 +436,6 @@ class KgBoardConfigurable : BoundConfigurable("KGBoard RGB") {
         s.state.testFailColor = toHex(testFailColorPanel.selectedColor)
         s.state.testRunningColor = toHex(testRunningColorPanel.selectedColor)
         s.state.idleColor = toHex(idleColorPanel.selectedColor)
-        // Phase 2
         s.state.pomodoroWorkColor = toHex(pomodoroWorkColorPanel.selectedColor)
         s.state.pomodoroBreakColor = toHex(pomodoroBreakColorPanel.selectedColor)
         s.state.pomodoroTransitionColor = toHex(pomodoroTransitionColorPanel.selectedColor)
@@ -423,6 +452,7 @@ class KgBoardConfigurable : BoundConfigurable("KGBoard RGB") {
 
     override fun reset() {
         super.reset()
+        tabPanels.forEach { it.reset() }
         val s = KgBoardSettings.getInstance()
         loadColorPanels(s)
         loadDeviceTable(s)
@@ -431,6 +461,7 @@ class KgBoardConfigurable : BoundConfigurable("KGBoard RGB") {
 
     override fun isModified(): Boolean {
         if (super.isModified()) return true
+        if (tabPanels.any { it.isModified() }) return true
         val s = KgBoardSettings.getInstance()
         return colorChanged(buildSuccessColorPanel, s.state.buildSuccessColor) ||
                 colorChanged(buildFailureColorPanel, s.state.buildFailureColor) ||
@@ -473,7 +504,6 @@ class KgBoardConfigurable : BoundConfigurable("KGBoard RGB") {
         testFailColorPanel.selectedColor = s.testFailColor
         testRunningColorPanel.selectedColor = s.testRunningColor
         idleColorPanel.selectedColor = s.idleColor
-        // Phase 2
         pomodoroWorkColorPanel.selectedColor = s.pomodoroWorkColor
         pomodoroBreakColorPanel.selectedColor = s.pomodoroBreakColor
         pomodoroTransitionColorPanel.selectedColor = s.pomodoroTransitionColor

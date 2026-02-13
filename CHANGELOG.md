@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.0] - 2026-02-13
+
+### Changed
+- **Settings UI redesigned to tabbed layout**: `JBTabbedPane` with 6 tabs replacing vertical scroll
+  - **Connection**: Enable toggle, OpenRGB connection (status, host, port, device, auto-*)
+  - **Effects**: Idle color, effect timing (duration, pulse speed), focus & shutdown settings
+  - **Events**: Build (3 colors + LEDs), Execution (3 colors + LEDs), Test (3 colors + LEDs)
+  - **Features**: Pomodoro timer, File Save Flash, Debugger Breakpoint — each with enable/colors/LEDs
+  - **Notifications**: Indexing, Low Memory, TODO — each with enable/color/LEDs
+  - **Devices**: Multi-device enable + device role table
+- Tab panels delegate `apply()`/`reset()`/`isModified()` for correct DSL binding lifecycle
+
 ## [0.9.1] - 2026-02-13
 
 ### Added
