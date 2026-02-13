@@ -5,6 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0] - 2026-02-13
+
+### Added
+- **TODO Indicator Listener**: Per-key RGB indicator for TODO items in the current file. Subscribes to `FileEditorManagerListener` (tab switch) and `DaemonCodeAnalyzer` (content changes). Uses `PsiTodoSearchHelper` with `ReadAction` on pooled thread for safe PSI access. `AtomicBoolean` disposed guard prevents race conditions.
+
 ## [0.2.4] - 2026-02-13
 
 ### Fixed

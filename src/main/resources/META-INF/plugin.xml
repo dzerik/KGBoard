@@ -59,6 +59,8 @@
         <projectService
                 serviceImplementation="com.kgboard.rgb.bridge.ShortcutHighlightService"/>
         <projectService
+                serviceImplementation="com.kgboard.rgb.bridge.TodoIndicatorListener"/>
+        <projectService
                 serviceImplementation="com.kgboard.rgb.pomodoro.PomodoroTimerService"/>
 
         <!-- Status bar widgets -->

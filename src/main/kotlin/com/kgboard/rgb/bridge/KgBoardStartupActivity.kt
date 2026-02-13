@@ -24,5 +24,6 @@ class KgBoardStartupActivity : ProjectActivity {
         // Start Phase 2 listeners
         CodeAnalysisListener.getInstance(project).start()
         IdeNotificationListener.getInstance(project).start()
+        TodoIndicatorListener.getInstance(project).start()
     }
 }
