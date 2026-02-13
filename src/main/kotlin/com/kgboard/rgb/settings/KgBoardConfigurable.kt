@@ -11,9 +11,11 @@ import com.intellij.ui.table.JBTable
 import com.intellij.util.Alarm
 import com.intellij.util.ui.ColumnInfo
 import com.intellij.util.ui.ListTableModel
+import com.intellij.openapi.ui.popup.JBPopupFactory
 import com.kgboard.rgb.client.OpenRgbConnectionService
+import com.kgboard.rgb.preset.KeyGroupDefinitions
+import com.kgboard.rgb.preset.KeyGroupService
 import java.awt.Color
-import java.awt.Component
 import java.awt.Dimension
 import java.awt.FlowLayout
 import javax.swing.*
@@ -187,12 +189,7 @@ class KgBoardConfigurable : BoundConfigurable("KGBoard RGB") {
                 colorRow("Build success:", buildSuccessColorPanel, "Green flash on successful compilation")
                 colorRow("Build failure:", buildFailureColorPanel, "Red static when build has errors")
                 colorRow("Build in progress:", buildProgressColorPanel, "Yellow pulse during compilation")
-                row("Build LED indices:") {
-                    textField()
-                        .columns(20)
-                        .bindText(settings.state::buildLedIndices)
-                        .comment("Comma-separated LED indices (e.g., 0,1,2). Empty = all LEDs.")
-                }
+                ledIndicesRow("Build LED indices:", settings.state::buildLedIndices)
             }
 
             // ── Execution Colors ──
@@ -200,12 +197,7 @@ class KgBoardConfigurable : BoundConfigurable("KGBoard RGB") {
                 colorRow("Run:", runColorPanel, "Green static while application is running")
                 colorRow("Debug:", debugColorPanel, "Purple pulse in debug mode")
                 colorRow("Stop / error:", stopColorPanel, "Orange flash on abnormal termination")
-                row("Execution LED indices:") {
-                    textField()
-                        .columns(20)
-                        .bindText(settings.state::executionLedIndices)
-                        .comment("Comma-separated LED indices (e.g., 0,1,2). Empty = all LEDs.")
-                }
+                ledIndicesRow("Execution LED indices:", settings.state::executionLedIndices)
             }
 
             // ── Test Colors ──
@@ -213,12 +205,7 @@ class KgBoardConfigurable : BoundConfigurable("KGBoard RGB") {
                 colorRow("Tests passed:", testPassColorPanel, "Green flash when all tests pass")
                 colorRow("Tests failed:", testFailColorPanel, "Red static when tests fail")
                 colorRow("Tests running:", testRunningColorPanel, "Blue pulse while tests execute")
-                row("Test LED indices:") {
-                    textField()
-                        .columns(20)
-                        .bindText(settings.state::testLedIndices)
-                        .comment("Comma-separated LED indices (e.g., 0,1,2). Empty = all LEDs.")
-                }
+                ledIndicesRow("Test LED indices:", settings.state::testLedIndices)
             }
 
             // ── Idle ──
@@ -308,12 +295,7 @@ class KgBoardConfigurable : BoundConfigurable("KGBoard RGB") {
                 colorRow("Work color:", pomodoroWorkColorPanel, "Keyboard color during work phase")
                 colorRow("Break color:", pomodoroBreakColorPanel, "Keyboard color during break")
                 colorRow("Transition:", pomodoroTransitionColorPanel, "Flash color on phase change")
-                row("Pomodoro LED indices:") {
-                    textField()
-                        .columns(20)
-                        .bindText(settings.state::pomodoroLedIndices)
-                        .comment("Comma-separated LED indices. Empty = all LEDs.")
-                }
+                ledIndicesRow("Pomodoro LED indices:", settings.state::pomodoroLedIndices)
             }
 
             // ── IDE Notifications ──
@@ -323,34 +305,19 @@ class KgBoardConfigurable : BoundConfigurable("KGBoard RGB") {
                         .bindSelected(settings::notifyIndexingEnabled)
                 }
                 colorRow("Indexing color:", notifyIndexingColorPanel, "Pulse color during IDE indexing")
-                row("Indexing LED indices:") {
-                    textField()
-                        .columns(20)
-                        .bindText(settings.state::notifyIndexingLedIndices)
-                        .comment("Comma-separated LED indices (e.g., 0,1,2). Empty = all LEDs.")
-                }
+                ledIndicesRow("Indexing LED indices:", settings.state::notifyIndexingLedIndices)
                 row {
                     checkBox("Low memory warning (red flash)")
                         .bindSelected(settings::notifyLowMemoryEnabled)
                 }
                 colorRow("Low memory color:", notifyLowMemoryColorPanel, "Flash color on low memory")
-                row("Low memory LED indices:") {
-                    textField()
-                        .columns(20)
-                        .bindText(settings.state::notifyLowMemoryLedIndices)
-                        .comment("Comma-separated LED indices. Empty = all LEDs.")
-                }
+                ledIndicesRow("Low memory LED indices:", settings.state::notifyLowMemoryLedIndices)
                 row {
                     checkBox("TODO indicator in current file")
                         .bindSelected(settings::notifyTodoEnabled)
                 }
                 colorRow("TODO color:", notifyTodoColorPanel, "Indicator color for TODO items")
-                row("TODO LED indices:") {
-                    textField()
-                        .columns(20)
-                        .bindText(settings.state::notifyTodoLedIndices)
-                        .comment("Comma-separated LED indices. Empty = all LEDs.")
-                }
+                ledIndicesRow("TODO LED indices:", settings.state::notifyTodoLedIndices)
             }
 
             // ── File Save Flash ──
@@ -360,12 +327,7 @@ class KgBoardConfigurable : BoundConfigurable("KGBoard RGB") {
                         .bindSelected(settings.state::fileSaveFlashEnabled)
                 }
                 colorRow("Flash color:", fileSaveFlashColorPanel, "Short flash color on file save")
-                row("File Save LED indices:") {
-                    textField()
-                        .columns(20)
-                        .bindText(settings.state::fileSaveLedIndices)
-                        .comment("Comma-separated LED indices. Empty = all LEDs.")
-                }
+                ledIndicesRow("File Save LED indices:", settings.state::fileSaveLedIndices)
             }
 
             // ── Debugger Breakpoint ──
@@ -375,13 +337,50 @@ class KgBoardConfigurable : BoundConfigurable("KGBoard RGB") {
                         .bindSelected(settings.state::debugBreakpointFlashEnabled)
                 }
                 colorRow("Flash color:", debugBreakpointColorPanel, "Flash color when debugger pauses at breakpoint")
-                row("Debugger LED indices:") {
-                    textField()
-                        .columns(20)
-                        .bindText(settings.state::debugBreakpointLedIndices)
-                        .comment("Comma-separated LED indices. Empty = all LEDs.")
+                ledIndicesRow("Debugger LED indices:", settings.state::debugBreakpointLedIndices)
+            }
+        }
+    }
+
+    private fun showKeyGroupPopup(textField: JTextField) {
+        val groupService = KeyGroupService.getInstance()
+        val groups = groupService.getAvailableGroups()
+
+        if (groups.isEmpty()) {
+            JBPopupFactory.getInstance()
+                .createMessage("No key groups available. Connect to OpenRGB first.")
+                .showInFocusCenter()
+            return
+        }
+
+        val items = groups.entries.map { (id, indices) ->
+            val displayName = groupService.getDisplayName(id)
+            "$displayName (${indices.size} LEDs)" to indices.joinToString(",")
+        }
+
+        JBPopupFactory.getInstance()
+            .createPopupChooserBuilder(items.map { it.first })
+            .setTitle("Select Key Group")
+            .setItemChosenCallback { selected ->
+                val pair = items.find { it.first == selected }
+                if (pair != null) {
+                    val current = textField.text.trim()
+                    textField.text = if (current.isEmpty()) pair.second
+                    else "$current,${pair.second}"
                 }
             }
+            .createPopup()
+            .showInFocusCenter()
+    }
+
+    private fun Panel.ledIndicesRow(label: String, bindProperty: kotlin.reflect.KMutableProperty0<String>) {
+        row(label) {
+            val tf = textField()
+                .columns(20)
+                .bindText(bindProperty)
+                .comment("Comma-separated LED indices. Empty = all LEDs.")
+                .component
+            button("Key Groups...") { showKeyGroupPopup(tf) }
         }
     }
 

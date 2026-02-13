@@ -3,17 +3,19 @@ package com.kgboard.rgb.settings
 import com.intellij.openapi.options.BoundConfigurable
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.DialogPanel
+import com.intellij.openapi.ui.popup.JBPopupFactory
 import com.intellij.ui.ColorPanel
 import com.intellij.ui.ToolbarDecorator
 import com.intellij.ui.dsl.builder.*
 import com.intellij.ui.table.JBTable
 import com.intellij.util.ui.ListTableModel
 import com.intellij.util.ui.ColumnInfo
+import com.kgboard.rgb.preset.KeyGroupService
 import java.awt.Color
 import java.awt.Dimension
+import javax.swing.JTextField
 import javax.swing.table.TableCellEditor
 import javax.swing.DefaultCellEditor
-import javax.swing.JTextField
 
 /**
  * Project-level settings page: Settings → Tools → KGBoard RGB (Project).
@@ -76,10 +78,12 @@ class KgBoardProjectConfigurable(private val project: Project) : BoundConfigurab
                         .bindSelected(s.state::gitEnabled)
                 }
                 row("LED indices:") {
-                    textField()
+                    val tf = textField()
                         .columns(20)
                         .bindText(s.state::gitLedIndices)
                         .comment("Comma-separated LED indices (e.g., 0,1,2). Leave empty to disable.")
+                        .component
+                    button("Key Groups...") { showKeyGroupPopup(tf) }
                 }
                 row("Polling interval:") {
                     intTextField(2..60)
@@ -134,10 +138,12 @@ class KgBoardProjectConfigurable(private val project: Project) : BoundConfigurab
                         .bindSelected(s.state::analysisEnabled)
                 }
                 row("LED indices:") {
-                    textField()
+                    val tf = textField()
                         .columns(20)
                         .bindText(s.state::analysisLedIndices)
                         .comment("Comma-separated LED indices for analysis indicator")
+                        .component
+                    button("Key Groups...") { showKeyGroupPopup(tf) }
                 }
                 row("Errors:") {
                     cell(analysisErrorColor).gap(RightGap.SMALL)
@@ -215,6 +221,37 @@ class KgBoardProjectConfigurable(private val project: Project) : BoundConfigurab
         val savedRules = s.state.gitBranchColorRules
         if (currentRules.size != savedRules.size) return true
         return currentRules.zip(savedRules).any { (a, b) -> a.pattern != b.pattern || a.color != b.color }
+    }
+
+    private fun showKeyGroupPopup(textField: JTextField) {
+        val groupService = KeyGroupService.getInstance()
+        val groups = groupService.getAvailableGroups()
+
+        if (groups.isEmpty()) {
+            JBPopupFactory.getInstance()
+                .createMessage("No key groups available. Connect to OpenRGB first.")
+                .showInFocusCenter()
+            return
+        }
+
+        val items = groups.entries.map { (id, indices) ->
+            val displayName = groupService.getDisplayName(id)
+            "$displayName (${indices.size} LEDs)" to indices.joinToString(",")
+        }
+
+        JBPopupFactory.getInstance()
+            .createPopupChooserBuilder(items.map { it.first })
+            .setTitle("Select Key Group")
+            .setItemChosenCallback { selected ->
+                val pair = items.find { it.first == selected }
+                if (pair != null) {
+                    val current = textField.text.trim()
+                    textField.text = if (current.isEmpty()) pair.second
+                    else "$current,${pair.second}"
+                }
+            }
+            .createPopup()
+            .showInFocusCenter()
     }
 
     private fun colorChanged(panel: ColorPanel, hex: String): Boolean {

@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.1] - 2026-02-13
+
+### Added
+- **Key Group Picker**: "Key Groups..." button next to all 9 LED indices fields in app settings and 2 fields in project settings
+- **`showKeyGroupPopup()`**: JBPopupFactory popup listing available key groups with LED count, appends selected indices to text field
+- **`ledIndicesRow()` helper**: Reusable DSL helper combining text field + key group picker button
+
+### Changed
+- All LED indices rows in `KgBoardConfigurable` now use `ledIndicesRow()` with key group picker
+- Git and Analysis LED indices in `KgBoardProjectConfigurable` now have key group picker buttons
+
 ## [0.9.0] - 2026-02-13
 
 ### Added
