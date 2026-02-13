@@ -4,6 +4,7 @@ import com.intellij.openapi.project.Project
 import com.intellij.openapi.startup.ProjectActivity
 import com.kgboard.rgb.client.OpenRgbConnectionService
 import com.kgboard.rgb.layout.KeyboardLayoutService
+import com.kgboard.rgb.preset.KeyGroupService
 import com.kgboard.rgb.settings.KgBoardSettings
 
 /**
@@ -17,8 +18,9 @@ class KgBoardStartupActivity : ProjectActivity {
 
         if (settings.autoConnect) {
             OpenRgbConnectionService.getInstance().connect()
-            // Refresh keyboard layout after connection
+            // Refresh keyboard layout and key groups after connection
             KeyboardLayoutService.getInstance().refresh()
+            KeyGroupService.getInstance().refreshFromDevice()
         }
 
         // Start Phase 2 listeners

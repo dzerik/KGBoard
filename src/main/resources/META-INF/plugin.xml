@@ -71,6 +71,10 @@
         <applicationService
                 serviceImplementation="com.kgboard.rgb.layout.KeyboardLayoutService"/>
 
+        <!-- Key group service (built-in + user-defined groups) -->
+        <applicationService
+                serviceImplementation="com.kgboard.rgb.preset.KeyGroupService"/>
+
         <!-- Project-level settings -->
         <projectService
                 serviceImplementation="com.kgboard.rgb.settings.KgBoardProjectSettings"/>
