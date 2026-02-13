@@ -308,6 +308,12 @@ class KgBoardConfigurable : BoundConfigurable("KGBoard RGB") {
                 colorRow("Work color:", pomodoroWorkColorPanel, "Keyboard color during work phase")
                 colorRow("Break color:", pomodoroBreakColorPanel, "Keyboard color during break")
                 colorRow("Transition:", pomodoroTransitionColorPanel, "Flash color on phase change")
+                row("Pomodoro LED indices:") {
+                    textField()
+                        .columns(20)
+                        .bindText(settings.state::pomodoroLedIndices)
+                        .comment("Comma-separated LED indices. Empty = all LEDs.")
+                }
             }
 
             // ── IDE Notifications ──
@@ -354,6 +360,12 @@ class KgBoardConfigurable : BoundConfigurable("KGBoard RGB") {
                         .bindSelected(settings.state::fileSaveFlashEnabled)
                 }
                 colorRow("Flash color:", fileSaveFlashColorPanel, "Short flash color on file save")
+                row("File Save LED indices:") {
+                    textField()
+                        .columns(20)
+                        .bindText(settings.state::fileSaveLedIndices)
+                        .comment("Comma-separated LED indices. Empty = all LEDs.")
+                }
             }
 
             // ── Debugger Breakpoint ──
@@ -363,6 +375,12 @@ class KgBoardConfigurable : BoundConfigurable("KGBoard RGB") {
                         .bindSelected(settings.state::debugBreakpointFlashEnabled)
                 }
                 colorRow("Flash color:", debugBreakpointColorPanel, "Flash color when debugger pauses at breakpoint")
+                row("Debugger LED indices:") {
+                    textField()
+                        .columns(20)
+                        .bindText(settings.state::debugBreakpointLedIndices)
+                        .comment("Comma-separated LED indices. Empty = all LEDs.")
+                }
             }
         }
     }

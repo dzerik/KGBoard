@@ -71,6 +71,7 @@ class DebuggerBreakpointListener(private val project: Project) : Disposable {
         if (!settings.enabled || !settings.state.debugBreakpointFlashEnabled) return
 
         val color = settings.parseColor(settings.state.debugBreakpointFlashColor)
+        val target = settings.resolveTarget(settings.debugBreakpointLedIndices)
         try {
             val effectManager = EffectManagerService.getInstance(project)
             effectManager.addTargetedEffect(
@@ -79,7 +80,8 @@ class DebuggerBreakpointListener(private val project: Project) : Disposable {
                     color = color,
                     durationMs = 500,
                     name = "breakpoint-hit",
-                    priority = 8
+                    priority = 8,
+                    target = target
                 ),
                 timeoutMs = 600
             )

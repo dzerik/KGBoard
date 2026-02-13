@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.1] - 2026-02-13
+
+### Added
+- **Per-key LED selection for FileSave**: Dual-path dispatch with `EFFECT_ID = "file-save"`
+- **Per-key LED selection for DebuggerBreakpoint**: Target resolution via `resolveTarget(debugBreakpointLedIndices)`
+- **Per-key LED selection for Pomodoro**: Target resolution in `startWorkPhase()`, `startBreakPhase()`, `flashTransition()`
+- **LED indices UI fields** for File Save, Debugger Breakpoint, Pomodoro Timer settings sections
+
 ## [0.8.0] - 2026-02-13
 
 ### Added

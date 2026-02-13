@@ -110,6 +110,7 @@ class PomodoroTimerService(private val project: Project) : Disposable {
         val settings = KgBoardSettings.getInstance()
         currentPhase = Phase.WORK
         remainingSeconds = settings.pomodoroWorkMinutes * 60
+        val target = settings.resolveTarget(settings.pomodoroLedIndices)
 
         // Flash transition
         flashTransition()
@@ -124,7 +125,7 @@ class PomodoroTimerService(private val project: Project) : Disposable {
                 durationMs = remainingSeconds * 1000L,
                 name = "pomodoro-work",
                 priority = 1,
-                target = EffectTarget.AllLeds
+                target = target
             )
         )
 
@@ -148,6 +149,7 @@ class PomodoroTimerService(private val project: Project) : Disposable {
 
         flashTransition()
 
+        val target = settings.resolveTarget(settings.pomodoroLedIndices)
         val effectManager = EffectManagerService.getInstance(project)
         effectManager.addTargetedEffect(
             EFFECT_ID,
@@ -156,7 +158,7 @@ class PomodoroTimerService(private val project: Project) : Disposable {
                 periodMs = if (isLongBreak) 2000 else 1200,
                 name = "pomodoro-break",
                 priority = 1,
-                target = EffectTarget.AllLeds
+                target = target
             )
         )
 
@@ -166,6 +168,7 @@ class PomodoroTimerService(private val project: Project) : Disposable {
 
     private fun flashTransition() {
         val settings = KgBoardSettings.getInstance()
+        val target = settings.resolveTarget(settings.pomodoroLedIndices)
         val effectManager = EffectManagerService.getInstance(project)
         effectManager.addTargetedEffect(
             TRANSITION_EFFECT_ID,
@@ -174,7 +177,7 @@ class PomodoroTimerService(private val project: Project) : Disposable {
                 durationMs = 600,
                 name = "pomodoro-transition",
                 priority = 5,
-                target = EffectTarget.AllLeds
+                target = target
             ),
             timeoutMs = 700
         )
