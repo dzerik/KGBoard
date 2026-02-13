@@ -36,6 +36,7 @@ class GitStatusListener(private val project: Project) : Disposable {
 
     companion object {
         const val EFFECT_ID = "git-status"
+        const val BRANCH_COLOR_EFFECT_ID = "git-branch-color"
 
         fun getInstance(project: Project): GitStatusListener =
             project.getService(GitStatusListener::class.java)
@@ -140,8 +141,56 @@ class GitStatusListener(private val project: Project) : Disposable {
                     )
                 }
             )
+
+            // Apply branch color rules (background color, lowest priority)
+            applyBranchColorRules(repos, projectSettings, settings, effectManager)
         } catch (e: Exception) {
             log.warn("Git status update error: ${e.message}")
+        }
+    }
+
+    /**
+     * Evaluates current branch name against configured regex rules.
+     * First matching rule wins. Applied as AllLeds background (priority 0).
+     */
+    private fun applyBranchColorRules(
+        repos: List<GitRepository>,
+        projectSettings: KgBoardProjectSettings,
+        settings: KgBoardSettings,
+        effectManager: EffectManagerService
+    ) {
+        val rules = projectSettings.state.gitBranchColorRules
+        if (rules.isEmpty()) {
+            effectManager.removeTargetedEffect(BRANCH_COLOR_EFFECT_ID)
+            return
+        }
+
+        val branchName = repos.firstNotNullOfOrNull { it.currentBranch?.name }
+        if (branchName == null) {
+            effectManager.removeTargetedEffect(BRANCH_COLOR_EFFECT_ID)
+            return
+        }
+
+        val matchedRule = rules.firstOrNull { rule ->
+            try {
+                Regex(rule.pattern).containsMatchIn(branchName)
+            } catch (_: Exception) {
+                false // invalid regex — skip
+            }
+        }
+
+        if (matchedRule != null) {
+            effectManager.addTargetedEffect(
+                BRANCH_COLOR_EFFECT_ID,
+                StaticEffect(
+                    color = settings.parseColor(matchedRule.color),
+                    name = "git-branch-color",
+                    priority = 0,
+                    target = EffectTarget.AllLeds
+                )
+            )
+        } else {
+            effectManager.removeTargetedEffect(BRANCH_COLOR_EFFECT_ID)
         }
     }
 
@@ -151,7 +200,9 @@ class GitStatusListener(private val project: Project) : Disposable {
         pollingTask = null
         scheduler.shutdownNow()
         try {
-            EffectManagerService.getInstance(project).removeTargetedEffect(EFFECT_ID)
+            val effectManager = EffectManagerService.getInstance(project)
+            effectManager.removeTargetedEffect(EFFECT_ID)
+            effectManager.removeTargetedEffect(BRANCH_COLOR_EFFECT_ID)
         } catch (_: Exception) {
             // project may already be disposed
         }
