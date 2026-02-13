@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.0] - 2026-02-13
+
+### Added
+- **Per-key LED selection for Build/Execution/Test**: Dual-path dispatch — empty LED indices use Phase 1 API (backward-compatible), configured indices use Phase 2 targeted API
+- **Settings fields**: `buildLedIndices`, `executionLedIndices`, `testLedIndices`, `fileSaveLedIndices`, `debugBreakpointLedIndices`, `pomodoroLedIndices` in `KgBoardSettings.State`
+- **`resolveTarget()` helper**: Converts LED indices list to `EffectTarget.AllLeds` or `EffectTarget.LedSet`
+- **LED indices UI fields** in Build Events, Execution Events, Test Events settings sections
+- **Stable EFFECT_ID** constants in `BuildEventListener`, `ExecutionEventListener`, `TestEventListener`
+
+### Changed
+- `parseLedIndices()` visibility changed to `internal` for testability
+
 ## [0.7.0] - 2026-02-13
 
 ### Added

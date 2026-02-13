@@ -12,28 +12,54 @@ import com.kgboard.rgb.settings.KgBoardSettings
 
 /**
  * Listens to test execution events.
- * - Tests running → blue pulse
- * - All tests passed → green flash
- * - Tests failed → red static
+ * - Tests running -> blue pulse
+ * - All tests passed -> green flash
+ * - Tests failed -> red static
+ *
+ * Supports dual-path dispatch:
+ * - Without LED indices: Phase 1 API for backward compatibility
+ * - With LED indices: Phase 2 API for per-key targeting
  */
 class TestEventListener(private val project: Project) : SMTRunnerEventsListener {
 
     private val log = Logger.getInstance(TestEventListener::class.java)
+
+    companion object {
+        const val EFFECT_ID = "test-status"
+    }
 
     override fun onTestingStarted(testsRoot: SMTestProxy.SMRootTestProxy) {
         try {
             val settings = KgBoardSettings.getInstance()
             if (!settings.enabled) return
 
+            val effectManager = EffectManagerService.getInstance(project)
+            val ledIndices = settings.testLedIndices
+            val isTargeted = ledIndices.isNotEmpty()
+
             log.info("Testing started")
-            EffectManagerService.getInstance(project).applyPersistent(
-                PulseEffect(
-                    color = settings.testRunningColor,
-                    periodMs = settings.pulseSpeedMs,
-                    name = "tests-running",
-                    priority = 6
+            if (isTargeted) {
+                val target = settings.resolveTarget(ledIndices)
+                effectManager.addTargetedEffect(
+                    EFFECT_ID,
+                    PulseEffect(
+                        color = settings.testRunningColor,
+                        periodMs = settings.pulseSpeedMs,
+                        name = "tests-running",
+                        priority = 6,
+                        target = target
+                    )
                 )
-            )
+            } else {
+                effectManager.applyPersistent(
+                    PulseEffect(
+                        color = settings.testRunningColor,
+                        periodMs = settings.pulseSpeedMs,
+                        name = "tests-running",
+                        priority = 6
+                    )
+                )
+            }
         } catch (e: Exception) {
             log.warn("Test started event error: ${e.message}")
         }
@@ -48,26 +74,56 @@ class TestEventListener(private val project: Project) : SMTRunnerEventsListener 
             val allTests = testsRoot.allTests
             val failed = allTests.count { it.isDefect }
             val total = allTests.size
+            val ledIndices = settings.testLedIndices
+            val isTargeted = ledIndices.isNotEmpty()
 
             if (failed > 0) {
                 log.info("Tests finished: $failed/$total failed")
-                effectManager.applyEffect(
-                    StaticEffect(
-                        color = settings.testFailColor,
-                        name = "tests-failed",
-                        priority = 8
+                if (isTargeted) {
+                    val target = settings.resolveTarget(ledIndices)
+                    effectManager.addTargetedEffect(
+                        EFFECT_ID,
+                        StaticEffect(
+                            color = settings.testFailColor,
+                            name = "tests-failed",
+                            priority = 8,
+                            target = target
+                        )
                     )
-                )
+                } else {
+                    effectManager.applyEffect(
+                        StaticEffect(
+                            color = settings.testFailColor,
+                            name = "tests-failed",
+                            priority = 8
+                        )
+                    )
+                }
             } else {
                 log.info("All $total tests passed")
-                effectManager.applyTemporary(
-                    FlashEffect(
-                        color = settings.testPassColor,
-                        durationMs = 2000,
-                        name = "tests-passed",
-                        priority = 7
+                if (isTargeted) {
+                    val target = settings.resolveTarget(ledIndices)
+                    effectManager.addTargetedEffect(
+                        EFFECT_ID,
+                        FlashEffect(
+                            color = settings.testPassColor,
+                            durationMs = 2000,
+                            name = "tests-passed",
+                            priority = 7,
+                            target = target
+                        ),
+                        timeoutMs = 2100
                     )
-                )
+                } else {
+                    effectManager.applyTemporary(
+                        FlashEffect(
+                            color = settings.testPassColor,
+                            durationMs = 2000,
+                            name = "tests-passed",
+                            priority = 7
+                        )
+                    )
+                }
             }
         } catch (e: Exception) {
             log.warn("Test finished event error: ${e.message}")

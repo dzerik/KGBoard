@@ -5,6 +5,7 @@ import com.intellij.openapi.components.PersistentStateComponent
 import com.intellij.openapi.components.Service
 import com.intellij.openapi.components.State
 import com.intellij.openapi.components.Storage
+import com.kgboard.rgb.effect.EffectTarget
 import java.awt.Color
 
 @Service(Service.Level.APP)
@@ -75,6 +76,14 @@ class KgBoardSettings : PersistentStateComponent<KgBoardSettings.State> {
         var notifyTodoEnabled: Boolean = false,
         var notifyTodoColor: String = "#FFD600",
         var notifyTodoLedIndices: String = "", // comma-separated
+
+        // Per-key LED indices (comma-separated, empty = all LEDs)
+        var buildLedIndices: String = "",
+        var executionLedIndices: String = "",
+        var testLedIndices: String = "",
+        var fileSaveLedIndices: String = "",
+        var debugBreakpointLedIndices: String = "",
+        var pomodoroLedIndices: String = "",
 
         // File Save Flash
         var fileSaveFlashEnabled: Boolean = false,
@@ -197,8 +206,30 @@ class KgBoardSettings : PersistentStateComponent<KgBoardSettings.State> {
     val notifyTodoLedIndices: List<Int>
         get() = parseLedIndices(state.notifyTodoLedIndices)
 
-    private fun parseLedIndices(raw: String): List<Int> =
+    // Per-key LED indices
+    val buildLedIndices: List<Int>
+        get() = parseLedIndices(state.buildLedIndices)
+
+    val executionLedIndices: List<Int>
+        get() = parseLedIndices(state.executionLedIndices)
+
+    val testLedIndices: List<Int>
+        get() = parseLedIndices(state.testLedIndices)
+
+    val fileSaveLedIndices: List<Int>
+        get() = parseLedIndices(state.fileSaveLedIndices)
+
+    val debugBreakpointLedIndices: List<Int>
+        get() = parseLedIndices(state.debugBreakpointLedIndices)
+
+    val pomodoroLedIndices: List<Int>
+        get() = parseLedIndices(state.pomodoroLedIndices)
+
+    internal fun parseLedIndices(raw: String): List<Int> =
         raw.split(",").mapNotNull { it.trim().toIntOrNull() }.filter { it >= 0 }
+
+    fun resolveTarget(ledIndices: List<Int>): EffectTarget =
+        if (ledIndices.isNotEmpty()) EffectTarget.LedSet(ledIndices) else EffectTarget.AllLeds
 
     fun parseColor(hex: String): Color {
         return try {

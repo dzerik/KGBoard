@@ -187,6 +187,12 @@ class KgBoardConfigurable : BoundConfigurable("KGBoard RGB") {
                 colorRow("Build success:", buildSuccessColorPanel, "Green flash on successful compilation")
                 colorRow("Build failure:", buildFailureColorPanel, "Red static when build has errors")
                 colorRow("Build in progress:", buildProgressColorPanel, "Yellow pulse during compilation")
+                row("Build LED indices:") {
+                    textField()
+                        .columns(20)
+                        .bindText(settings.state::buildLedIndices)
+                        .comment("Comma-separated LED indices (e.g., 0,1,2). Empty = all LEDs.")
+                }
             }
 
             // ── Execution Colors ──
@@ -194,6 +200,12 @@ class KgBoardConfigurable : BoundConfigurable("KGBoard RGB") {
                 colorRow("Run:", runColorPanel, "Green static while application is running")
                 colorRow("Debug:", debugColorPanel, "Purple pulse in debug mode")
                 colorRow("Stop / error:", stopColorPanel, "Orange flash on abnormal termination")
+                row("Execution LED indices:") {
+                    textField()
+                        .columns(20)
+                        .bindText(settings.state::executionLedIndices)
+                        .comment("Comma-separated LED indices (e.g., 0,1,2). Empty = all LEDs.")
+                }
             }
 
             // ── Test Colors ──
@@ -201,6 +213,12 @@ class KgBoardConfigurable : BoundConfigurable("KGBoard RGB") {
                 colorRow("Tests passed:", testPassColorPanel, "Green flash when all tests pass")
                 colorRow("Tests failed:", testFailColorPanel, "Red static when tests fail")
                 colorRow("Tests running:", testRunningColorPanel, "Blue pulse while tests execute")
+                row("Test LED indices:") {
+                    textField()
+                        .columns(20)
+                        .bindText(settings.state::testLedIndices)
+                        .comment("Comma-separated LED indices (e.g., 0,1,2). Empty = all LEDs.")
+                }
             }
 
             // ── Idle ──
