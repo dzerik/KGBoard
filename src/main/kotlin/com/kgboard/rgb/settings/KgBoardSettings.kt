@@ -97,6 +97,10 @@ class KgBoardSettings : PersistentStateComponent<KgBoardSettings.State> {
         var debugBreakpointFlashColor: String = "#FF1744"
     )
 
+    // @Volatile: the render loop and pomodoro/git background threads read state.* concurrently
+    // with EDT writes via the settings UI. loadState swaps the whole reference, so volatile
+    // publication guarantees readers see a fully-initialized State.
+    @Volatile
     private var state = State()
 
     override fun getState(): State = state

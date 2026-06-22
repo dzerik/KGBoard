@@ -44,3 +44,15 @@ bin/
 
 ### MCP ###
 .mcp.json
+
+### Stray compiled artifacts (accidental classpath extraction) ###
+/com/
+/git4idea/
+*.class
+
+### Misc screenshots at repo root ###
+/img.png
+
+### JVM crash logs ###
+hs_err_pid*.log
+replay_pid*.log

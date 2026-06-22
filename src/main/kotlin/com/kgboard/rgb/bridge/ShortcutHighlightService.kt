@@ -13,6 +13,7 @@ import com.kgboard.rgb.layout.KeyboardLayoutService
 import com.kgboard.rgb.settings.KgBoardProjectSettings
 import com.kgboard.rgb.settings.KgBoardSettings
 import java.awt.Color
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Executors
 import java.util.concurrent.ScheduledFuture
 import java.util.concurrent.TimeUnit
@@ -58,11 +59,13 @@ class ShortcutHighlightService(private val project: Project) : Disposable {
             project.getService(ShortcutHighlightService::class.java)
     }
 
-    private var activeContexts = mutableSetOf<String>()
+    /** Thread-safe: mutated from listener threads, iterated on the debounce thread. */
+    private val activeContexts: MutableSet<String> = ConcurrentHashMap.newKeySet()
 
     private val debounceScheduler = Executors.newSingleThreadScheduledExecutor { r ->
         Thread(r, "KGBoard-ShortcutDebounce-${project.name}").apply { isDaemon = true }
     }
+    @Volatile
     private var debounceTask: ScheduledFuture<*>? = null
 
     fun activateContext(context: String) {

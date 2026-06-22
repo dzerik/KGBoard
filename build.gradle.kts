@@ -38,6 +38,10 @@ intellijPlatform {
 
         ideaVersion {
             sinceBuild = providers.gradleProperty("pluginSinceBuild").get()
+            // Without an explicit untilBuild, the Gradle plugin 2.x defaults it to MAJOR.* of the
+            // selected platform (243.*), which would block installation on 2025.1+. Wire the
+            // pluginUntilBuild property through so the declared upper bound actually applies.
+            untilBuild = providers.gradleProperty("pluginUntilBuild")
         }
 
         vendor {

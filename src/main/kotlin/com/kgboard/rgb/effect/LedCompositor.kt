@@ -38,8 +38,7 @@ class LedCompositor(private val project: Project) : Disposable {
     /** All active effects keyed by unique ID */
     private val activeEffects = ConcurrentHashMap<String, ActiveEffect>()
 
-    /** Double-buffered frames to avoid per-cycle allocation */
-    private var frameBuffer: Array<Color>? = null
+    /** Previous frame, retained for dirty-checking so unchanged frames aren't re-sent */
     private var previousFrame: Array<Color>? = null
 
     /** Cached AllLeds index list — invalidated when numLeds changes */
@@ -51,6 +50,10 @@ class LedCompositor(private val project: Project) : Disposable {
 
     /** Lock for render loop start/stop to prevent double-start race */
     private val renderLock = ReentrantLock()
+
+    /** When true, doRender skips sending frames (used by settings Test buttons) */
+    @Volatile
+    var paused: Boolean = false
 
     private val connection: OpenRgbConnectionService
         get() = OpenRgbConnectionService.getInstance()
@@ -73,7 +76,14 @@ class LedCompositor(private val project: Project) : Disposable {
         val startTime = System.currentTimeMillis()
         activeEffects[id] = ActiveEffect(effect, startTime, timeoutMs)
         log.debug("Added effect '$id': ${effect.name} (priority=${effect.priority}, target=${effect.target})")
-        ensureRenderLoop()
+        // Adaptive render: only spin the 30 FPS loop while animated effects are present.
+        // Static effects (e.g. git/analysis indicators) are drawn once and don't keep the loop alive.
+        if (hasAnimatedEffects()) {
+            ensureRenderLoop()
+        } else {
+            renderOnce()
+            maybeStopRenderLoop()
+        }
     }
 
     /**
@@ -150,7 +160,7 @@ class LedCompositor(private val project: Project) : Disposable {
 
     private fun doRender() {
         try {
-            if (!settings.enabled || !connection.isConnected) return
+            if (paused || !settings.enabled || !connection.isConnected) return
 
             val deviceIndex = settings.deviceIndex
             val devices = connection.devices
@@ -162,36 +172,19 @@ class LedCompositor(private val project: Project) : Disposable {
             val now = System.currentTimeMillis()
             val idleColor = settings.idleColor
 
-            // 1. Reuse frame buffer (double buffering)
-            val frame = if (frameBuffer != null && frameBuffer!!.size == numLeds) {
-                frameBuffer!!.also { it.fill(idleColor) }
-            } else {
-                Array(numLeds) { idleColor }.also { frameBuffer = it }
-            }
-
-            // 2. Remove expired effects
+            // Remove expired effects
             activeEffects.entries.removeIf { (_, ae) ->
                 ae.timeoutMs > 0 && now - ae.startTime >= ae.timeoutMs
             }
 
-            // 3. Get snapshot sorted by priority ascending (low priority first, high overwrites)
-            val snapshot = activeEffects.values.toList().sortedBy { it.effect.priority }
-
-            // 4. Composite each effect
-            for (ae in snapshot) {
-                val effect = ae.effect
-                val elapsed = now - ae.startTime
-                val indices = resolveIndices(effect.target, numLeds)
-                val colors = computeColors(effect, elapsed, indices.size, numLeds)
-
-                for ((i, ledIdx) in indices.withIndex()) {
-                    if (ledIdx in frame.indices && i < colors.size) {
-                        frame[ledIdx] = colors[i]
-                    }
-                }
+            // Compose frame via pure function. Pass a device-aware Zone resolver so Zone-targeted
+            // effects render in the single-device path too (the pure resolver can't see device zones).
+            val snapshot = activeEffects.values.toList()
+            val frame = EffectColorComputer.composeFrame(idleColor, snapshot, numLeds, now) { zone ->
+                resolveIndices(zone, numLeds)
             }
 
-            // 5. Dirty check against previous frame
+            // Dirty check against previous frame
             val prev = previousFrame
             if (prev != null && prev.size == frame.size && prev.contentEquals(frame)) {
                 return // no change
@@ -203,7 +196,7 @@ class LedCompositor(private val project: Project) : Disposable {
                 System.arraycopy(frame, 0, previousFrame!!, 0, numLeds)
             }
 
-            // 6. Send to device(s)
+            // Send to device(s)
             if (settings.multiDeviceEnabled && settings.deviceConfigs.isNotEmpty()) {
                 sendToMultiDevice(frame, snapshot, now, idleColor)
             } else {

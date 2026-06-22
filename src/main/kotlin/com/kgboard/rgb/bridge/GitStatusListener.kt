@@ -11,6 +11,7 @@ import com.kgboard.rgb.settings.KgBoardSettings
 import git4idea.repo.GitRepository
 import git4idea.repo.GitRepositoryChangeListener
 import git4idea.repo.GitRepositoryManager
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Executors
 import java.util.concurrent.ScheduledFuture
 import java.util.concurrent.TimeUnit
@@ -31,8 +32,13 @@ class GitStatusListener(private val project: Project) : Disposable {
         Thread(r, "KGBoard-GitStatus-${project.name}").apply { isDaemon = true }
     }
 
+    @Volatile
     private var pollingTask: ScheduledFuture<*>? = null
     private val disposed = AtomicBoolean(false)
+
+    /** Cache of compiled branch-rule regexes (pattern → compiled or null if invalid). */
+    private val regexCache = ConcurrentHashMap<String, Regex>()
+    private val invalidPatterns = ConcurrentHashMap.newKeySet<String>()
 
     companion object {
         const val EFFECT_ID = "git-status"
@@ -172,11 +178,8 @@ class GitStatusListener(private val project: Project) : Disposable {
         }
 
         val matchedRule = rules.firstOrNull { rule ->
-            try {
-                Regex(rule.pattern).containsMatchIn(branchName)
-            } catch (_: Exception) {
-                false // invalid regex — skip
-            }
+            val regex = compileRule(rule.pattern) ?: return@firstOrNull false
+            regex.containsMatchIn(branchName)
         }
 
         if (matchedRule != null) {
@@ -191,6 +194,18 @@ class GitStatusListener(private val project: Project) : Disposable {
             )
         } else {
             effectManager.removeTargetedEffect(BRANCH_COLOR_EFFECT_ID)
+        }
+    }
+
+    /** Returns a compiled regex for [pattern], cached; null if the pattern is invalid. */
+    private fun compileRule(pattern: String): Regex? {
+        if (pattern in invalidPatterns) return null
+        regexCache[pattern]?.let { return it }
+        return try {
+            Regex(pattern).also { regexCache[pattern] = it }
+        } catch (_: Exception) {
+            invalidPatterns.add(pattern)
+            null
         }
     }
 

@@ -47,6 +47,8 @@ class KgBoardProjectSettings : PersistentStateComponent<KgBoardProjectSettings.S
         var shortcutVcsColor: String = "#FF9100"
     )
 
+    // @Volatile: read from git/analysis/shortcut background threads concurrently with EDT writes.
+    @Volatile
     private var state = State()
 
     override fun getState(): State = state

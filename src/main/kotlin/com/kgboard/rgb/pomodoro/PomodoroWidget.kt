@@ -17,15 +17,18 @@ class PomodoroWidgetFactory : StatusBarWidgetFactory {
 
     class PomodoroStatusWidget(private val project: Project) : StatusBarWidget, StatusBarWidget.TextPresentation {
         private var statusBar: StatusBar? = null
+        private var changeListener: (() -> Unit)? = null
 
         override fun ID(): String = "KGBoardPomodoro"
 
         override fun install(statusBar: StatusBar) {
             this.statusBar = statusBar
             val timer = PomodoroTimerService.getInstance(project)
-            timer.addChangeListener {
+            val listener: () -> Unit = {
                 statusBar.updateWidget(ID())
             }
+            changeListener = listener
+            timer.addChangeListener(listener)
         }
 
         override fun getPresentation(): StatusBarWidget.WidgetPresentation = this
@@ -63,6 +66,8 @@ class PomodoroWidgetFactory : StatusBarWidgetFactory {
         }
 
         override fun dispose() {
+            changeListener?.let { PomodoroTimerService.getInstance(project).removeChangeListener(it) }
+            changeListener = null
             statusBar = null
         }
     }

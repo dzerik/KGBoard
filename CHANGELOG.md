@@ -5,6 +5,60 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.0] - 2026-06-22
+
+### Added
+- **Условное включение полей настроек (`enabledIf`)**: зависимые поля (Pomodoro, File Save Flash, Debugger Breakpoint, Git-индикатор, Code Analysis, Multi-Device) теперь гаснут, когда соответствующая функция выключена — настройки сразу показывают, что активно.
+- **Валидация ввода**: поля LED-индексов и Host проверяются на лету (`validationOnInput`) с подсказкой об ошибке.
+- **Статус подключения по событию**: метка статуса в настройках обновляется по событию подключения (`addConnectionListener`) с состоянием «Connecting…», вместо угадывания фиксированной задержкой.
+
+### Fixed
+- **Фриз IDE при недоступном OpenRGB**: `OpenRgbClient.connect()` использовал `Socket(host, port)` без таймаута соединения (`soTimeout` влияет только на чтение) и выполнялся под глобальным локом. Недоступный/фильтруемый хост блокировал лок на десятки секунд, а EDT-вызовы (`isConnected` в status-bar, кнопки Connect/Disconnect) зависали. Теперь: connect-таймаут 3с, а блокирующий сетевой I/O вынесен за пределы лока (публикация результата защищена epoch-счётчиком от гонки с `disconnect()`).
+- **Гонка в `EffectManagerService.applyEffect`**: неатомарный check-then-act на `currentGlobalEffectId`/`currentGlobalPriority` при одновременных событиях build/test/run/debug мог «залипить» глобальный эффект. Операции обёрнуты в общий лок.
+- **Утечка connection-listener**: `KgBoardStartupActivity` регистрировал listener в application-level сервисе и не снимал его — listener'ы накапливались при каждом open/close проекта. Теперь снимается через `Disposer.register(project)`.
+- **Утечка listener в Pomodoro-виджете**: `install()` добавлял change-listener, а `dispose()` его не снимал. Теперь listener хранится и снимается.
+- **Гонка двойного перехода фазы Pomodoro**: `cancel(false)` не прерывает уже выполняющийся tick — при `skip()`/`stop()` мог произойти двойной переход. Добавлен generation-счётчик тиков.
+- **Render-цикл крутился вечно для статических эффектов**: persistent `StaticEffect` (git/analysis) держал 30 FPS цикл «вхолостую». Теперь loop стартует только при анимированных эффектах, статика рисуется через `renderOnce()`.
+- **`untilBuild` не применялся**: `build.gradle.kts` не пробрасывал `pluginUntilBuild`, из-за чего эффективный верхний предел был `243.*` (плагин не ставился на 2025.1+). Теперь `pluginUntilBuild=253.*` действительно применяется.
+- **Zone-эффекты не отрисовывались** в single-device пути: `composeFrame` получил device-aware zone-resolver.
+
+### Changed
+- **Потокобезопасность состояния**: `@Volatile` для `state` в `KgBoardSettings`/`KgBoardProjectSettings`, `cachedDevices`/`cachedDeviceCount` в `OpenRgbConnectionService`; синхронизация перестроения маппингов в `KeyboardLayoutService`; `@Volatile` в `KeyGroupService`; потокобезопасный `activeContexts` (`ConcurrentHashMap.newKeySet`) в `ShortcutHighlightService`.
+- **Кэш regex для git branch-rules**: паттерны компилируются один раз вместо рекомпиляции на каждый poll.
+- **Снижен уровень логирования парсинга протокола** (`info` → `debug`) — убран спам в `idea.log`.
+- **Дедупликация UI настроек**: общий `SettingsUiUtil` (color panel, hex, key-group popup, валидация LED-индексов) вместо копипасты в двух Configurable; `Alarm`'ы привязаны к UI-Disposable и корректно освобождаются в `disposeUIResources`.
+- **Кнопка Test без активного подключения** показывает уведомление вместо тихой записи в лог.
+
+### Removed
+- Мёртвое поле `frameBuffer` в `LedCompositor`; артефакты компиляции (`com/`, `git4idea/`, `*.class`, `img.png`) добавлены в `.gitignore`.
+
+## [1.3.0] - 2026-02-14
+
+### Fixed
+- **OpenRGB protocol v4/v5 parsing**: Root cause of all LED control failures — `parseZone()` didn't read v4 zone segments, causing buffer position shift and `numLeds` to parse as 0. Now correctly handles:
+  - v3+: brightness fields in modes (`brightness_min`, `brightness_max`, `brightness`)
+  - v4+: zone segments (`name`, `type`, `start_idx`, `leds_count`)
+  - v5+: zone flags, LED alternate names, controller flags
+- **Test buttons flash black instead of configured color**: Compositor pause during test preview, restoring idle state after 2 seconds
+- **"Test LEDs" button on Connection tab kills EVision keyboard**: Was calling `setCustomMode` → now uses safe `testLeds()` path
+
+### Changed
+- **Protocol version upgraded to v5**: `CLIENT_PROTOCOL_VERSION` now 5 (was 4), matching OpenRGB 1.0+
+- **Frame composition extracted to `EffectColorComputer.composeFrame()`**: Pure testable function for LED frame composition, used by LedCompositor.doRender()
+
+### Added
+- **4 new protocol parsing tests**: v0, v3 (brightness), v4 (segments), v5 (full) device payload parsing (total 158 tests)
+
+## [1.2.0] - 2026-02-13
+
+### Added
+- **Test buttons for all color settings**: "Test" button next to each of 18 color pickers in app settings — sends a 2-second flash preview to the keyboard, then returns to idle color
+- **Connection listeners in OpenRgbConnectionService**: `addConnectionListener()` / `removeConnectionListener()` API — listeners are notified after every successful connection
+
+### Fixed
+- **Key Groups not available after manual connect**: `refreshFromDevice()` was only called during auto-connect on startup. Now connection listeners automatically refresh keyboard layout and key groups on any successful connection
+- **Lazy key group refresh in settings**: "Key Groups..." popup now attempts a refresh if groups are empty but connection is active, fixing the case when user connects manually before opening settings
+
 ## [1.1.0] - 2026-02-13
 
 ### Added

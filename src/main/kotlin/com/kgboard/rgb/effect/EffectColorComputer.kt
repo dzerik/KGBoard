@@ -82,6 +82,65 @@ object EffectColorComputer {
         )
     }
 
+    /**
+     * Compose a complete LED frame from active effects.
+     * Pure function: no service dependencies, fully testable.
+     *
+     * 1. Fill frame with idle color
+     * 2. Remove expired effects
+     * 3. Sort by priority ascending (higher overwrites lower)
+     * 4. Composite each effect onto the frame
+     *
+     * @return Pair of (frame, remaining active effects after expiration)
+     */
+    fun composeFrame(
+        idleColor: Color,
+        effects: List<ActiveEffect>,
+        numLeds: Int,
+        now: Long,
+        zoneResolver: ((EffectTarget.Zone) -> List<Int>)? = null
+    ): Array<Color> {
+        val frame = Array(numLeds) { idleColor }
+
+        val active = effects.filter { ae ->
+            ae.timeoutMs <= 0 || now - ae.startTime < ae.timeoutMs
+        }
+
+        val sorted = active.sortedBy { it.effect.priority }
+
+        for (ae in sorted) {
+            val elapsed = now - ae.startTime
+            val indices = resolveIndices(ae.effect.target, numLeds, zoneResolver)
+            val colors = computeColors(ae.effect, elapsed, indices.size, numLeds, idleColor)
+
+            for ((i, ledIdx) in indices.withIndex()) {
+                if (ledIdx in frame.indices && i < colors.size) {
+                    frame[ledIdx] = colors[i]
+                }
+            }
+        }
+
+        return frame
+    }
+
+    /**
+     * Resolve effect target to LED index list (pure, no service dependencies).
+     * Zone targets require device info, supplied by the optional [zoneResolver]
+     * (LedCompositor passes its device-aware resolver). Without it, Zone resolves to empty.
+     */
+    internal fun resolveIndices(
+        target: EffectTarget,
+        numLeds: Int,
+        zoneResolver: ((EffectTarget.Zone) -> List<Int>)? = null
+    ): List<Int> {
+        return when (target) {
+            is EffectTarget.AllLeds -> (0 until numLeds).toList()
+            is EffectTarget.SingleLed -> listOf(target.ledIndex).filter { it in 0 until numLeds }
+            is EffectTarget.LedSet -> target.ledIndices.filter { it in 0 until numLeds }
+            is EffectTarget.Zone -> (zoneResolver?.invoke(target) ?: emptyList()).filter { it in 0 until numLeds }
+        }
+    }
+
     fun interpolateColor(from: Color, to: Color, ratio: Float): Color {
         return Color(
             (from.red + (to.red - from.red) * ratio).toInt().coerceIn(0, 255),

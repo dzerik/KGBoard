@@ -1,5 +1,6 @@
 package com.kgboard.rgb.client
 
+import com.intellij.openapi.diagnostic.Logger
 import java.awt.Color
 import java.io.InputStream
 import java.io.OutputStream
@@ -11,6 +12,8 @@ import java.nio.ByteOrder
  * Protocol spec: https://gitlab.com/OpenRGBDevelopers/OpenRGB-Wiki/-/blob/stable/Developer-Documentation/OpenRGB-SDK-Documentation.md
  */
 object OpenRgbProtocol {
+    private val log = Logger.getInstance(OpenRgbProtocol::class.java)
+
     const val MAGIC = "ORGB"
     const val DEFAULT_PORT = 6742
     const val HEADER_SIZE = 16
@@ -26,7 +29,7 @@ object OpenRgbProtocol {
     const val NET_PACKET_ID_RGBCONTROLLER_UPDATESINGLELED = 1052
     const val NET_PACKET_ID_RGBCONTROLLER_SETCUSTOMMODE = 1100
 
-    const val CLIENT_PROTOCOL_VERSION = 4
+    const val CLIENT_PROTOCOL_VERSION = 5
 
     fun writeHeader(out: OutputStream, deviceIndex: Int, packetId: Int, dataSize: Int) {
         val buf = ByteBuffer.allocate(HEADER_SIZE).order(ByteOrder.LITTLE_ENDIAN)
@@ -115,7 +118,10 @@ object OpenRgbProtocol {
         return payload.getInt()
     }
 
-    fun parseControllerData(payload: ByteBuffer): RgbDeviceInfo {
+    fun parseControllerData(payload: ByteBuffer, protocolVersion: Int = 0): RgbDeviceInfo {
+        val totalSize = payload.remaining()
+        log.debug("parseControllerData: protocolVersion=$protocolVersion, payloadSize=$totalSize")
+
         @Suppress("UNUSED_VARIABLE") val dataSize = payload.getInt()
         val deviceType = payload.getInt()
 
@@ -125,29 +131,36 @@ object OpenRgbProtocol {
         readString(payload) // version
         readString(payload) // serial
         readString(payload) // location
+        log.debug("  device='$name', vendor='$vendor', pos=${payload.position()}/$totalSize")
 
         val numModes = payload.getShort().toInt() and 0xFFFF
         payload.getInt() // activeModeIndex
+        log.debug("  numModes=$numModes, pos=${payload.position()}/$totalSize")
 
-        // Skip modes
         for (i in 0 until numModes) {
-            skipMode(payload)
+            skipMode(payload, protocolVersion)
         }
+        log.debug("  after modes: pos=${payload.position()}/$totalSize")
 
         val numZones = payload.getShort().toInt() and 0xFFFF
+        log.debug("  numZones=$numZones, pos=${payload.position()}/$totalSize")
         val zones = mutableListOf<RgbZoneInfo>()
         for (i in 0 until numZones) {
-            zones.add(parseZone(payload))
+            zones.add(parseZone(payload, protocolVersion))
+            log.debug("  zone[$i]='${zones.last().name}' leds=${zones.last().ledsCount}, pos=${payload.position()}/$totalSize")
         }
 
         val numLeds = payload.getShort().toInt() and 0xFFFF
+        log.debug("  numLeds=$numLeds, pos=${payload.position()}/$totalSize")
         val ledNames = mutableListOf<String>()
         for (i in 0 until numLeds) {
             ledNames.add(readString(payload)) // LED name
             payload.getInt() // LED value
         }
+        log.debug("  after LEDs: pos=${payload.position()}/$totalSize")
 
         val numColors = payload.getShort().toInt() and 0xFFFF
+        log.debug("  numColors=$numColors, pos=${payload.position()}/$totalSize")
         val colors = mutableListOf<Color>()
         for (i in 0 until numColors) {
             val r = payload.get().toInt() and 0xFF
@@ -156,6 +169,18 @@ object OpenRgbProtocol {
             payload.get() // padding
             colors.add(Color(r, g, b))
         }
+
+        // v5+: LED alternate names + controller flags (AFTER colors per official spec)
+        if (protocolVersion >= 5) {
+            val numAltNames = payload.getShort().toInt() and 0xFFFF
+            log.debug("  numAltNames=$numAltNames, pos=${payload.position()}/$totalSize")
+            for (i in 0 until numAltNames) {
+                readString(payload) // alternate LED name
+            }
+            payload.getInt() // controller flags
+            log.debug("  after v5 extras: pos=${payload.position()}/$totalSize")
+        }
+        log.debug("  DONE: pos=${payload.position()}/$totalSize, remaining=${payload.remaining()}")
 
         return RgbDeviceInfo(
             type = deviceType,
@@ -179,18 +204,22 @@ object OpenRgbProtocol {
         return if (end >= 0) String(bytes, 0, end, Charsets.US_ASCII) else String(bytes, Charsets.US_ASCII)
     }
 
-    private fun skipMode(buf: ByteBuffer) {
+    private fun skipMode(buf: ByteBuffer, protocolVersion: Int) {
         readString(buf) // name
         buf.getInt() // value
         buf.getInt() // flags
         buf.getInt() // speed_min
         buf.getInt() // speed_max
-        buf.getInt() // brightness_min
-        buf.getInt() // brightness_max
+        if (protocolVersion >= 3) {
+            buf.getInt() // brightness_min
+            buf.getInt() // brightness_max
+        }
         buf.getInt() // colors_min
         buf.getInt() // colors_max
         buf.getInt() // speed
-        buf.getInt() // brightness
+        if (protocolVersion >= 3) {
+            buf.getInt() // brightness
+        }
         buf.getInt() // direction
         buf.getInt() // color_mode
         val numColors = buf.getShort().toInt() and 0xFFFF
@@ -199,7 +228,7 @@ object OpenRgbProtocol {
         }
     }
 
-    private fun parseZone(buf: ByteBuffer): RgbZoneInfo {
+    private fun parseZone(buf: ByteBuffer, protocolVersion: Int): RgbZoneInfo {
         val name = readString(buf)
         val type = buf.getInt()
         buf.getInt() // ledsMin
@@ -217,6 +246,20 @@ object OpenRgbProtocol {
                 map.add(buf.getInt())
             }
             matrixMap = map
+        }
+        // v4+: zone segments
+        if (protocolVersion >= 4) {
+            val numSegments = buf.getShort().toInt() and 0xFFFF
+            for (i in 0 until numSegments) {
+                readString(buf) // segment name
+                buf.getInt()    // segment type
+                buf.getInt()    // segment start_idx
+                buf.getInt()    // segment leds_count
+            }
+        }
+        // v5+: zone flags
+        if (protocolVersion >= 5) {
+            buf.getInt() // zone flags
         }
         return RgbZoneInfo(
             name = name,

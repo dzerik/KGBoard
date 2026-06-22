@@ -23,13 +23,19 @@ class KeyboardLayoutService : Disposable {
 
     private val log = Logger.getInstance(KeyboardLayoutService::class.java)
 
+    /** Guards mapping rebuilds so concurrent refresh() calls (EDT + connect listener) don't interleave. */
+    private val mappingLock = Any()
+
     /** LED name → LED index mapping for current device */
+    @Volatile
     private var ledNameToIndex: Map<String, Int> = emptyMap()
 
     /** Normalized key name → LED index */
+    @Volatile
     private var keyNameToLedIndex: Map<String, Int> = emptyMap()
 
     /** Java VK_ keyCode → LED index */
+    @Volatile
     private var keyCodeToLedIndex: Map<Int, Int> = emptyMap()
 
     val isAvailable: Boolean
@@ -92,9 +98,11 @@ class KeyboardLayoutService : Disposable {
             }
         }
 
-        ledNameToIndex = nameToIdx
-        keyNameToLedIndex = keyToIdx
-        keyCodeToLedIndex = codeToIdx
+        synchronized(mappingLock) {
+            ledNameToIndex = nameToIdx
+            keyNameToLedIndex = keyToIdx
+            keyCodeToLedIndex = codeToIdx
+        }
 
         log.info("Keyboard layout: ${keyToIdx.size} keys mapped from ${device.ledNames.size} LEDs (device: ${device.name})")
     }
@@ -116,9 +124,11 @@ class KeyboardLayoutService : Disposable {
     }
 
     private fun clear() {
-        ledNameToIndex = emptyMap()
-        keyNameToLedIndex = emptyMap()
-        keyCodeToLedIndex = emptyMap()
+        synchronized(mappingLock) {
+            ledNameToIndex = emptyMap()
+            keyNameToLedIndex = emptyMap()
+            keyCodeToLedIndex = emptyMap()
+        }
     }
 
     override fun dispose() {

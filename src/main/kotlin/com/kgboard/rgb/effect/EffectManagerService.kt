@@ -42,33 +42,42 @@ class EffectManagerService(private val project: Project) : Disposable {
     private var currentGlobalPriority: Int = -1
     private var cleanupTask: ScheduledFuture<*>? = null
 
+    /**
+     * Guards the compound check-then-act on the global-effect bookkeeping
+     * (currentGlobalEffectId / currentGlobalPriority / cleanupTask), which is mutated
+     * concurrently from build/test/run/debug listener threads.
+     */
+    private val globalLock = Any()
+
     // ─── Phase 1 API (backward-compatible) ───
 
     fun applyEffect(effect: RgbEffect, timeoutMs: Long? = null) {
         if (!settings.enabled || !connection.isConnected) return
 
-        if (currentGlobalPriority > effect.priority && currentGlobalEffectId != null) {
-            log.debug("Ignoring effect ${effect.name} (priority ${effect.priority} < current $currentGlobalPriority)")
-            return
-        }
+        synchronized(globalLock) {
+            if (currentGlobalPriority > effect.priority && currentGlobalEffectId != null) {
+                log.debug("Ignoring effect ${effect.name} (priority ${effect.priority} < current $currentGlobalPriority)")
+                return
+            }
 
-        log.info("Applying effect: ${effect.name} (priority: ${effect.priority})")
+            log.info("Applying effect: ${effect.name} (priority: ${effect.priority})")
 
-        // Remove previous global effect
-        currentGlobalEffectId?.let { compositor.removeEffect(it) }
+            // Remove previous global effect
+            currentGlobalEffectId?.let { compositor.removeEffect(it) }
 
-        val id = "global:${effect.name}:${System.currentTimeMillis()}"
-        currentGlobalEffectId = id
-        currentGlobalPriority = effect.priority
+            val id = "global:${effect.name}:${System.currentTimeMillis()}"
+            currentGlobalEffectId = id
+            currentGlobalPriority = effect.priority
 
-        val duration = timeoutMs ?: settings.effectDurationMs
-        compositor.addEffect(id, effect, if (duration > 0) duration else 0)
+            val duration = timeoutMs ?: settings.effectDurationMs
+            compositor.addEffect(id, effect, if (duration > 0) duration else 0)
 
-        // Auto-cleanup for timed effects
-        if (duration > 0) {
-            // Compositor handles timeout internally via ActiveEffect.timeoutMs
-            // We also need to clear our tracking
-            scheduleGlobalCleanup(id, duration)
+            // Auto-cleanup for timed effects
+            if (duration > 0) {
+                // Compositor handles timeout internally via ActiveEffect.timeoutMs
+                // We also need to clear our tracking
+                scheduleGlobalCleanup(id, duration)
+            }
         }
     }
 
@@ -81,18 +90,22 @@ class EffectManagerService(private val project: Project) : Disposable {
     }
 
     fun returnToIdle() {
-        // Remove only the current global effect, not per-key indicators
-        currentGlobalEffectId?.let { compositor.removeEffect(it) }
-        currentGlobalEffectId = null
-        currentGlobalPriority = -1
+        synchronized(globalLock) {
+            // Remove only the current global effect, not per-key indicators
+            currentGlobalEffectId?.let { compositor.removeEffect(it) }
+            currentGlobalEffectId = null
+            currentGlobalPriority = -1
+        }
         // Compositor will render idle color for any LED not covered by per-key effects
         compositor.renderOnce()
     }
 
     fun clearEffect() {
-        currentGlobalEffectId?.let { compositor.removeEffect(it) }
-        currentGlobalEffectId = null
-        currentGlobalPriority = -1
+        synchronized(globalLock) {
+            currentGlobalEffectId?.let { compositor.removeEffect(it) }
+            currentGlobalEffectId = null
+            currentGlobalPriority = -1
+        }
     }
 
     fun restoreCurrentEffect() {
@@ -115,20 +128,26 @@ class EffectManagerService(private val project: Project) : Disposable {
 
     // ─── Internal ───
 
+    /** Must be called while holding [globalLock]. */
     private fun scheduleGlobalCleanup(effectId: String, delayMs: Long) {
         cleanupTask?.cancel(false)
         cleanupTask = cleanupScheduler.schedule({
-            if (currentGlobalEffectId == effectId) {
-                currentGlobalEffectId = null
-                currentGlobalPriority = -1
+            synchronized(globalLock) {
+                if (currentGlobalEffectId == effectId) {
+                    currentGlobalEffectId = null
+                    currentGlobalPriority = -1
+                }
             }
         }, delayMs + 100, TimeUnit.MILLISECONDS)
     }
 
     override fun dispose() {
-        currentGlobalEffectId = null
-        currentGlobalPriority = -1
-        cleanupTask?.cancel(false)
+        synchronized(globalLock) {
+            currentGlobalEffectId = null
+            currentGlobalPriority = -1
+            cleanupTask?.cancel(false)
+            cleanupTask = null
+        }
         cleanupScheduler.shutdown()
     }
 

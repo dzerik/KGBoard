@@ -30,9 +30,11 @@ class KeyGroupService : PersistentStateComponent<KeyGroupService.GroupState> {
         var userGroups: MutableList<UserGroup> = mutableListOf()
     )
 
+    @Volatile
     private var state = GroupState()
 
     /** Cached resolved indices for built-in groups. Refreshed on device connect. */
+    @Volatile
     private var resolvedBuiltInGroups: Map<String, List<Int>> = emptyMap()
 
     override fun getState(): GroupState = state

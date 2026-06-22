@@ -29,8 +29,8 @@ class OpenRgbProtocolTest {
     }
 
     @Test
-    fun `client protocol version is 4`() {
-        assertEquals(4, OpenRgbProtocol.CLIENT_PROTOCOL_VERSION)
+    fun `client protocol version is 5`() {
+        assertEquals(5, OpenRgbProtocol.CLIENT_PROTOCOL_VERSION)
     }
 
     // ── writeHeader / readHeader ──
@@ -228,6 +228,76 @@ class OpenRgbProtocolTest {
         assertEquals(3, device.zones[0].ledsCount)
     }
 
+    @Test
+    fun `parseControllerData parses v4 device with segments`() {
+        val buf = buildDevicePayload(
+            protocolVersion = 4,
+            name = "Keyboard", vendor = "V", description = "D",
+            numZones = 1, zoneName = "Zone1", zoneLeds = 126,
+            segments = listOf(Segment("Seg1", 1, 0, 60), Segment("Seg2", 1, 60, 66)),
+            ledNames = listOf("Key: A", "Key: B"),
+            colors = listOf(Color.RED, Color.GREEN)
+        )
+        val device = OpenRgbProtocol.parseControllerData(buf, protocolVersion = 4)
+        assertEquals("Keyboard", device.name)
+        assertEquals(2, device.numLeds)
+        assertEquals(2, device.colors.size)
+        assertEquals(1, device.zones.size)
+        assertEquals(126, device.zones[0].ledsCount)
+    }
+
+    @Test
+    fun `parseControllerData parses v5 device with segments and flags`() {
+        val buf = buildDevicePayload(
+            protocolVersion = 5,
+            name = "EVision Keyboard", vendor = "EVision", description = "HID",
+            numZones = 1, zoneName = "Keyboard", zoneLeds = 126,
+            segments = listOf(Segment("Main", 1, 0, 126)),
+            ledNames = (0 until 126).map { "Key: $it" },
+            colors = (0 until 126).map { Color.BLACK },
+            ledAltNames = listOf("Alt_0", "Alt_1"),
+            controllerFlags = 0
+        )
+        val device = OpenRgbProtocol.parseControllerData(buf, protocolVersion = 5)
+        assertEquals("EVision Keyboard", device.name)
+        assertEquals("EVision", device.vendor)
+        assertEquals(126, device.numLeds)
+        assertEquals(126, device.colors.size)
+        assertEquals(1, device.zones.size)
+        assertEquals("Keyboard", device.zones[0].name)
+    }
+
+    @Test
+    fun `parseControllerData parses v3 device with mode brightness`() {
+        val buf = buildDevicePayload(
+            protocolVersion = 3,
+            name = "KB", vendor = "V", description = "D",
+            numZones = 1, zoneName = "Z", zoneLeds = 3,
+            numModes = 1, modeBrightness = true,
+            ledNames = listOf("A", "B", "C"),
+            colors = listOf(Color.WHITE, Color.WHITE, Color.WHITE)
+        )
+        val device = OpenRgbProtocol.parseControllerData(buf, protocolVersion = 3)
+        assertEquals("KB", device.name)
+        assertEquals(3, device.numLeds)
+    }
+
+    @Test
+    fun `parseControllerData v0 without brightness or segments`() {
+        val buf = buildDevicePayload(
+            protocolVersion = 0,
+            name = "Dev", vendor = "V", description = "D",
+            numZones = 1, zoneName = "Z", zoneLeds = 2,
+            numModes = 1, modeBrightness = false,
+            ledNames = listOf("L1", "L2"),
+            colors = listOf(Color.RED, Color.BLUE)
+        )
+        val device = OpenRgbProtocol.parseControllerData(buf, protocolVersion = 0)
+        assertEquals("Dev", device.name)
+        assertEquals(2, device.numLeds)
+        assertEquals(2, device.colors.size)
+    }
+
     // ── PacketHeader data class ──
 
     @Test
@@ -247,12 +317,30 @@ class OpenRgbProtocolTest {
         assertEquals(emptyList<String>(), info.ledNames)
     }
 
-    // ── Helper ──
+    // ── Helpers ──
 
+    private data class Segment(val name: String, val type: Int, val startIdx: Int, val ledsCount: Int)
+
+    /** Legacy helper for v0 payloads (no modes, no segments) */
     private fun buildMinimalDevicePayload(
         name: String, vendor: String, description: String,
         numZones: Int, zoneName: String, zoneLeds: Int,
         ledNames: List<String>, colors: List<Color>
+    ): ByteBuffer = buildDevicePayload(
+        protocolVersion = 0, name = name, vendor = vendor, description = description,
+        numZones = numZones, zoneName = zoneName, zoneLeds = zoneLeds,
+        ledNames = ledNames, colors = colors
+    )
+
+    private fun buildDevicePayload(
+        protocolVersion: Int,
+        name: String, vendor: String, description: String,
+        numZones: Int, zoneName: String, zoneLeds: Int,
+        ledNames: List<String>, colors: List<Color>,
+        numModes: Int = 0, modeBrightness: Boolean = false,
+        segments: List<Segment> = emptyList(),
+        ledAltNames: List<String> = emptyList(),
+        controllerFlags: Int = 0
     ): ByteBuffer {
         val out = ByteArrayOutputStream()
 
@@ -281,8 +369,29 @@ class OpenRgbProtocolTest {
         writeString("SN123") // serial
         writeString("USB") // location
 
-        writeShort(0) // numModes
+        // Modes
+        writeShort(numModes)
         writeInt(0) // activeModeIndex
+        for (i in 0 until numModes) {
+            writeString("Custom") // mode name
+            writeInt(0)  // value
+            writeInt(0)  // flags
+            writeInt(0)  // speed_min
+            writeInt(100) // speed_max
+            if (modeBrightness && protocolVersion >= 3) {
+                writeInt(0)   // brightness_min
+                writeInt(100) // brightness_max
+            }
+            writeInt(0) // colors_min
+            writeInt(0) // colors_max
+            writeInt(50) // speed
+            if (modeBrightness && protocolVersion >= 3) {
+                writeInt(100) // brightness
+            }
+            writeInt(0) // direction
+            writeInt(0) // color_mode
+            writeShort(0) // mode num_colors
+        }
 
         // Zones
         writeShort(numZones)
@@ -293,6 +402,20 @@ class OpenRgbProtocolTest {
             writeInt(zoneLeds) // ledsMax
             writeInt(zoneLeds) // ledsCount
             writeShort(0) // matrixSize
+            // v4+: segments
+            if (protocolVersion >= 4) {
+                writeShort(segments.size)
+                for (seg in segments) {
+                    writeString(seg.name)
+                    writeInt(seg.type)
+                    writeInt(seg.startIdx)
+                    writeInt(seg.ledsCount)
+                }
+            }
+            // v5+: zone flags
+            if (protocolVersion >= 5) {
+                writeInt(0) // zone flags
+            }
         }
 
         // LEDs
@@ -302,10 +425,19 @@ class OpenRgbProtocolTest {
             writeInt(0) // LED value
         }
 
-        // Colors
+        // Colors (BEFORE v5 extras per official spec)
         writeShort(colors.size)
         for (c in colors) {
             out.write(byteArrayOf(c.red.toByte(), c.green.toByte(), c.blue.toByte(), 0))
+        }
+
+        // v5+: LED alternate names + controller flags (AFTER colors)
+        if (protocolVersion >= 5) {
+            writeShort(ledAltNames.size)
+            for (alt in ledAltNames) {
+                writeString(alt)
+            }
+            writeInt(controllerFlags)
         }
 
         val data = out.toByteArray()

@@ -3,16 +3,14 @@ package com.kgboard.rgb.settings
 import com.intellij.openapi.options.BoundConfigurable
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.DialogPanel
-import com.intellij.openapi.ui.popup.JBPopupFactory
 import com.intellij.ui.ColorPanel
 import com.intellij.ui.ToolbarDecorator
+import com.intellij.ui.components.JBCheckBox
 import com.intellij.ui.dsl.builder.*
 import com.intellij.ui.table.JBTable
 import com.intellij.util.ui.ListTableModel
 import com.intellij.util.ui.ColumnInfo
-import com.kgboard.rgb.preset.KeyGroupService
 import java.awt.Color
-import java.awt.Dimension
 import javax.swing.JTextField
 import javax.swing.table.TableCellEditor
 import javax.swing.DefaultCellEditor
@@ -49,9 +47,7 @@ class KgBoardProjectConfigurable(private val project: Project) : BoundConfigurab
         }
     )
 
-    private fun colorPanel(): ColorPanel = ColorPanel().apply {
-        preferredSize = Dimension(90, 25)
-    }
+    private fun colorPanel(): ColorPanel = SettingsUiUtil.colorPanel()
 
     override fun createPanel(): DialogPanel {
         val s = KgBoardProjectSettings.getInstance(project)
@@ -73,40 +69,42 @@ class KgBoardProjectConfigurable(private val project: Project) : BoundConfigurab
         return panel {
             // ── Git Indicator ──
             group("Git Status Indicator") {
+                lateinit var enable: Cell<JBCheckBox>
                 row {
-                    checkBox("Enable Git status indicator")
+                    enable = checkBox("Enable Git status indicator")
                         .bindSelected(s.state::gitEnabled)
                 }
                 row("LED indices:") {
                     val tf = textField()
                         .columns(20)
                         .bindText(s.state::gitLedIndices)
+                        .validationOnInput { SettingsUiUtil.validateLedIndices(it.text)?.let { msg -> error(msg) } }
                         .comment("Comma-separated LED indices (e.g., 0,1,2). Leave empty to disable.")
                         .component
-                    button("Key Groups...") { showKeyGroupPopup(tf) }
-                }
+                    button("Key Groups...") { SettingsUiUtil.showKeyGroupPopup(tf) }
+                }.enabledIf(enable.selected)
                 row("Polling interval:") {
                     intTextField(2..60)
                         .columns(4)
                         .bindIntText(s.state::gitPollingIntervalSec)
                         .comment("Seconds between Git status checks")
-                }
+                }.enabledIf(enable.selected)
                 row("Uncommitted:") {
                     cell(gitUncommittedColor).gap(RightGap.SMALL)
                     comment("Modified/staged files not yet committed")
-                }
+                }.enabledIf(enable.selected)
                 row("Conflict:") {
                     cell(gitConflictColor).gap(RightGap.SMALL)
                     comment("Merge/rebase conflict in progress")
-                }
+                }.enabledIf(enable.selected)
                 row("Unpushed:") {
                     cell(gitUnpushedColor).gap(RightGap.SMALL)
                     comment("Local commits not yet pushed to remote")
-                }
+                }.enabledIf(enable.selected)
                 row("Clean:") {
                     cell(gitCleanColor).gap(RightGap.SMALL)
                     comment("Working tree is clean and up-to-date")
-                }
+                }.enabledIf(enable.selected)
             }
 
             // ── Git Branch Color Rules ──
@@ -133,30 +131,32 @@ class KgBoardProjectConfigurable(private val project: Project) : BoundConfigurab
 
             // ── Code Analysis ──
             group("Code Analysis Indicator") {
+                lateinit var enable: Cell<JBCheckBox>
                 row {
-                    checkBox("Enable code analysis indicator")
+                    enable = checkBox("Enable code analysis indicator")
                         .bindSelected(s.state::analysisEnabled)
                 }
                 row("LED indices:") {
                     val tf = textField()
                         .columns(20)
                         .bindText(s.state::analysisLedIndices)
+                        .validationOnInput { SettingsUiUtil.validateLedIndices(it.text)?.let { msg -> error(msg) } }
                         .comment("Comma-separated LED indices for analysis indicator")
                         .component
-                    button("Key Groups...") { showKeyGroupPopup(tf) }
-                }
+                    button("Key Groups...") { SettingsUiUtil.showKeyGroupPopup(tf) }
+                }.enabledIf(enable.selected)
                 row("Errors:") {
                     cell(analysisErrorColor).gap(RightGap.SMALL)
                     comment("Files with compilation errors")
-                }
+                }.enabledIf(enable.selected)
                 row("Warnings:") {
                     cell(analysisWarningColor).gap(RightGap.SMALL)
                     comment("Files with warnings only")
-                }
+                }.enabledIf(enable.selected)
                 row("Clean:") {
                     cell(analysisCleanColor).gap(RightGap.SMALL)
                     comment("No problems found")
-                }
+                }.enabledIf(enable.selected)
             }
 
             // ── Shortcut Highlight ──
@@ -223,46 +223,9 @@ class KgBoardProjectConfigurable(private val project: Project) : BoundConfigurab
         return currentRules.zip(savedRules).any { (a, b) -> a.pattern != b.pattern || a.color != b.color }
     }
 
-    private fun showKeyGroupPopup(textField: JTextField) {
-        val groupService = KeyGroupService.getInstance()
-        val groups = groupService.getAvailableGroups()
+    private fun colorChanged(panel: ColorPanel, hex: String): Boolean = SettingsUiUtil.colorChanged(panel, hex)
 
-        if (groups.isEmpty()) {
-            JBPopupFactory.getInstance()
-                .createMessage("No key groups available. Connect to OpenRGB first.")
-                .showInFocusCenter()
-            return
-        }
+    private fun parseColor(hex: String): Color = SettingsUiUtil.parseColor(hex)
 
-        val items = groups.entries.map { (id, indices) ->
-            val displayName = groupService.getDisplayName(id)
-            "$displayName (${indices.size} LEDs)" to indices.joinToString(",")
-        }
-
-        JBPopupFactory.getInstance()
-            .createPopupChooserBuilder(items.map { it.first })
-            .setTitle("Select Key Group")
-            .setItemChosenCallback { selected ->
-                val pair = items.find { it.first == selected }
-                if (pair != null) {
-                    val current = textField.text.trim()
-                    textField.text = if (current.isEmpty()) pair.second
-                    else "$current,${pair.second}"
-                }
-            }
-            .createPopup()
-            .showInFocusCenter()
-    }
-
-    private fun colorChanged(panel: ColorPanel, hex: String): Boolean {
-        val panelColor = panel.selectedColor ?: return false
-        return toHex(panelColor) != hex
-    }
-
-    private fun parseColor(hex: String): Color = try { Color.decode(hex) } catch (_: Exception) { Color.BLACK }
-
-    private fun toHex(color: Color?): String {
-        color ?: return "#000000"
-        return String.format("#%02X%02X%02X", color.red, color.green, color.blue)
-    }
+    private fun toHex(color: Color?): String = SettingsUiUtil.toHex(color)
 }

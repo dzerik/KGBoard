@@ -44,6 +44,12 @@ class PomodoroTimerService(private val project: Project) : Disposable {
         private set
 
     private var tickTask: ScheduledFuture<*>? = null
+    /**
+     * Incremented whenever the ticking task is (re)started or stopped. A scheduled tick that was
+     * already in-flight when the phase changed (cancel(false) cannot interrupt a running runnable)
+     * carries a stale generation and is discarded — prevents a double phase transition.
+     */
+    private val tickGeneration = AtomicInteger(0)
     private val listeners = CopyOnWriteArrayList<() -> Unit>()
 
     /** Lock for state transitions to prevent skip()/onPhaseComplete() race */
@@ -80,6 +86,7 @@ class PomodoroTimerService(private val project: Project) : Disposable {
 
     fun stop() {
         synchronized(stateLock) {
+            tickGeneration.incrementAndGet() // invalidate any in-flight tick
             tickTask?.cancel(false)
             tickTask = null
             currentPhase = Phase.IDLE
@@ -185,18 +192,22 @@ class PomodoroTimerService(private val project: Project) : Disposable {
 
     private fun startTicking() {
         tickTask?.cancel(false)
+        val gen = tickGeneration.incrementAndGet()
         tickTask = scheduler.scheduleAtFixedRate({
+            if (gen != tickGeneration.get()) return@scheduleAtFixedRate // superseded by skip/stop
             if (remainingSeconds > 0) {
                 remainingSeconds--
                 notifyListeners()
             } else {
-                onPhaseComplete()
+                onPhaseComplete(gen)
             }
         }, 1, 1, TimeUnit.SECONDS)
     }
 
-    private fun onPhaseComplete() {
+    private fun onPhaseComplete(gen: Int) {
         synchronized(stateLock) {
+            // Re-check under the lock: a skip()/stop() may have run between the tick's guard and here.
+            if (gen != tickGeneration.get()) return
             tickTask?.cancel(false)
             tickTask = null
 
@@ -220,6 +231,7 @@ class PomodoroTimerService(private val project: Project) : Disposable {
     }
 
     override fun dispose() {
+        tickGeneration.incrementAndGet()
         tickTask?.cancel(false)
         tickTask = null
         try {

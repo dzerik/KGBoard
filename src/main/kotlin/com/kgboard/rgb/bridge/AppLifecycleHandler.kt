@@ -23,6 +23,10 @@ class AppLifecycleHandler : AppLifecycleListener {
             log.info("IDE shutting down (restart=$isRestart) — resetting keyboard LEDs")
             try {
                 connection.setAllLedsMultiDevice(Color.BLACK)
+                // The reset is dispatched to the connection executor asynchronously. During IDE
+                // shutdown there is no later flush point, so we briefly block here to give the
+                // packet a chance to reach OpenRGB before the process exits. 100ms is a pragmatic
+                // bound — acceptable on the shutdown path (no UI responsiveness concern).
                 Thread.sleep(100)
             } catch (e: Exception) {
                 log.warn("Failed to reset LEDs on shutdown: ${e.message}")

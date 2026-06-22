@@ -3,6 +3,7 @@ package com.kgboard.rgb.client
 import com.intellij.openapi.diagnostic.Logger
 import java.awt.Color
 import java.io.IOException
+import java.net.InetSocketAddress
 import java.net.Socket
 
 /**
@@ -17,24 +18,44 @@ class OpenRgbClient(
 
     private val log = Logger.getInstance(OpenRgbClient::class.java)
 
+    @Volatile
     private var socket: Socket? = null
     private val lock = Any()
 
+    companion object {
+        private const val CONNECT_TIMEOUT_MS = 3000
+        private const val READ_TIMEOUT_MS = 5000
+    }
+
+    /** Negotiated protocol version = min(client, server) */
+    var protocolVersion: Int = 0
+        private set
+
     val isConnected: Boolean
-        get() = socket?.isConnected == true && socket?.isClosed == false
+        get() {
+            val s = socket ?: return false
+            return s.isConnected && !s.isClosed
+        }
 
     fun connect() {
         synchronized(lock) {
             if (isConnected) return
             try {
-                val s = Socket(host, port)
+                val s = Socket()
+                // Bounded connect timeout: a plain Socket(host, port) would block for the
+                // full OS-level TCP timeout (tens of seconds) if the host is unreachable.
+                s.connect(InetSocketAddress(host, port), CONNECT_TIMEOUT_MS)
                 s.tcpNoDelay = true
-                s.soTimeout = 5000
+                s.soTimeout = READ_TIMEOUT_MS
                 socket = s
                 negotiateProtocolVersion()
                 setClientName(clientName)
                 log.info("Connected to OpenRGB at $host:$port")
             } catch (e: IOException) {
+                try {
+                    socket?.close()
+                } catch (_: IOException) {
+                }
                 socket = null
                 throw OpenRgbException("Failed to connect to OpenRGB at $host:$port", e)
             }
@@ -77,14 +98,13 @@ class OpenRgbClient(
             s.getOutputStream().flush()
             val header = OpenRgbProtocol.readHeader(s.getInputStream())
             val payload = OpenRgbProtocol.readPayload(s.getInputStream(), header.dataSize)
-            return OpenRgbProtocol.parseControllerData(payload)
+            return OpenRgbProtocol.parseControllerData(payload, protocolVersion)
         }
     }
 
     fun getAllDevices(): List<RgbDeviceInfo> {
         synchronized(lock) {
             val s = requireConnection()
-            // Get count and all devices in a single lock to prevent race
             OpenRgbProtocol.writeHeader(s.getOutputStream(), 0, OpenRgbProtocol.NET_PACKET_ID_REQUEST_CONTROLLER_COUNT, 0)
             val countHeader = OpenRgbProtocol.readHeader(s.getInputStream())
             val countPayload = OpenRgbProtocol.readPayload(s.getInputStream(), countHeader.dataSize)
@@ -100,7 +120,7 @@ class OpenRgbClient(
                 s.getOutputStream().flush()
                 val header = OpenRgbProtocol.readHeader(s.getInputStream())
                 val payload = OpenRgbProtocol.readPayload(s.getInputStream(), header.dataSize)
-                OpenRgbProtocol.parseControllerData(payload)
+                OpenRgbProtocol.parseControllerData(payload, protocolVersion)
             }
         }
     }
@@ -142,12 +162,9 @@ class OpenRgbClient(
         }
     }
 
-    fun setAllLeds(deviceIndex: Int, color: Color, skipCustomMode: Boolean = false) {
+    fun setAllLeds(deviceIndex: Int, color: Color) {
         val device = getControllerData(deviceIndex)
         val colors = List(device.numLeds) { color }
-        if (!skipCustomMode) {
-            setCustomMode(deviceIndex)
-        }
         updateLeds(deviceIndex, colors)
     }
 
@@ -163,7 +180,8 @@ class OpenRgbClient(
         val header = OpenRgbProtocol.readHeader(s.getInputStream())
         val payload = OpenRgbProtocol.readPayload(s.getInputStream(), header.dataSize)
         val serverVersion = if (header.dataSize >= 4) payload.getInt() else 0
-        log.info("OpenRGB server protocol version: $serverVersion")
+        protocolVersion = minOf(OpenRgbProtocol.CLIENT_PROTOCOL_VERSION, serverVersion)
+        log.info("OpenRGB protocol: server=$serverVersion, client=${OpenRgbProtocol.CLIENT_PROTOCOL_VERSION}, negotiated=$protocolVersion")
     }
 
     private fun setClientName(name: String) {
