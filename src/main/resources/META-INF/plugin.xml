@@ -28,12 +28,13 @@
     <h3>Requirements</h3>
     <ul>
         <li><a href="https://openrgb.org">OpenRGB</a> running with SDK Server enabled (port 6742)</li>
-        <li>IntelliJ IDEA 2024.3+</li>
+        <li>IntelliJ IDEA 2026.3 (build 263.*)</li>
     </ul>
     ]]></description>
 
     <depends>com.intellij.modules.platform</depends>
     <depends>com.intellij.modules.java</depends>
+    <depends>com.intellij.platform.testRunner</depends>
     <depends optional="true" config-file="kgboard-git.xml">Git4Idea</depends>
 
     <extensions defaultExtensionNs="com.intellij">

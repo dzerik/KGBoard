@@ -6,18 +6,18 @@
 
 **Architecture:** Чистые переходы состояния и политика композиции исполняются одним application-level runtime. Адаптеры передают факты с идентичностью и ревизией, единственный writer управляет подключением и ограниченной очередью кадров. Новое ядро сначала проверяется без регистрации в IDE; переключение всех адаптеров и удаление старых путей вывода выполняются вместе.
 
-**Tech Stack:** Kotlin 1.9.25, JDK 21, IntelliJ Platform Gradle Plugin 2.3.0, JUnit Jupiter 5.10.2, MockK 1.13.13, Gradle Wrapper 8.12.
+**Tech Stack:** Kotlin 2.4.21, JDK 25, IntelliJ Platform Gradle Plugin 2.20.1, JUnit Jupiter 6.1.3, MockK 1.13.13, Gradle Wrapper 9.7.0.
 
 **Spec:** `docs/superpowers/specs/2026-11-16-runtime-state-design.md` — утверждена пользователем 2026-11-16.
 
 ## Global Constraints
 
-- Сохранить Kotlin 1.9.25, JDK 21, IntelliJ Platform 2024.3.6, диапазон 243–253.*.
+- Использовать Kotlin 2.4.21, JDK 25, IntelliJ Platform 2026.3, диапазон 263–263.*. SDK-база изменена по запросу пользователя после утверждения спецификации.
 - Сохранить формат существующих XML-настроек, цвета, группы клавиш, роли устройств и математические функции эффектов. Новые библиотеки не требуются.
 - Бинарный протокол OpenRGB сохраняется. Визуальный редизайн настроек и новые эффекты выходят за границы задачи.
-- Текущий документационный checkpoint — `89f3939`; baseline полной сборки ещё не подтверждён. Изолированные воспроизведения аудита не заменяют полный baseline.
+- Документационные checkpoints — `89f3939` и `dcfe594`; SDK-миграция 2.0.0 выполнена отдельно до runtime. Baseline на SDK 263.7307.200: 158 тестов, 0 ошибок, ZIP собран; Plugin Verifier 1.411 в offline-режиме: Compatible, 6 deprecated API usages. Изолированные воспроизведения аудита не заменяют этот baseline.
 - До Task 10 новый runtime не регистрируется и не отправляет данные из работающего плагина. Все промежуточные проверки используют его через явный конструктор и fake ports.
-- До атомарного переключения хранить изменения в рабочей ветке без промежуточных product-коммитов: итоговая версия реализации должна быть ровно 2.0.0. Исходный checkpoint перед рефакторингом уже существует. Если пользователь захочет промежуточные коммиты, сначала согласовать серии 2.0.x: каждый коммит по правилам проекта требует повышения версии и changelog.
+- До атомарного переключения хранить изменения в рабочей ветке без промежуточных product-коммитов: итоговая версия реализации runtime должна быть ровно 3.0.0. Исходный checkpoint перед рефакторингом уже существует. Если пользователь захочет промежуточные коммиты, сначала согласовать серии 3.0.x: каждый коммит по правилам проекта требует повышения версии и changelog.
 - Методы runtime не блокируют EDT и не выполняют сетевой I/O. Очередь событий не ожидает PSI или транспорта.
 - Документировать ограничения SDK-источников; не придумывать ID операций из имён конфигураций и не подменять неизвестное состояние успехом.
 
@@ -26,7 +26,7 @@
 - [ ] При начале исполнения применить using-git-worktrees: проверить существующую isolation.
   Если пользователь выбрал работу в текущей ветке, сохранить этот выбор и не создавать worktree.
 - [ ] До изменения продуктового кода выполнить
-  `JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64 ./gradlew test buildPlugin --console=plain`.
+  `JAVA_HOME=/usr/lib/jvm/java-25-openjdk-amd64 ./gradlew test buildPlugin --console=plain`.
   Записать точные результаты тестов и сборки. Сетевая загрузка SDK не считается ни
   failing regression, ни успешным baseline. Устранить проблемы окружения до TDD-цикла.
 
@@ -39,6 +39,12 @@
 5. Пустая/отменённая тестовая сессия и ошибка старта процесса: нет зелёного успеха и зависшего running. Тест Task 6.
 
 ## Распределение файлов и общий контракт
+
+При реализации учесть подтверждённый SDK-долг из отчёта Plugin Verifier: два вызова
+deprecated `ReadAction.compute` в CodeAnalysisListener/TodoIndicatorListener (Task 7)
+и четыре override/invocation deprecated `StatusBarWidget.getPresentation(PlatformType)`
+в основном и Pomodoro-виджете, включая сгенерированные мосты (Tasks 8–9). Совместимость
+SDK-миграции подтверждена; устранение этих устаревших контрактов относится к runtime-переработке.
 
 Пути ниже относительно `src/main/kotlin/com/kgboard/rgb/`; тесты повторяют пакет в `src/test/kotlin/com/kgboard/rgb/`.
 
@@ -161,7 +167,7 @@ interface RuntimeEvents { fun dispatch(event: RuntimeEvent) }
 Закрытый ProjectId не принимается до нового ProjectOpened; новый binding получает новый ID.
 Тест полноты снимка сопоставляет имена полей State с DTO, исключая только явно вычисляемые поля.
 
-- [ ] **Step 2:** Запустить `JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64 ./gradlew test --tests '*RuntimeReducerTest' --tests '*RuntimeSettingsTest'`. Ожидать RED из-за отсутствующего нового контракта; ошибки загрузки SDK фиксировать отдельно.
+- [ ] **Step 2:** Запустить `JAVA_HOME=/usr/lib/jvm/java-25-openjdk-amd64 ./gradlew test --tests '*RuntimeReducerTest' --tests '*RuntimeSettingsTest'`. Ожидать RED из-за отсутствующего нового контракта; ошибки загрузки SDK фиксировать отдельно.
 - [ ] **Step 3:** Реализовать DTO и переходы копированием map; terminal outcome хранить как факт, активность вычислять по phase. Удаление project чистит только его layers/operations/preview. Capture создаёт собственные immutable collections; отражение используется только тестом полноты.
 
 ```kotlin
@@ -213,7 +219,7 @@ operation; она хранится в OperationState и сравнивается
 Фикстура для frame-тестов: два RgbDeviceInfo с тремя LED, готовое соединение и
 активный открытый проект. Использовать реальный composeFrame и реальные эффекты.
 
-- [ ] **Step 2:** Запустить `./gradlew test --tests '*LightingPolicyTest'` под JDK 21; получить RED на отсутствии политики.
+- [ ] **Step 2:** Запустить `./gradlew test --tests '*LightingPolicyTest'` под JDK 25; получить RED на отсутствии политики.
 - [ ] **Step 3:** Перед composeFrame отфильтровать владельца/feature flags/deadlines, отсортировать
 слои детерминированно и сформировать кадр каждого устройства независимо. Для indicator убрать
 AllLeds; ambient — idle; mirror/primary используют собственный LED count и zone resolver.
@@ -374,7 +380,7 @@ Binding всегда подписывается, затем выполняет r
 - [ ] **Step 1:** RED тест с fake source: A→B без application-deactivated. В выводе только B;
 закрытие A ничего не меняет; деактивация приложения применяет dim к B; возврат выбирает
 актуальное окно. Initial callback, пришедший до завершения snapshot, не затирается старым снимком.
-- [ ] **Step 2:** Проверить API на SDK 243: native Window focus через AWT WindowFocusListener
+- [ ] **Step 2:** Проверить API на SDK 263: native Window focus через AWT WindowFocusListener
 для IDE frames и WindowManager; слушать открытие/закрытие рамок, а не только ApplicationActivationListener.
 Существующие application focus listeners передают события runtime; прямые LED-записи удалить при cutover.
 - [ ] **Step 3:** Реализовать binding с собственным Disposable и снимком только валидного проекта.
@@ -403,7 +409,7 @@ Registry хранит ссылки только в пределах project Disp
 - [ ] **Step 1:** RED тесты всех перестановок завершения A/B; debug pause→resume→stop;
 startScheduled→notStarted; cancelled build/test; ignored-only и zero tests; поздний duplicate finish.
 OperationOutcome.NOT_EXECUTED не создаёт зелёную вспышку. Считать leaf tests, исключая suites/root.
-- [ ] **Step 2:** Использовать подтверждённый в SDK 2024.3.6 ProjectTaskListener.TOPIC:
+- [ ] **Step 2:** Проверить на SDK 2026.3 и использовать ProjectTaskListener.TOPIC:
 `started(context)` и `finished(result)`, `result.context`, `isAborted`, `hasErrors`.
 Это даёт пары начала/конца; не выдумывать started из fileGenerated. Удалить дублирующую
 регистрацию CompilationStatusListener при cutover. Источники сборки вне ProjectTaskManager
@@ -419,7 +425,7 @@ val descriptor = ExecutionManager.getInstance(project).getRunningDescriptors { t
 val handler = descriptor?.processHandler
 ```
 
-Эти getter-подписи проверены javap на локальном SDK 243.26574.91. Если descriptor ещё не
+Эти getter-подписи перепроверены javap на SDK 263.7307.200. SM Runner находится в отдельном bundled-плагине `com.intellij.platform.testRunner`, уже объявленном в Gradle и plugin.xml. Если descriptor ещё не
 опубликован, повторить reconciliation на run-content lifecycle; сохранить test root как
 самостоятельный ID до появления корреляции, не связывать по времени/имени. Для descriptor
 с SMTRunnerConsoleView обычный RUN не создаёт отдельный визуальный слой. Корреляция не должна
@@ -589,25 +595,23 @@ rg -n 'setAllLeds|testLeds|updateLeds' src/main/kotlin/com/kgboard/rgb/bridge sr
 Первый и третий поиски должны быть пустыми; конструктор OpenRgbClient остаётся только
 в transport, низкоуровневые update методы — только в client. Проверки поведения остаются
 главным критерием, поиск служит контролем полноты миграции.
-- [ ] **Step 5:** Добавить plugin verification targets в build.gradle.kts для IC 2024.3.6,
-IC 2025.1, IC 2025.2 и IU 2025.3. Начиная с 2025.3 отдельная IC не публикуется;
-для ветки 253 использовать распространяемую IntelliJ IDEA с Java-модулем, сохраняя SDK 243
-для компиляции. Не сужать untilBuild ради прохождения проверки. В CI выполнять unit/build
-и verifyPlugin. Отсутствие бинарника платформы — unresolved verification.
+- [ ] **Step 5:** Использовать уже настроенную plugin verification target IDEA 2026.3
+(IU, build 263.*). Отдельная IC для этой версии не публикуется. Компиляция и проверка
+выполняются на одной базе; не возвращать декларацию поддержки 243–253.* без отдельного
+запроса и совместимой сборки под прежний Java runtime. В CI выполнять unit/build и
+verifyPlugin. Отсутствие бинарника платформы — unresolved verification.
 
 ```kotlin
 intellijPlatform {
     pluginVerification {
         ides {
-            ide(org.jetbrains.intellij.platform.gradle.IntelliJPlatformType.IntellijIdeaCommunity, "2024.3.6")
-            ide(org.jetbrains.intellij.platform.gradle.IntelliJPlatformType.IntellijIdeaCommunity, "2025.1")
-            ide(org.jetbrains.intellij.platform.gradle.IntelliJPlatformType.IntellijIdeaCommunity, "2025.2")
-            ide(org.jetbrains.intellij.platform.gradle.IntelliJPlatformType.IntellijIdeaUltimate, "2025.3")
+            current()
         }
     }
 }
 ```
-- [ ] **Step 6:** Выполнить под JDK 21:
+
+- [ ] **Step 6:** Выполнить под JDK 25:
 
 ```bash
 ./gradlew test buildPlugin --console=plain
@@ -617,7 +621,8 @@ git diff --check
 
 Новые platform-тесты остаются JUnit Jupiter и явно управляют lifecycle SDK fixture,
 без наследования JUnit3 TestCase и без добавления engine. Проверить присутствие классов
-в XML test results, а не только успешность задачи. SDK 243 поддерживает следующие вызовы:
+в XML test results, а не только успешность задачи. Следующие сигнатуры перепроверены javap
+на test-framework 263.7307.200; их вызовы ещё должны пройти реальный platform-тест:
 
 ```kotlin
 private lateinit var fixture: IdeaProjectTestFixture
@@ -645,13 +650,13 @@ close background project и shutdown. Записать IDE/OpenRGB/device versio
 файла, Cancel/preview и ограничений источников сборки/shortcut contexts. Привести Mermaid
 архитектуру в соответствие. AGENTS.md не переписывать: пользователь запретил изменять
 существующий AGENTS.md при первоначальной задаче; упоминание удалённых модулей в нём отсутствует.
-- [ ] **Step 9:** Повысить pluginVersion до 2.0.0, добавить секцию CHANGELOG с изменённой
+- [ ] **Step 9:** Повысить pluginVersion до 3.0.0, добавить секцию CHANGELOG с изменённой
 архитектурой и пользовательским поведением, повторить buildPlugin для ZIP с финальной версией.
 Зафиксировать только проверенную миграцию, план и необходимую документацию:
 
 ```bash
 git add src build.gradle.kts .github/workflows/ci.yml README.md CONTRIBUTING.md CHANGELOG.md gradle.properties docs/superpowers
-git commit -m "refactor: centralize lighting state and output (2.0.0)"
+git commit -m "refactor: centralize lighting state and output (3.0.0)"
 git status --short
 ```
 

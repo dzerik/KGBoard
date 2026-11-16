@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.0] - 2026-11-16
+
+### Changed
+- Build against IntelliJ IDEA 2026.3 (build 263.7307.200); require IDEA 2026.3 (263.*) and JDK 25.
+- Upgrade Kotlin to 2.4.21, IntelliJ Platform Gradle Plugin to 2.20.1, and Gradle Wrapper to 9.7.0 with distribution checksum verification.
+- Use the Kotlin standard library bundled with the IDE and explicitly provide the JUnit Platform launcher for Gradle 9 test execution.
+- Align JUnit Jupiter, Platform, and Vintage with the SDK test framework through the JUnit 6.1.3 BOM.
+- Allow reusing a local IDEA SDK installation via `-PlocalPlatformPath` when building and testing.
+- Declare the extracted bundled Test Runner plugin as a compile-time and runtime dependency for IDE test events.
+- Align CI, contributor documentation, and the runtime redesign documents with the new SDK baseline. The runtime rewrite is planned separately as 3.0.0.
+
 ## [1.4.2] - 2026-11-16
 
 ### Added

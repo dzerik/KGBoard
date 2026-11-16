@@ -42,7 +42,8 @@ src/main/kotlin/com/kgboard/rgb/
 ```
 
 ## Технологии
-- IntelliJ Platform Plugin SDK 2.3.0
-- Kotlin 1.9.25, JDK 21
-- Target: IntelliJ IDEA 2024.3+ (sinceBuild=243)
+- IntelliJ Platform Gradle Plugin 2.20.1, Gradle Wrapper 9.7.0
+- Kotlin 2.4.21, JDK 25
+- JUnit Jupiter 6.1.3 (BOM aligned with the SDK test framework)
+- Target: IntelliJ IDEA 2026.3 (sinceBuild=263, untilBuild=263.*)
 - OpenRGB SDK (TCP, порт 6742)

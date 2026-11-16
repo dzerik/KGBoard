@@ -1,7 +1,7 @@
 plugins {
     id("java")
-    id("org.jetbrains.kotlin.jvm") version "1.9.25"
-    id("org.jetbrains.intellij.platform") version "2.3.0"
+    id("org.jetbrains.kotlin.jvm")
+    id("org.jetbrains.intellij.platform")
 }
 
 group = providers.gradleProperty("pluginGroup").get()
@@ -16,13 +16,21 @@ repositories {
 
 dependencies {
     intellijPlatform {
-        create(providers.gradleProperty("platformType").get(), providers.gradleProperty("platformVersion").get())
+        val localPlatformPath = providers.gradleProperty("localPlatformPath")
+        if (localPlatformPath.isPresent) {
+            local(localPlatformPath.get())
+        } else {
+            create(providers.gradleProperty("platformType").get(), providers.gradleProperty("platformVersion").get())
+        }
         bundledPlugin("com.intellij.java")
+        bundledPlugin("com.intellij.platform.testRunner")
         bundledPlugin("Git4Idea")
         testFramework(org.jetbrains.intellij.platform.gradle.TestFrameworkType.Platform)
     }
-    testImplementation("org.junit.jupiter:junit-jupiter:5.10.2")
+    testImplementation(platform("org.junit:junit-bom:${providers.gradleProperty("junitVersion").get()}"))
+    testImplementation("org.junit.jupiter:junit-jupiter")
     testImplementation("io.mockk:mockk:1.13.13")
+    testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 
 intellijPlatform {
@@ -38,14 +46,18 @@ intellijPlatform {
 
         ideaVersion {
             sinceBuild = providers.gradleProperty("pluginSinceBuild").get()
-            // Without an explicit untilBuild, the Gradle plugin 2.x defaults it to MAJOR.* of the
-            // selected platform (243.*), which would block installation on 2025.1+. Wire the
-            // pluginUntilBuild property through so the declared upper bound actually applies.
+            // Keep compatibility bounded to the SDK branch used to compile and verify the plugin.
             untilBuild = providers.gradleProperty("pluginUntilBuild")
         }
 
         vendor {
             name = "KGBoard"
+        }
+    }
+
+    pluginVerification {
+        ides {
+            current()
         }
     }
 }
@@ -56,7 +68,8 @@ kotlin {
 
 tasks {
     wrapper {
-        gradleVersion = "8.12"
+        gradleVersion = "9.7.0"
+        distributionSha256Sum = "84fbba45c7f4c64abc77460e1c00f541e9f960e3c7ed2538f1ede19eacd873ae"
     }
 
     buildSearchableOptions {

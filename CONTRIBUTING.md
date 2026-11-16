@@ -14,8 +14,8 @@ Thank you for your interest in contributing to KGBoard!
 
 ## Prerequisites
 
-- JDK 21+
-- IntelliJ IDEA 2024.3+
+- JDK 25
+- IntelliJ IDEA 2026.3 (build 263.*)
 - OpenRGB installed and running (for manual testing)
 
 ## Building
@@ -25,6 +25,14 @@ Thank you for your interest in contributing to KGBoard!
 ```
 
 The plugin ZIP will be in `build/distributions/`.
+
+To reuse an installed IDEA 2026.3 SDK, pass its installation directory:
+
+```bash
+./gradlew test buildPlugin -PlocalPlatformPath=/path/to/idea-2026.3
+```
+
+The default build downloads the SDK from JetBrains. Use JDK 25 for either option.
 
 ## Running in a sandbox IDE
 
