@@ -18,6 +18,8 @@ import com.intellij.util.ui.ColumnInfo
 import com.intellij.util.ui.ListTableModel
 import com.intellij.openapi.ui.popup.JBPopupFactory
 import com.kgboard.rgb.runtime.*
+import com.kgboard.rgb.device.LayoutFingerprint
+import com.kgboard.rgb.target.TargetSpec
 import com.intellij.openapi.options.ConfigurationException
 import com.intellij.util.xmlb.XmlSerializerUtil
 import java.awt.Color
@@ -123,28 +125,39 @@ class KgBoardConfigurable : BoundConfigurable("KGBoard RGB") {
     private var hostField: JTextField? = null
     private var portField: JTextField? = null
 
-    private data class DeviceChoice(val index: Int, val label: String) {
+    private data class DeviceChoice(
+        val index: Int, val label: String,
+        val rendered: com.kgboard.rgb.device.DeviceChoice? = null
+    ) {
         override fun toString() = label
     }
 
     private val deviceChoice = JComboBox<DeviceChoice>()
+    private fun renderedChoices(state: RuntimeState): List<DeviceChoice> {
+        val inventory = state.inventory() ?: return emptyList()
+        return inventory.devices.mapIndexed { index, device ->
+            DeviceChoice(
+                index, "$index: ${device.name} (${device.numLeds} LEDs)",
+                com.kgboard.rgb.device.DeviceChoice(inventory.token, index, LayoutFingerprint.of(device))
+            )
+        }
+    }
+
     private fun refreshDevices(state: RuntimeState, requested: Int? = null) {
-        val selected = requested ?: (deviceChoice.selectedItem as? DeviceChoice)?.index ?: draft.deviceIndex
-        val devices = (state.connection as? ConnectionState.Ready)?.devices.orEmpty()
-        val choices = devices.mapIndexed { index, device ->
-            DeviceChoice(
-                index,
-                "$index: ${device.name} (${device.numLeds} LEDs)"
-            )
-        }.toMutableList()
-        if (choices.none { it.index == selected }) choices.add(
-            DeviceChoice(
-                selected,
-                "$selected: unavailable — connect to validate LED range"
-            )
+        val previous = deviceChoice.selectedItem as? DeviceChoice
+        val choices = renderedChoices(state).toMutableList()
+        val retained = previous?.rendered?.let { old ->
+            choices.firstOrNull {
+                it.rendered == old && (requested == null || requested == it.index)
+            }
+        }
+        val selected = retained ?: DeviceChoice(
+            requested ?: previous?.index ?: draft.deviceIndex,
+            "Select a device to test — selection expires after reconnect"
         )
+        if (retained == null) choices.add(selected)
         deviceChoice.model = DefaultComboBoxModel(choices.toTypedArray())
-        deviceChoice.selectedItem = choices.first { it.index == selected }
+        deviceChoice.selectedItem = selected
     }
 
     /** Tab panels that need apply/reset/isModified delegation */
@@ -166,8 +179,7 @@ class KgBoardConfigurable : BoundConfigurable("KGBoard RGB") {
         preview = SettingsPreviewSession(connection.events)
         var lastPresentation: Pair<String, List<DeviceChoice>>? = null
         subscription = connection.subscribe { state ->
-            val choices = (state.connection as? ConnectionState.Ready)?.devices.orEmpty()
-                .mapIndexed { index, device -> DeviceChoice(index, "$index: ${device.name} (${device.numLeds} LEDs)") }
+            val choices = renderedChoices(state)
             val view = connectionStatus(state) to choices
             if (view == lastPresentation) return@subscribe
             lastPresentation = view
@@ -582,20 +594,23 @@ class KgBoardConfigurable : BoundConfigurable("KGBoard RGB") {
     }
 
     private fun testColor(colorPanel: ColorPanel, ledIndicesRaw: String = "") {
-        val device = (LightingRuntimeService.getInstance().snapshot().connection as? ConnectionState.Ready)
-            ?.devices?.getOrNull(draft.deviceIndex)
-        if (device == null || device.numLeds <= 0) {
-            JBPopupFactory.getInstance()
-                .createMessage("Selected device is unavailable. Connect first; LED range is not yet verified.")
+        val session = preview ?: return
+        val choice = (deviceChoice.selectedItem as? DeviceChoice)?.rendered
+        val color = colorPanel.selectedColor ?: return
+        if (ledIndicesRaw.isNotBlank()) {
+            JBPopupFactory.getInstance().createMessage(
+                "Confirm the LED layout in the scenario editor before testing raw indices."
+            ).showInFocusCenter()
+            return
+        }
+        val content = PreviewContent.ColorSample(color, TargetSpec.All)
+        val availability = session.availability(LightingRuntimeService.getInstance().snapshot(), choice, content)
+        if (!availability.allowed) {
+            JBPopupFactory.getInstance().createMessage(availability.reasonKey ?: "Preview unavailable")
                 .showInFocusCenter()
             return
         }
-        val color = colorPanel.selectedColor ?: return
-        try {
-            preview?.preview(draft.deviceIndex, color, SettingsValidation.indices(ledIndicesRaw, device.numLeds))
-        } catch (error: IllegalArgumentException) {
-            JBPopupFactory.getInstance().createMessage(error.message ?: "Invalid LED indices").showInFocusCenter()
-        }
+        session.preview(requireNotNull(choice), content)
     }
 
     private fun Panel.colorRow(

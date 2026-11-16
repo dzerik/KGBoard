@@ -131,7 +131,7 @@ class BindingPolicyTest {
             h.project()
             val preview = com.kgboard.rgb.settings.SettingsPreviewSession(h.runtime)
             h.drain()
-            preview.preview(0, java.awt.Color.RED, listOf(0)); h.drain()
+            preview.previewColor(h.snapshotForTest(), 0, java.awt.Color.RED, listOf(0)); h.drain()
             assertEquals(java.awt.Color.RED, h.lastFrame()[0])
             h.send(RuntimeEvent.ConnectRequested(Endpoint("other", 6742)))
             val session = (h.snapshotForTest().connection as ConnectionState.Connecting).session

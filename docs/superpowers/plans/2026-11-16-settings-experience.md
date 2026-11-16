@@ -377,7 +377,7 @@ Runtime accepts choice only from same inventory token/fingerprint and owned Sett
 session. DeviceTest may use explicitly selected unpersisted device, only in that
 scoped session; it cannot enable ordinary writes or create a persistent binding.
 
-- [ ] **Step 1: Write failing tests.** Extend integration harness with captured choice
+- [x] **Step 1: Write failing tests.** Extend integration harness with captured choice
 and live CoalescingFrameWriter, retaining existing blocking-write latch.
 
 ```kotlin
@@ -400,8 +400,8 @@ Parameterize runtime disabled/disconnected/missing target/zero LED/stale token r
 Reuse existing in-flight preview retirement tests for Cancel/Apply/Disconnect/Disable,
 device/endpoint switch and shutdown≤3s, including device absent from normal bindings.
 
-- [ ] **Step 2: RED.** Run `./gradlew test --tests '*SettingsPreviewSessionTest' --tests '*RuntimeIntegrationTest' -PlocalPlatformPath=/home/dzerik/.cache/kgboard-sdk/2026.3/installation/idea-IU-263.7307.200 --console=plain`.
-- [ ] **Step 3: Implement scoped request.** Evaluate before accepting; never repair a
+- [x] **Step 2: RED.** Run `./gradlew test --tests '*SettingsPreviewSessionTest' --tests '*RuntimeIntegrationTest' -PlocalPlatformPath=/home/dzerik/.cache/kgboard-sdk/2026.3/installation/idea-IU-263.7307.200 --console=plain`.
+- [x] **Step 3: Implement scoped request.** Evaluate before accepting; never repair a
 stale choice using current session/index. Scenario preview creates effect from draft
 RuleStyle via same catalogue factory as ordinary render, lifetime capped by Settings
 preview deadline. DeviceTest uses static white30%, duration2000ms. Publish rejection
@@ -417,10 +417,10 @@ if (!state.settings.enabled) return PreviewAvailability(false, "preview.applyEna
 Retire preview-only devices through writer control batches before release; preserve
 return-to-base frames when one write is in flight. EndSettings is idempotent.
 
-- [ ] **Step 4: GREEN.** Repeat RED and FrameWriterTest. Assert cleanup's last actual
+- [x] **Step 4: GREEN.** Repeat RED and FrameWriterTest. Assert cleanup's last actual
 transport frame is base composition, not only `preview == null`. No external OpenRGB
 animation restoration claim.
-- [ ] **Step 5: Commit.** Version/CHANGELOG + diff check; stage A4 files and commit `feat: preview draft scenarios with inventory revision guards`.
+- [x] **Step 5: Commit.** Version/CHANGELOG + diff check; stage A4 files and commit `feat: preview draft scenarios with inventory revision guards`.
 
 ## Task A5: Нативные настройки с двумя scope и общим редактором
 

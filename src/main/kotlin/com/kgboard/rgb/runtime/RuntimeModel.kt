@@ -8,8 +8,10 @@ import com.kgboard.rgb.target.GroupDefinition
 
 @JvmInline
 value class ProjectId(val value: String)
+
 @JvmInline
 value class OperationId(val value: String)
+
 @JvmInline
 value class SessionId(val value: Long)
 data class DeviceMappingRevision(
@@ -88,6 +90,7 @@ data class RuntimeState(
     val closedProjects: Set<ProjectId> = emptySet(),
     val settingsSession: SettingsSessionState? = null,
     val preview: PreviewState? = null,
+    val previewFeedback: Map<Long, com.kgboard.rgb.settings.PreviewAvailability> = emptyMap(),
     val nowMs: Long = 0,
     val lowMemoryAtMs: Long? = null,
     val shuttingDown: Boolean = false

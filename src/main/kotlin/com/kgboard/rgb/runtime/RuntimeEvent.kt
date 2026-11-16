@@ -46,15 +46,14 @@ sealed interface RuntimeEvent {
     data class PomodoroStart(val project: ProjectId) : RuntimeEvent
     data class PomodoroStop(val project: ProjectId) : RuntimeEvent
     data class PomodoroSkip(val project: ProjectId) : RuntimeEvent
-    data class BeginSettings(val id: Long) : RuntimeEvent
-    data class DiagnosticConnect(val id: Long, val endpoint: Endpoint) : RuntimeEvent
-    data class PreviewStarted(
+    data class BeginSettings(
         val id: Long,
-        val device: Int,
-        val color: java.awt.Color,
-        val indices: List<Int>,
-        val durationMs: Long
+        val scope: com.kgboard.rgb.scenario.SettingsScope = com.kgboard.rgb.scenario.SettingsScope.APP,
+        val project: ProjectId? = null
     ) : RuntimeEvent
+
+    data class DiagnosticConnect(val id: Long, val endpoint: Endpoint) : RuntimeEvent
+    data class PreviewStarted(val request: com.kgboard.rgb.settings.PreviewRequest) : RuntimeEvent
 
     data class SettingsCommitted(val id: Long) : RuntimeEvent
     data class EndSettings(val id: Long) : RuntimeEvent

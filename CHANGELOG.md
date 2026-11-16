@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.2.0] - 2026-11-17
+
+### Added
+- Draft scenario previews use the shared effect factory, captured device choices and layout-validated targets; device identification shows white at 30% for two seconds.
+- Per-page preview availability reasons and independent application/project settings owners.
+
+### Fixed
+- Restore temporary diagnostic connections when settings pages overlap; project Apply cannot commit application connection changes.
+- Reject stale rendered selections after reconnect and preserve another page's preview when an old page closes or submits an invalid request.
+- Retire preview-only output after in-flight writes on Cancel, Apply, Disable, device/server changes and shutdown.
+
 ## [3.1.0] - 2026-11-17
 
 ### Added

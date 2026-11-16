@@ -12,16 +12,16 @@ class RuntimeReducer {
             projects = frozenMap(original.projects.mapValues { (_, project) ->
                 project.copy(
                     pomodoro = when {
-                    !original.settings.enabled || !original.settings.pomodoroEnabled -> project.pomodoro.stop()
-                    event is RuntimeEvent.Wake && project.pomodoro.deadlineMs?.let { it <= nowMs } == true -> project.pomodoro.next(
-                        original.settings,
-                        nowMs
-                    )
+                        !original.settings.enabled || !original.settings.pomodoroEnabled -> project.pomodoro.stop()
+                        event is RuntimeEvent.Wake && project.pomodoro.deadlineMs?.let { it <= nowMs } == true -> project.pomodoro.next(
+                            original.settings,
+                            nowMs
+                        )
 
-                    else -> project.pomodoro
-                }, operations = frozenMap(project.operations.filterValues {
-                    (OperationPolicy().deadline(it, original.settings) ?: Long.MAX_VALUE) > nowMs
-                })
+                        else -> project.pomodoro
+                    }, operations = frozenMap(project.operations.filterValues {
+                        (OperationPolicy().deadline(it, original.settings) ?: Long.MAX_VALUE) > nowMs
+                    })
                 )
             }),
             layers = frozenMap(original.layers.filterValues { it.expiresAtMs == null || it.expiresAtMs > nowMs })
@@ -43,10 +43,10 @@ class RuntimeReducer {
             is RuntimeEvent.FocusChanged -> state.copy(focused = event.focused)
             is RuntimeEvent.SettingsApplied -> state.copy(
                 settings = event.settings.copy(
-                untrustedSerials = frozenSet(
-                    state.settings.untrustedSerials + event.settings.untrustedSerials
-                )
-            ),
+                    untrustedSerials = frozenSet(
+                        state.settings.untrustedSerials + event.settings.untrustedSerials
+                    )
+                ),
                 groups = event.groups?.let { groups ->
                     frozenMap(groups.mapValues { (_, group) ->
                         group.copy(
@@ -159,7 +159,11 @@ class RuntimeReducer {
             }
 
             RuntimeEvent.LowMemory -> state.copy(lowMemoryAtMs = if (state.settings.enabled) nowMs else null)
-            RuntimeEvent.Shutdown -> state.copy(shuttingDown = true, preview = null, settingsSession = null)
+            RuntimeEvent.Shutdown -> state.copy(
+                shuttingDown = true, preview = null, settingsSession = null,
+                previewFeedback = emptyMap()
+            )
+
             is RuntimeEvent.LayerChanged -> if ((event.layer.key.project != null && event.layer.key.project !in state.projects) ||
                 (event.layer.expiresAtMs != null && event.layer.expiresAtMs <= nowMs)
             ) state

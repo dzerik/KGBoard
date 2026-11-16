@@ -13,7 +13,9 @@ class LightingPolicy {
     private fun activePreview(state: RuntimeState, nowMs: Long): PreviewState? {
         val inventory = state.inventory() ?: return null
         return state.preview?.takeIf { preview ->
-            preview.deadlineMs > nowMs && preview.token == inventory.token && preview.binding?.let {
+            preview.deadlineMs > nowMs && preview.owner in state.settingsSession?.owners.orEmpty() &&
+                (preview.project == null || preview.project in state.projects) &&
+                preview.token == inventory.token && preview.binding.let {
                 val resolved = DeviceResolver.resolve(it, inventory, state.settings.untrustedSerials)
                 resolved is DeviceResolution.Resolved && resolved.index == preview.device
             } == true
@@ -76,9 +78,17 @@ class LightingPolicy {
                     device.numLeds, nowMs
                 ) { zone -> zoneIndices(device, zone.zoneIndex) }.toList()
             }
-            val colors =
-                if (!state.shuttingDown && state.settings.enabled && (state.focused || !state.settings.dimOnFocusLoss) && preview?.device == output.index)
-                    frame.mapIndexed { index, base -> if (preview.indices.isEmpty() || index in preview.indices) preview.color else base } else frame
+            val colors = if (!state.shuttingDown && state.settings.enabled &&
+                (state.focused || !state.settings.dimOnFocusLoss) && preview?.device == output.index
+            ) {
+                val samples = EffectColorComputer.computeColors(
+                    preview.effect, nowMs - preview.createdAtMs,
+                    preview.indices.size, device.numLeds, color(state.settings.idleColor)
+                )
+                frame.toMutableList().apply {
+                    preview.indices.forEachIndexed { offset, led -> this[led] = samples[offset] }
+                }
+            } else frame
             output.index to colors
         }
     }
@@ -87,13 +97,13 @@ class LightingPolicy {
         if (state.shuttingDown) return null
         val layers = visibleLayers(state, nowMs)
         val animate = state.settings.enabled && (state.focused || !state.settings.dimOnFocusLoss) &&
-            outputs(state, nowMs).any { output ->
+            (activePreview(state, nowMs)?.let { isAnimated(it.effect) } == true || outputs(state, nowMs).any { output ->
                 output.configured.role != "ambient" &&
                     animatedVisible(
                         forRole(layers.mapNotNull { prepare(state, it, output) }, output.configured.role),
                         output.device
                     )
-            }
+            })
         return listOfNotNull(
             state.layers.values.mapNotNull { it.expiresAtMs }.filter { it > nowMs }.minOrNull(),
             state.preview?.deadlineMs?.takeIf { it > nowMs }, OperationPolicy().nextDeadline(state, nowMs),
