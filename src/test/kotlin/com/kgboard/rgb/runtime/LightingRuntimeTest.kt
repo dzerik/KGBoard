@@ -10,7 +10,8 @@ class LightingRuntimeTest {
     private val p = ProjectId("p")
     private val key = EffectKey(p, "static")
 
-    @Test fun `inventory change never retires a frame with invalid old LED geometry`() {
+    @Test
+    fun `inventory change never retires a frame with invalid old LED geometry`() {
         val h = RuntimeHarness(); h.project(ProjectId("p"))
         val before = h.writer.history.size
         h.send(RuntimeEvent.InventoryChanged(SessionId(1)))
@@ -20,7 +21,8 @@ class LightingRuntimeTest {
         assertEquals(7, h.lastFrame(0).size)
     }
 
-    @Test fun `deadline alone restores physical idle after a static effect`() {
+    @Test
+    fun `deadline alone restores physical idle after a static effect`() {
         RuntimeHarness().use { h ->
             h.project()
             h.send(RuntimeEvent.LayerChanged(EffectLayer(key, StaticEffect(Color.RED), 0, 100)))
@@ -33,7 +35,8 @@ class LightingRuntimeTest {
         }
     }
 
-    @Test fun `focus regain sends a real restoration frame after dim`() {
+    @Test
+    fun `focus regain sends a real restoration frame after dim`() {
         RuntimeHarness().use { h ->
             h.project()
             h.send(RuntimeEvent.LayerChanged(EffectLayer(key, StaticEffect(Color.RED), 0)))
@@ -44,17 +47,19 @@ class LightingRuntimeTest {
         }
     }
 
-    @Test fun `disable does not replay a transient when reenabled`() {
+    @Test
+    fun `disable does not replay a transient when reenabled`() {
         RuntimeHarness().use { h ->
             h.project()
             h.send(RuntimeEvent.LayerChanged(EffectLayer(key, FlashEffect(Color.RED), 0, 1000)))
-            h.send(RuntimeEvent.SettingsApplied(RuntimeSettings(enabled = false)))
-            h.send(RuntimeEvent.SettingsApplied(RuntimeSettings()))
+            h.send(RuntimeEvent.SettingsApplied(RuntimeSettings(enabled = false).withTestBindings()))
+            h.send(RuntimeEvent.SettingsApplied(RuntimeSettings().withTestBindings()))
             assertEquals(Color.decode("#263238"), h.lastFrame()[0])
         }
     }
 
-    @Test fun `late wake after shutdown cannot send frames or connect`() {
+    @Test
+    fun `late wake after shutdown cannot send frames or connect`() {
         val h = RuntimeHarness()
         h.project()
         h.send(RuntimeEvent.Shutdown)
@@ -68,11 +73,20 @@ class LightingRuntimeTest {
         assertTrue(h.writer.closed)
     }
 
-    @Test fun `effect target cannot be changed by its original caller`() {
+    @Test
+    fun `effect target cannot be changed by its original caller`() {
         RuntimeHarness().use { h ->
             h.project()
             val indices = mutableListOf(0)
-            h.send(RuntimeEvent.LayerChanged(EffectLayer(key, StaticEffect(Color.BLUE, target = EffectTarget.LedSet(indices)), 0)))
+            h.send(
+                RuntimeEvent.LayerChanged(
+                    EffectLayer(
+                        key,
+                        StaticEffect(Color.BLUE, target = EffectTarget.LedSet(indices)),
+                        0
+                    )
+                )
+            )
             indices[0] = 1
             h.send(RuntimeEvent.FocusChanged(true))
             assertEquals(Color.BLUE, h.lastFrame()[0])
@@ -80,7 +94,8 @@ class LightingRuntimeTest {
         }
     }
 
-    @Test fun `a disposed or failing subscriber cannot stop rendering`() {
+    @Test
+    fun `a disposed or failing subscriber cannot stop rendering`() {
         RuntimeHarness().use { h ->
             var notifications = 0
             val cancelled = h.runtime.subscribe { notifications++ }
@@ -94,14 +109,35 @@ class LightingRuntimeTest {
         }
     }
 
-    @Test fun `independent layer sequences commute across 100 deterministic interleavings`() {
+    @Test
+    fun `independent layer sequences commute across 100 deterministic interleavings`() {
         repeat(100) { seed ->
             RuntimeHarness().use { h ->
                 h.project()
                 val blue = EffectKey(p, "blue")
                 val sequences = mutableListOf(
-                    ArrayDeque<RuntimeEvent>(listOf(RuntimeEvent.LayerChanged(EffectLayer(key, StaticEffect(Color.RED), 0)), RuntimeEvent.LayerRemoved(key))),
-                    ArrayDeque<RuntimeEvent>(listOf(RuntimeEvent.LayerChanged(EffectLayer(blue, StaticEffect(Color.BLUE, priority = 8), 0))))
+                    ArrayDeque<RuntimeEvent>(
+                        listOf(
+                            RuntimeEvent.LayerChanged(
+                                EffectLayer(
+                                    key,
+                                    StaticEffect(Color.RED),
+                                    0
+                                )
+                            ), RuntimeEvent.LayerRemoved(key)
+                        )
+                    ),
+                    ArrayDeque<RuntimeEvent>(
+                        listOf(
+                            RuntimeEvent.LayerChanged(
+                                EffectLayer(
+                                    blue,
+                                    StaticEffect(Color.BLUE, priority = 8),
+                                    0
+                                )
+                            )
+                        )
+                    )
                 )
                 val random = Random(seed)
                 while (sequences.isNotEmpty()) {

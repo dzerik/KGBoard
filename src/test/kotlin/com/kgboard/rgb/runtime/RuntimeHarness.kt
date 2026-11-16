@@ -3,17 +3,68 @@ package com.kgboard.rgb.runtime
 import java.awt.Color
 import java.util.PriorityQueue
 import java.util.concurrent.Executor
+import com.kgboard.rgb.device.*
+import com.kgboard.rgb.target.*
+
+/** Explicit test confirmation; production must never create these bindings from a legacy index. */
+internal fun RuntimeSettings.withTestBindings(): RuntimeSettings {
+    val configs =
+        if (multiDeviceEnabled && deviceConfigs.isNotEmpty()) deviceConfigs else listOf(DeviceSettings(deviceIndex))
+    val bindings = configs.map { config ->
+        ConfiguredBinding(
+            DeviceBinding(
+                "00000000-0000-4000-8000-%012d".format(config.deviceIndex + 1), Endpoint(host, port),
+                DeviceSelector.Serial(0, "Vendor", "test-${config.deviceIndex}")
+            ), config.enabled, config.role
+        )
+    }
+    val confirmed = rules.mapValues { (_, rule) ->
+        rule.copy(
+            target = when (val target = rule.target) {
+                is TargetSpec.RawIndices -> target.copy(fingerprint = LayoutFingerprint.of(testDevice()))
+                else -> target
+            }
+        )
+    }
+    return copy(
+        schemaVersion = 1, bindingRecords = BindingRecords.from(bindings),
+        ruleRecords = effectiveRuleRecords().withEditedRules(confirmed)
+    )
+}
+
+internal fun ProjectSettingsSnapshot.withTestTargets(): ProjectSettingsSnapshot = copy(
+    schemaVersion = 1,
+    ruleRecords = effectiveRuleRecords().withEditedRules(rules.mapValues { (_, rule) ->
+        rule.copy(
+            target = when (val target = rule.target) {
+                is TargetSpec.RawIndices -> target.copy(fingerprint = LayoutFingerprint.of(testDevice()))
+                else -> target
+            }
+        )
+    })
+)
 
 internal class ManualExecutor : Executor {
     private val tasks = ArrayDeque<Runnable>()
-    override fun execute(command: Runnable) { tasks.addLast(command) }
+    override fun execute(command: Runnable) {
+        tasks.addLast(command)
+    }
+
     val hasPending: Boolean get() = tasks.isNotEmpty()
-    fun drain() { while (tasks.isNotEmpty()) tasks.removeFirst().run() }
+    fun drain() {
+        while (tasks.isNotEmpty()) tasks.removeFirst().run()
+    }
 }
 
-internal class ManualClock : RuntimeClock { var value = 0L; override fun nowMs() = value }
-internal class ManualScheduler(private val clock: ManualClock, private val executor: ManualExecutor) : RuntimeScheduler {
+internal class ManualClock : RuntimeClock {
+    var value = 0L;
+    override fun nowMs() = value
+}
+
+internal class ManualScheduler(private val clock: ManualClock, private val executor: ManualExecutor) :
+    RuntimeScheduler {
     private data class Task(val at: Long, val order: Long, val action: () -> Unit, var cancelled: Boolean = false)
+
     private val tasks = PriorityQueue(compareBy<Task>({ it.at }, { it.order }))
     private var sequence = 0L
     override fun scheduleAt(timeMs: Long, action: () -> Unit): Cancellation {
@@ -21,6 +72,7 @@ internal class ManualScheduler(private val clock: ManualClock, private val execu
         tasks.add(task)
         return Cancellation { task.cancelled = true }
     }
+
     fun advanceBy(ms: Long) {
         require(ms >= 0)
         val until = clock.value + ms
@@ -48,21 +100,40 @@ internal class RecordingFrameWriter : FrameWriter {
         check(!closed)
         history.add(device to colors.toList())
     }
-    override fun connect(endpoint: Endpoint, session: SessionId, finalFrames: Map<Int, List<Color>>) { finalFrames.forEach { (index, frame) -> offer(session, index, frame) }; connects.add(endpoint to session) }
-    override fun disconnect(session: SessionId, finalFrames: Map<Int, List<Color>>) { finalFrames.forEach { (index, frame) -> offer(session, index, frame) }; disconnects.add(session) }
-    override fun close() { closed = true }
+
+    override fun connect(endpoint: Endpoint, session: SessionId, finalFrames: Map<Int, List<Color>>) {
+        finalFrames.forEach { (index, frame) -> offer(session, index, frame) }; connects.add(endpoint to session)
+    }
+
+    override fun disconnect(session: SessionId, finalFrames: Map<Int, List<Color>>) {
+        finalFrames.forEach { (index, frame) -> offer(session, index, frame) }; disconnects.add(session)
+    }
+
+    override fun close() {
+        closed = true
+    }
 }
 
-internal class RuntimeHarness(settings: RuntimeSettings = RuntimeSettings()) : AutoCloseable {
+internal class RuntimeHarness(settings: RuntimeSettings = RuntimeSettings().withTestBindings()) : AutoCloseable {
     val clock = ManualClock()
     val executor = ManualExecutor()
     val scheduler = ManualScheduler(clock, executor)
     val writer = RecordingFrameWriter()
     val errors = mutableListOf<Throwable>()
-    val runtime = LightingRuntime(executor, clock, scheduler, RuntimeReducer(), LightingPolicy(), writer,
-        RuntimeState(settings = settings, connectionWanted = true, connectionGeneration = 1, connection = ConnectionState.Ready(SessionId(1), listOf(testDevice(), testDevice()))),
+    val runtime = LightingRuntime(
+        executor, clock, scheduler, RuntimeReducer(), LightingPolicy(), writer,
+        RuntimeState(
+            settings = settings,
+            connectionWanted = true,
+            connectionGeneration = 1,
+            connection = ConnectionState.Ready(SessionId(1), testDevices())
+        ),
         onError = { errors.add(it) })
-    fun send(event: RuntimeEvent) { runtime.dispatch(event); executor.drain() }
+
+    fun send(event: RuntimeEvent) {
+        runtime.dispatch(event); executor.drain()
+    }
+
     fun advanceBy(ms: Long) = scheduler.advanceBy(ms)
     fun drain() = executor.drain()
     fun lastFrame(device: Int = 0): List<Color> = writer.history.last { it.first == device }.second
@@ -72,5 +143,8 @@ internal class RuntimeHarness(settings: RuntimeSettings = RuntimeSettings()) : A
         send(RuntimeEvent.ProjectActivated(id))
         send(RuntimeEvent.FocusChanged(true))
     }
-    override fun close() { runtime.close(); executor.drain() }
+
+    override fun close() {
+        runtime.close(); executor.drain()
+    }
 }

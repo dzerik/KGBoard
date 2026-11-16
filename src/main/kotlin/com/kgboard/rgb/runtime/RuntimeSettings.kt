@@ -2,8 +2,17 @@ package com.kgboard.rgb.runtime
 
 import com.kgboard.rgb.settings.KgBoardSettings
 import com.kgboard.rgb.settings.KgBoardProjectSettings
+import com.kgboard.rgb.settings.*
+import com.kgboard.rgb.device.*
+import com.kgboard.rgb.scenario.*
 
-data class DeviceSettings(val deviceIndex: Int = 0, val name: String = "", val enabled: Boolean = true, val role: String = "primary")
+data class DeviceSettings(
+    val deviceIndex: Int = 0,
+    val name: String = "",
+    val enabled: Boolean = true,
+    val role: String = "primary"
+)
+
 data class BranchRule(val pattern: String = ".*", val color: String = "#FFFFFF") {
     private val regex = runCatching { Regex(pattern) }.getOrNull()
     fun matches(branch: String): Boolean = regex?.containsMatchIn(branch) == true
@@ -61,8 +70,20 @@ data class RuntimeSettings(
     val fileSaveFlashEnabled: Boolean = false,
     val fileSaveFlashColor: String = "#FFFFFF",
     val debugBreakpointFlashEnabled: Boolean = false,
-    val debugBreakpointFlashColor: String = "#FF1744"
+    val debugBreakpointFlashColor: String = "#FF1744",
+    val schemaVersion: Int = 0,
+    val bindingRecords: BindingRecords = BindingRecords.EMPTY,
+    val ruleRecords: ScenarioRules = ScenarioRules.empty(SettingsScope.APP),
+    val untrustedSerials: Set<SerialKey> = emptySet()
 ) {
+    val bindings: List<ConfiguredBinding> get() = if (schemaVersion > SettingsSchema.VERSION) emptyList() else bindingRecords.configurations
+    val rules: Map<String, RuleAppearance>
+        get() = if (schemaVersion > SettingsSchema.VERSION) emptyMap()
+        else if (schemaVersion == 0 && ruleRecords.entries.isEmpty()) LegacyScenarioRules.app(this).executable else ruleRecords.executable
+
+    fun effectiveRuleRecords(): ScenarioRules =
+        if (schemaVersion == 0 && ruleRecords.entries.isEmpty()) LegacyScenarioRules.app(this) else ruleRecords
+
     fun toState(): KgBoardSettings.State = KgBoardSettings.State(
         host = host,
         port = port,
@@ -87,7 +108,8 @@ data class RuntimeSettings(
         resetOnExit = resetOnExit,
         skipCustomMode = skipCustomMode,
         multiDeviceEnabled = multiDeviceEnabled,
-        deviceConfigs = deviceConfigs.map { KgBoardSettings.DeviceConfig(it.deviceIndex, it.name, it.enabled, it.role) }.toMutableList(),
+        deviceConfigs = deviceConfigs.map { KgBoardSettings.DeviceConfig(it.deviceIndex, it.name, it.enabled, it.role) }
+            .toMutableList(),
         pomodoroEnabled = pomodoroEnabled,
         pomodoroWorkMinutes = pomodoroWorkMinutes,
         pomodoroBreakMinutes = pomodoroBreakMinutes,
@@ -114,7 +136,11 @@ data class RuntimeSettings(
         fileSaveFlashEnabled = fileSaveFlashEnabled,
         fileSaveFlashColor = fileSaveFlashColor,
         debugBreakpointFlashEnabled = debugBreakpointFlashEnabled,
-        debugBreakpointFlashColor = debugBreakpointFlashColor
+        debugBreakpointFlashColor = debugBreakpointFlashColor,
+        schemaVersion = schemaVersion,
+        bindingRecords = bindingRecords.toRecords(),
+        ruleRecords = ruleRecords.toRecords(),
+        untrustedSerials = untrustedSerials.map(SerialRecord::from).toMutableList()
     )
 
     companion object {
@@ -142,7 +168,14 @@ data class RuntimeSettings(
             resetOnExit = source.resetOnExit,
             skipCustomMode = source.skipCustomMode,
             multiDeviceEnabled = source.multiDeviceEnabled,
-            deviceConfigs = frozenList(source.deviceConfigs.map { DeviceSettings(it.deviceIndex, it.name, it.enabled, it.role) }),
+            deviceConfigs = frozenList(source.deviceConfigs.map {
+                DeviceSettings(
+                    it.deviceIndex,
+                    it.name,
+                    it.enabled,
+                    it.role
+                )
+            }),
             pomodoroEnabled = source.pomodoroEnabled,
             pomodoroWorkMinutes = source.pomodoroWorkMinutes,
             pomodoroBreakMinutes = source.pomodoroBreakMinutes,
@@ -169,7 +202,11 @@ data class RuntimeSettings(
             fileSaveFlashEnabled = source.fileSaveFlashEnabled,
             fileSaveFlashColor = source.fileSaveFlashColor,
             debugBreakpointFlashEnabled = source.debugBreakpointFlashEnabled,
-            debugBreakpointFlashColor = source.debugBreakpointFlashColor
+            debugBreakpointFlashColor = source.debugBreakpointFlashColor,
+            schemaVersion = source.schemaVersion,
+            bindingRecords = BindingRecords.capture(source.bindingRecords),
+            ruleRecords = ScenarioRules.capture(SettingsScope.APP, source.ruleRecords),
+            untrustedSerials = frozenSet(source.untrustedSerials.map { it.snapshot() })
         )
     }
 }
@@ -194,8 +231,17 @@ data class ProjectSettingsSnapshot(
     val shortcutDebugColor: String = "#651FFF",
     val shortcutSearchColor: String = "#2979FF",
     val shortcutEditingColor: String = "#00C853",
-    val shortcutVcsColor: String = "#FF9100"
+    val shortcutVcsColor: String = "#FF9100",
+    val schemaVersion: Int = 0,
+    val ruleRecords: ScenarioRules = ScenarioRules.empty(SettingsScope.PROJECT)
 ) {
+    val rules: Map<String, RuleAppearance>
+        get() = if (schemaVersion > SettingsSchema.VERSION) emptyMap()
+        else if (schemaVersion == 0 && ruleRecords.entries.isEmpty()) LegacyScenarioRules.project(this).executable else ruleRecords.executable
+
+    fun effectiveRuleRecords(): ScenarioRules =
+        if (schemaVersion == 0 && ruleRecords.entries.isEmpty()) LegacyScenarioRules.project(this) else ruleRecords
+
     fun toState(): KgBoardProjectSettings.State = KgBoardProjectSettings.State(
         gitEnabled = gitEnabled,
         gitLedIndices = gitLedIndices,
@@ -203,7 +249,8 @@ data class ProjectSettingsSnapshot(
         gitConflictColor = gitConflictColor,
         gitUnpushedColor = gitUnpushedColor,
         gitCleanColor = gitCleanColor,
-        gitBranchColorRules = gitBranchColorRules.map { KgBoardProjectSettings.GitColorRule(it.pattern, it.color) }.toMutableList(),
+        gitBranchColorRules = gitBranchColorRules.map { KgBoardProjectSettings.GitColorRule(it.pattern, it.color) }
+            .toMutableList(),
         gitPollingIntervalSec = gitPollingIntervalSec,
         analysisEnabled = analysisEnabled,
         analysisLedIndices = analysisLedIndices,
@@ -215,7 +262,9 @@ data class ProjectSettingsSnapshot(
         shortcutDebugColor = shortcutDebugColor,
         shortcutSearchColor = shortcutSearchColor,
         shortcutEditingColor = shortcutEditingColor,
-        shortcutVcsColor = shortcutVcsColor
+        shortcutVcsColor = shortcutVcsColor,
+        schemaVersion = schemaVersion,
+        ruleRecords = ruleRecords.toRecords()
     )
 
     companion object {
@@ -238,7 +287,9 @@ data class ProjectSettingsSnapshot(
             shortcutDebugColor = source.shortcutDebugColor,
             shortcutSearchColor = source.shortcutSearchColor,
             shortcutEditingColor = source.shortcutEditingColor,
-            shortcutVcsColor = source.shortcutVcsColor
+            shortcutVcsColor = source.shortcutVcsColor,
+            schemaVersion = source.schemaVersion,
+            ruleRecords = ScenarioRules.capture(SettingsScope.PROJECT, source.ruleRecords)
         )
     }
 }

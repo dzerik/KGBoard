@@ -3,22 +3,42 @@ package com.kgboard.rgb.runtime
 import java.util.Collections
 import com.kgboard.rgb.client.RgbDeviceInfo
 import com.kgboard.rgb.effect.RgbEffect
+import com.kgboard.rgb.device.*
+import com.kgboard.rgb.target.GroupDefinition
 
-@JvmInline value class ProjectId(val value: String)
-@JvmInline value class OperationId(val value: String)
-@JvmInline value class SessionId(val value: Long)
-data class DeviceMappingRevision(val session: SessionId, val device: Int)
+@JvmInline
+value class ProjectId(val value: String)
+@JvmInline
+value class OperationId(val value: String)
+@JvmInline
+value class SessionId(val value: Long)
+data class DeviceMappingRevision(
+    val token: InventoryToken,
+    val bindingId: String,
+    val device: Int,
+    val fingerprint: String
+) {
+    val session: SessionId get() = token.session
+}
+
 data class Endpoint(val host: String, val port: Int)
 data class EditorRevision(val fileUrl: String, val documentStamp: Long, val request: Long)
 data class EffectKey(val project: ProjectId?, val source: String)
-data class EffectLayer(val key: EffectKey, val effect: RgbEffect, val createdAtMs: Long, val expiresAtMs: Long? = null)
+data class EffectLayer(
+    val key: EffectKey, val effect: RgbEffect, val createdAtMs: Long, val expiresAtMs: Long? = null,
+    val ruleId: String? = null, val factDurationMs: Long? = null, val colorOverride: java.awt.Color? = null,
+    val hintCodes: List<Int>? = null, val mapping: DeviceMappingRevision? = null
+)
 
 sealed interface ConnectionState {
     data object Disconnected : ConnectionState
     data class Connecting(val session: SessionId, val endpoint: Endpoint) : ConnectionState
-    data class Ready(val session: SessionId, val devices: List<RgbDeviceInfo>) : ConnectionState
+    data class Ready(val session: SessionId, val devices: List<RgbDeviceInfo>, val inventoryRevision: Long = 1) :
+        ConnectionState
+
     data class Backoff(val session: SessionId, val retryAtMs: Long, val error: String) : ConnectionState
 }
+
 enum class OperationKind { RUN, DEBUG, BUILD, TEST }
 enum class OperationPhase { STARTING, RUNNING, PAUSED, TERMINATED }
 enum class OperationOutcome { SUCCESS, FAILURE, CANCELLED, NOT_EXECUTED }
@@ -43,6 +63,7 @@ data class ProjectState(
     val shortcutContexts: Set<String> = emptySet(),
     val shortcutMapping: DeviceMappingRevision? = null,
     val shortcutIndices: Map<String, List<Int>> = emptyMap(),
+    val shortcutKeyCodes: Map<String, List<Int>> = emptyMap(),
     val savedAtMs: Long? = null,
     val saveRevision: Long = -1,
     val pomodoro: PomodoroState = PomodoroState()
@@ -50,6 +71,8 @@ data class ProjectState(
 
 data class RuntimeState(
     val settings: RuntimeSettings = RuntimeSettings(),
+    val connectionEpoch: String = java.util.UUID.randomUUID().toString(),
+    val groups: Map<String, GroupDefinition> = emptyMap(),
     val projects: Map<ProjectId, ProjectState> = emptyMap(),
     val activeProject: ProjectId? = null,
     val focused: Boolean = false,

@@ -4,8 +4,9 @@ import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 
 class PomodoroStateTest {
-    @Test fun `skip and stop fence old wake without decrementing new phase`() {
-        val h = RuntimeHarness(RuntimeSettings(pomodoroEnabled = true))
+    @Test
+    fun `skip and stop fence old wake without decrementing new phase`() {
+        val h = RuntimeHarness(RuntimeSettings(pomodoroEnabled = true).withTestBindings())
         val p = ProjectId("p"); h.project(p)
         h.send(RuntimeEvent.PomodoroStart(p)); h.advanceBy(500)
         h.send(RuntimeEvent.PomodoroSkip(p))
@@ -15,9 +16,19 @@ class PomodoroStateTest {
         h.send(RuntimeEvent.PomodoroStop(p)); h.advanceBy(500000)
         assertEquals(PomodoroPhase.IDLE, h.snapshotForTest().projects.getValue(p).pomodoro.phase)
     }
-    @Test fun `delayed scheduler advances one phase from current time and long break follows configured cycles`() {
-        val reducer = RuntimeReducer(); val p = ProjectId("p")
-        var s = reducer.reduce(RuntimeState(settings = RuntimeSettings(pomodoroEnabled = true, pomodoroSessionsBeforeLongBreak = 2)), RuntimeEvent.ProjectOpened(p), 0).state
+
+    @Test
+    fun `delayed scheduler advances one phase from current time and long break follows configured cycles`() {
+        val reducer = RuntimeReducer();
+        val p = ProjectId("p")
+        var s = reducer.reduce(
+            RuntimeState(
+                settings = RuntimeSettings(
+                    pomodoroEnabled = true,
+                    pomodoroSessionsBeforeLongBreak = 2
+                ).withTestBindings()
+            ), RuntimeEvent.ProjectOpened(p), 0
+        ).state
         s = reducer.reduce(s, RuntimeEvent.PomodoroStart(p), 0).state
         s = reducer.reduce(s, RuntimeEvent.Wake(1), 9000000).state
         assertEquals(PomodoroPhase.BREAK, s.projects.getValue(p).pomodoro.phase)

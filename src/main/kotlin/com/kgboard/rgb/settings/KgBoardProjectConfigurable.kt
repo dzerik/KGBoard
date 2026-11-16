@@ -27,6 +27,7 @@ class KgBoardProjectConfigurable(private val project: Project) : BoundConfigurab
 
     private var rulesTable: JBTable? = null
     private val draft = KgBoardProjectSettings()
+    private var legacyBaseline: KgBoardProjectSettings.State? = null
 
     private val gitUncommittedColor = colorPanel()
     private val gitConflictColor = colorPanel()
@@ -40,14 +41,20 @@ class KgBoardProjectConfigurable(private val project: Project) : BoundConfigurab
     private val branchRulesModel = ListTableModel<KgBoardProjectSettings.GitColorRule>(
         object : ColumnInfo<KgBoardProjectSettings.GitColorRule, String>("Pattern (regex)") {
             override fun valueOf(item: KgBoardProjectSettings.GitColorRule): String = item.pattern
-            override fun setValue(item: KgBoardProjectSettings.GitColorRule, value: String) { item.pattern = value }
+            override fun setValue(item: KgBoardProjectSettings.GitColorRule, value: String) {
+                item.pattern = value
+            }
+
             override fun isCellEditable(item: KgBoardProjectSettings.GitColorRule): Boolean = true
             override fun getEditor(item: KgBoardProjectSettings.GitColorRule): TableCellEditor =
                 DefaultCellEditor(JTextField())
         },
         object : ColumnInfo<KgBoardProjectSettings.GitColorRule, String>("Color (#RRGGBB)") {
             override fun valueOf(item: KgBoardProjectSettings.GitColorRule): String = item.color
-            override fun setValue(item: KgBoardProjectSettings.GitColorRule, value: String) { item.color = value }
+            override fun setValue(item: KgBoardProjectSettings.GitColorRule, value: String) {
+                item.color = value
+            }
+
             override fun isCellEditable(item: KgBoardProjectSettings.GitColorRule): Boolean = true
             override fun getEditor(item: KgBoardProjectSettings.GitColorRule): TableCellEditor =
                 DefaultCellEditor(JTextField())
@@ -57,7 +64,10 @@ class KgBoardProjectConfigurable(private val project: Project) : BoundConfigurab
     private fun colorPanel(): ColorPanel = SettingsUiUtil.colorPanel()
 
     override fun createPanel(): DialogPanel {
-        XmlSerializerUtil.copyBean(ProjectSettingsSnapshot.capture(KgBoardProjectSettings.getInstance(project).state).toState(), draft.state)
+        XmlSerializerUtil.copyBean(
+            ProjectSettingsSnapshot.capture(KgBoardProjectSettings.getInstance(project).state).toState(), draft.state
+        )
+        legacyBaseline = ProjectSettingsSnapshot.capture(draft.state).toState()
         val s = draft
 
         // Init colors
@@ -118,8 +128,10 @@ class KgBoardProjectConfigurable(private val project: Project) : BoundConfigurab
             // ── Git Branch Color Rules ──
             group("Git Branch Color Rules") {
                 row {
-                    comment("Apply background color based on branch name regex. First match wins.<br/>" +
-                            "Example: <code>^main$</code> → green, <code>^feature/</code> → blue.")
+                    comment(
+                        "Apply background color based on branch name regex. First match wins.<br/>" +
+                            "Example: <code>^main$</code> → green, <code>^feature/</code> → blue."
+                    )
                 }
                 row {
                     val table = JBTable(branchRulesModel).also { rulesTable = it }
@@ -174,8 +186,10 @@ class KgBoardProjectConfigurable(private val project: Project) : BoundConfigurab
                         .bindSelected(s.state::shortcutHighlightEnabled)
                 }
                 row {
-                    comment("Highlights relevant keyboard shortcuts based on current IDE context.<br/>" +
-                            "Requires LED name mapping from OpenRGB device (auto-detected).")
+                    comment(
+                        "Highlights relevant keyboard shortcuts based on current IDE context.<br/>" +
+                            "Requires LED name mapping from OpenRGB device (auto-detected)."
+                    )
                 }
             }
         }
@@ -199,13 +213,28 @@ class KgBoardProjectConfigurable(private val project: Project) : BoundConfigurab
         try {
             val app = LightingRuntimeService.getInstance()
             val binding = ProjectRuntimeService.getInstance(project).binding
-            val numLeds = (app.snapshot().connection as? ConnectionState.Ready)?.devices?.getOrNull(app.snapshot().settings.deviceIndex)?.numLeds
-            SettingsTransaction.applyProject(binding.id, draft.state, KgBoardProjectSettings.getInstance(project)::loadState, app.events, numLeds)
-        } catch (error: IllegalArgumentException) { throw ConfigurationException(error.message ?: "Invalid project settings") }
+            val numLeds =
+                (app.snapshot().connection as? ConnectionState.Ready)?.devices?.getOrNull(app.snapshot().settings.deviceIndex)?.numLeds
+            val prepared = LegacyEditorBridge.project(draft.state, legacyBaseline ?: draft.state)
+            SettingsTransaction.applyProject(
+                binding.id,
+                prepared,
+                KgBoardProjectSettings.getInstance(project)::loadState,
+                app.events,
+                numLeds
+            )
+            XmlSerializerUtil.copyBean(prepared, draft.state)
+            legacyBaseline = ProjectSettingsSnapshot.capture(prepared).toState()
+        } catch (error: IllegalArgumentException) {
+            throw ConfigurationException(error.message ?: "Invalid project settings")
+        }
     }
 
     override fun reset() {
-        XmlSerializerUtil.copyBean(ProjectSettingsSnapshot.capture(KgBoardProjectSettings.getInstance(project).state).toState(), draft.state)
+        XmlSerializerUtil.copyBean(
+            ProjectSettingsSnapshot.capture(KgBoardProjectSettings.getInstance(project).state).toState(), draft.state
+        )
+        legacyBaseline = ProjectSettingsSnapshot.capture(draft.state).toState()
         super.reset()
         val s = KgBoardProjectSettings.getInstance(project)
         gitUncommittedColor.selectedColor = parseColor(s.gitUncommittedColor)
@@ -231,7 +260,8 @@ class KgBoardProjectConfigurable(private val project: Project) : BoundConfigurab
             colorChanged(gitCleanColor, s.gitCleanColor) ||
             colorChanged(analysisErrorColor, s.analysisErrorColor) ||
             colorChanged(analysisWarningColor, s.analysisWarningColor) ||
-            colorChanged(analysisCleanColor, s.analysisCleanColor)) return true
+            colorChanged(analysisCleanColor, s.analysisCleanColor)
+        ) return true
         // Check branch rules
         val currentRules = branchRulesModel.items
         val savedRules = s.state.gitBranchColorRules

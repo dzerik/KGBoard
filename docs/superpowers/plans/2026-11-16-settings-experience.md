@@ -253,19 +253,25 @@ all known legacy feature/state combinations have exactly one catalogue entry.
 
 ## Task A3: XML migration и атомарный runtime cutover
 
-**Files:** Create `settings/{SettingsSchema,SettingsMigration,SettingsDraft}.kt`;
+**Files:** Create `settings/{SettingsSchema,SettingsMigration,SettingsDraft,LegacyScenarioRules,LegacyEditorBridge}.kt`,
+`device/BindingRecords.kt`, `scenario/ScenarioRules.kt`, `runtime/RuntimeDevices.kt`,
+`layout/{DeviceKeyMapping,KeyCodes}.kt`;
 Modify `settings/{KgBoardSettings,KgBoardProjectSettings,SettingsValidation}.kt`,
 `runtime/{RuntimeSettings,RuntimeModel,RuntimeEvent,RuntimeReducer,LightingRuntime,LightingPolicy,OperationPolicy,IndicatorPolicy,PomodoroState,LightingRuntimeService}.kt`,
-`layout/KeyboardLayoutService.kt`, `bridge/ShortcutHighlightService.kt`;
+`layout/KeyboardLayoutService.kt`, `bridge/{ShortcutHighlightService,ProjectRuntimeBinding}.kt`,
+legacy Configurable Apply bridges;
 Test `settings/SettingsMigrationTest.kt`, `runtime/{RuntimeSettingsTest,BindingPolicyTest}.kt`,
 `settings/SettingsPersistencePlatformTest.kt`; preserve fixtures under `src/test/resources/settings/`.
 
 **Interfaces:** consumes A1/A2. `RuntimeSettings` adds `schemaVersion: Int`,
-`bindings: List<ConfiguredBinding>`, `rules: Map<String, RuleAppearance>`,
+`bindingRecords: BindingRecords`, `ruleRecords: ScenarioRules`,
+computed `bindings: List<ConfiguredBinding>` and `rules: Map<String, RuleAppearance>`,
 `untrustedSerials: Set<SerialKey>`; project snapshot adds `rules`/schemaVersion.
 `ConfiguredBinding(binding: DeviceBinding, enabled: Boolean, role: String)` retains
 legacy role meaning. `ConnectionState.Ready` adds `inventoryRevision: Long`.
-`DeviceMappingRevision` adds inventory revision, binding ID, fingerprint (update all
+`InventoryToken` includes runtime epoch so persisted SessionOnly cannot match a new
+runtime's repeated numeric session. `DeviceMappingRevision(token, bindingId, device,
+fingerprint)` includes this token (update all
 constructors together; no default fresh revision attached to old indices).
 `AppDraft.capture(state: KgBoardSettings.State): AppDraft`,
 `ProjectDraft.capture(state: KgBoardProjectSettings.State): ProjectDraft`;
@@ -273,7 +279,7 @@ constructors together; no default fresh revision attached to old indices).
 Capture/reset run migration on a detached copy before exposing rules to editors.
 `SettingsMigration.app/project/groups` return detached migrated DTOs, never persist.
 
-- [ ] **Step 1: Write failing tests.** Extend existing XML/round-trip reflection tests
+- [x] **Step 1: Write failing tests.** Extend existing XML/round-trip reflection tests
 to include every new field; use actual legacy resources, not newly synthesized state only.
 
 ```kotlin
@@ -304,8 +310,8 @@ idle, Disabled and shutdown. Reordered devices must send only to resolved serial
 two enabled roles resolving to the same device fail Apply with a field error.
 Add stale shortcut mapping test with same LED count/new fingerprint.
 
-- [ ] **Step 2: RED.** Run `./gradlew test --tests '*SettingsMigrationTest' --tests '*BindingPolicyTest' --tests '*RuntimeSettingsTest' --tests '*SettingsPersistencePlatformTest' -PlocalPlatformPath=/home/dzerik/.cache/kgboard-sdk/2026.3/installation/idea-IU-263.7307.200 --console=plain`.
-- [ ] **Step 3: Implement migration, snapshots and policy together.** New XML DTOs
+- [x] **Step 2: RED.** Run `./gradlew test --tests '*SettingsMigrationTest' --tests '*BindingPolicyTest' --tests '*RuntimeSettingsTest' --tests '*SettingsPersistencePlatformTest' -PlocalPlatformPath=/home/dzerik/.cache/kgboard-sdk/2026.3/installation/idea-IU-263.7307.200 --console=plain`.
+- [x] **Step 3: Implement migration, snapshots and policy together.** New XML DTOs
 are serializer-friendly mutable beans; convert to sealed domain targets at capture.
 Retain all 51 app/19 project fields and numeric group fields as legacy projection;
 add optional new lists/fields. Unknown rule/target IDs round-trip as opaque persisted
@@ -337,13 +343,13 @@ UI-only flag. Mapping changes clear stale shortcuts before publishing new geomet
 Full validation precedes managed `loadState` and one SettingsApplied event; failure
 persists nothing. Keep existing focus/ownership/terminal-deadline behavior.
 
-- [ ] **Step 4: GREEN.** Repeat RED then full test suite. Assert old fixtures retain
+- [x] **Step 4: GREEN.** Repeat RED then full test suite. Assert old fixtures retain
 colors/durations/auto-connect/skipCustomMode/branches/groups; repeated migration is
-stable and failed persist does not expose upgraded schema. Set RuntimeHarness default to `RuntimeSettings(bindings = testBindings())`, with
-`testBindings(): List<ConfiguredBinding>` selecting its two explicit test devices;
+stable and failed persist does not expose upgraded schema. Set RuntimeHarness default to `RuntimeSettings().withTestBindings()`;
+this test-only helper supplies explicit serial bindings and confirmed fixture layout;
 an explicitly supplied empty settings object must keep no bindings. Update RuntimeHarness
 explicit bindings so baseline tests still exercise actual writes, not vacuous empty frames.
-- [ ] **Step 5: Commit.** Bump MINOR for enabled binding/target migration, update
+- [x] **Step 5: Commit.** Bump MINOR for enabled binding/target migration, update
 CHANGELOG with one-time device confirmation. Stage A3 files; commit `feat: apply versioned device bindings and scenario targets atomically`.
 
 ## Task A4: Предпросмотр draft-сценария с fencing и cleanup

@@ -94,7 +94,11 @@ class KgBoardSettings : PersistentStateComponent<KgBoardSettings.State> {
 
         // Debugger Breakpoint
         var debugBreakpointFlashEnabled: Boolean = false,
-        var debugBreakpointFlashColor: String = "#FF1744"
+        var debugBreakpointFlashColor: String = "#FF1744",
+        var schemaVersion: Int = 0,
+        var bindingRecords: MutableList<BindingRecord> = mutableListOf(),
+        var ruleRecords: MutableList<com.kgboard.rgb.scenario.RuleRecord> = mutableListOf(),
+        var untrustedSerials: MutableList<SerialRecord> = mutableListOf()
     )
 
     // @Volatile: the render loop and pomodoro/git background threads read state.* concurrently
@@ -104,62 +108,102 @@ class KgBoardSettings : PersistentStateComponent<KgBoardSettings.State> {
     private var state = State()
 
     override fun getState(): State = state
+    @Synchronized
     override fun loadState(state: State) {
-        this.state = state
+        val observed = (this.state.untrustedSerials + state.untrustedSerials).map { it.snapshot() }.toSet()
+        this.state = com.kgboard.rgb.runtime.RuntimeSettings.capture(state).toState().also {
+            it.untrustedSerials = observed.map(SerialRecord::from).toMutableList()
+        }
+    }
+
+    /** Safety metadata merges independently of an open Settings draft. */
+    @Synchronized
+    fun mergeObservedSerials(serials: Set<com.kgboard.rgb.device.SerialKey>) {
+        val known = state.untrustedSerials.map { it.snapshot() }.toSet()
+        if (known.containsAll(serials)) return
+        state = com.kgboard.rgb.runtime.RuntimeSettings.capture(state).toState().also {
+            it.untrustedSerials = (known + serials).map(SerialRecord::from).toMutableList()
+        }
     }
 
     var host: String
         get() = state.host
-        set(value) { state.host = value }
+        set(value) {
+            state.host = value
+        }
 
     var port: Int
         get() = state.port
-        set(value) { state.port = value }
+        set(value) {
+            state.port = value
+        }
 
     var deviceIndex: Int
         get() = state.deviceIndex
-        set(value) { state.deviceIndex = value }
+        set(value) {
+            state.deviceIndex = value
+        }
 
     var enabled: Boolean
         get() = state.enabled
-        set(value) { state.enabled = value }
+        set(value) {
+            state.enabled = value
+        }
 
     var autoReconnect: Boolean
         get() = state.autoReconnect
-        set(value) { state.autoReconnect = value }
+        set(value) {
+            state.autoReconnect = value
+        }
 
     var autoConnect: Boolean
         get() = state.autoConnect
-        set(value) { state.autoConnect = value }
+        set(value) {
+            state.autoConnect = value
+        }
 
     var effectDurationMs: Long
         get() = state.effectDurationMs
-        set(value) { state.effectDurationMs = value }
+        set(value) {
+            state.effectDurationMs = value
+        }
 
     var pulseSpeedMs: Long
         get() = state.pulseSpeedMs
-        set(value) { state.pulseSpeedMs = value }
+        set(value) {
+            state.pulseSpeedMs = value
+        }
 
     var dimOnFocusLoss: Boolean
         get() = state.dimOnFocusLoss
-        set(value) { state.dimOnFocusLoss = value }
+        set(value) {
+            state.dimOnFocusLoss = value
+        }
 
     var dimBrightness: Int
         get() = state.dimBrightness
-        set(value) { state.dimBrightness = value }
+        set(value) {
+            state.dimBrightness = value
+        }
 
     var resetOnExit: Boolean
         get() = state.resetOnExit
-        set(value) { state.resetOnExit = value }
+        set(value) {
+            state.resetOnExit = value
+        }
 
     var skipCustomMode: Boolean
         get() = state.skipCustomMode
-        set(value) { state.skipCustomMode = value }
+        set(value) {
+            state.skipCustomMode = value
+        }
 
     // Multi-device
     var multiDeviceEnabled: Boolean
         get() = state.multiDeviceEnabled
-        set(value) { state.multiDeviceEnabled = value }
+        set(value) {
+            state.multiDeviceEnabled = value
+        }
 
     val deviceConfigs: MutableList<DeviceConfig>
         get() = state.deviceConfigs
@@ -167,23 +211,33 @@ class KgBoardSettings : PersistentStateComponent<KgBoardSettings.State> {
     // Pomodoro
     var pomodoroEnabled: Boolean
         get() = state.pomodoroEnabled
-        set(value) { state.pomodoroEnabled = value }
+        set(value) {
+            state.pomodoroEnabled = value
+        }
 
     var pomodoroWorkMinutes: Int
         get() = state.pomodoroWorkMinutes
-        set(value) { state.pomodoroWorkMinutes = value }
+        set(value) {
+            state.pomodoroWorkMinutes = value
+        }
 
     var pomodoroBreakMinutes: Int
         get() = state.pomodoroBreakMinutes
-        set(value) { state.pomodoroBreakMinutes = value }
+        set(value) {
+            state.pomodoroBreakMinutes = value
+        }
 
     var pomodoroLongBreakMinutes: Int
         get() = state.pomodoroLongBreakMinutes
-        set(value) { state.pomodoroLongBreakMinutes = value }
+        set(value) {
+            state.pomodoroLongBreakMinutes = value
+        }
 
     var pomodoroSessionsBeforeLongBreak: Int
         get() = state.pomodoroSessionsBeforeLongBreak
-        set(value) { state.pomodoroSessionsBeforeLongBreak = value }
+        set(value) {
+            state.pomodoroSessionsBeforeLongBreak = value
+        }
 
     val pomodoroWorkColor: Color get() = parseColor(state.pomodoroWorkColor)
     val pomodoroBreakColor: Color get() = parseColor(state.pomodoroBreakColor)
@@ -192,7 +246,9 @@ class KgBoardSettings : PersistentStateComponent<KgBoardSettings.State> {
     // IDE Notifications
     var notifyIndexingEnabled: Boolean
         get() = state.notifyIndexingEnabled
-        set(value) { state.notifyIndexingEnabled = value }
+        set(value) {
+            state.notifyIndexingEnabled = value
+        }
 
     val notifyIndexingColor: Color get() = parseColor(state.notifyIndexingColor)
 
@@ -201,7 +257,9 @@ class KgBoardSettings : PersistentStateComponent<KgBoardSettings.State> {
 
     var notifyLowMemoryEnabled: Boolean
         get() = state.notifyLowMemoryEnabled
-        set(value) { state.notifyLowMemoryEnabled = value }
+        set(value) {
+            state.notifyLowMemoryEnabled = value
+        }
 
     val notifyLowMemoryColor: Color get() = parseColor(state.notifyLowMemoryColor)
 
@@ -210,7 +268,9 @@ class KgBoardSettings : PersistentStateComponent<KgBoardSettings.State> {
 
     var notifyTodoEnabled: Boolean
         get() = state.notifyTodoEnabled
-        set(value) { state.notifyTodoEnabled = value }
+        set(value) {
+            state.notifyTodoEnabled = value
+        }
 
     val notifyTodoColor: Color get() = parseColor(state.notifyTodoColor)
 

@@ -23,18 +23,21 @@ class KeyboardLayoutService : Disposable {
 
     private val log = Logger.getInstance(KeyboardLayoutService::class.java)
 
-    data class MappingSnapshot(val ledNames: Map<String, Int> = emptyMap(), val keyNames: Map<String, Int> = emptyMap(),
+    data class MappingSnapshot(
+        val ledNames: Map<String, Int> = emptyMap(), val keyNames: Map<String, Int> = emptyMap(),
         val keyCodes: Map<Int, Int> = emptyMap(), val revision: DeviceMappingRevision? = null,
-        val device: RgbDeviceInfo? = null)
-    @Volatile private var mappings = MappingSnapshot()
+        val device: RgbDeviceInfo? = null
+    )
+
+    @Volatile
+    private var mappings = MappingSnapshot()
     fun snapshot(): MappingSnapshot = mappings
     val isAvailable: Boolean get() = mappings.keyNames.isNotEmpty()
 
     fun refresh() {
         val state = LightingRuntimeService.getInstance().snapshot()
-        val ready = state.connection as? ConnectionState.Ready
-        val device = ready?.devices?.getOrNull(state.settings.deviceIndex)
-        if (device == null) clear() else buildMappings(device, DeviceMappingRevision(ready.session, state.settings.deviceIndex))
+        val resolved = state.primaryDevice()
+        if (resolved == null) clear() else buildMappings(resolved.device, state.primaryMapping())
     }
 
     fun refreshForDevice(device: RgbDeviceInfo, revision: DeviceMappingRevision? = null) {
@@ -67,21 +70,15 @@ class KeyboardLayoutService : Disposable {
     fun getAllMappings(): Map<String, Int> = mappings.keyNames
 
     private fun buildMappings(device: RgbDeviceInfo, revision: DeviceMappingRevision?) {
-        val raw = device.ledNames.withIndex().groupBy({ it.value }, { it.index })
-        val keys = mutableMapOf<String, MutableSet<Int>>()
-        val codes = mutableMapOf<Int, MutableSet<Int>>()
-        device.ledNames.forEachIndexed { index, ledName ->
-            val keyName = extractKeyName(ledName) ?: return@forEachIndexed
-            val normalized = normalizeKeyName(keyName)
-            keys.getOrPut(normalized) { linkedSetOf() }.add(index)
-            keyNameToKeyCode(normalized)?.let { code -> codes.getOrPut(code) { linkedSetOf() }.add(index) }
-        }
-        val nameToIdx = raw.mapNotNull { (name, indices) -> indices.singleOrNull()?.let { name to it } }.toMap()
-        val keyToIdx = keys.mapNotNull { (name, indices) -> indices.singleOrNull()?.let { name to it } }.toMap()
-        val codeToIdx = codes.mapNotNull { (code, indices) -> indices.singleOrNull()?.let { code to it } }.toMap()
-        val geometry = device.copy(ledNames = frozenList(device.ledNames),
+        val keys = DeviceKeyMapping.build(device)
+        val nameToIdx = keys.ledNames
+        val keyToIdx = keys.keyNames
+        val codeToIdx = keys.keyCodes
+        val geometry = device.copy(
+            ledNames = frozenList(device.ledNames),
             displayNames = frozenList(device.displayNames), colors = frozenList(device.colors),
-            zones = frozenList(device.zones.map { it.copy(matrixMap = it.matrixMap?.let(::frozenList)) }))
+            zones = frozenList(device.zones.map { it.copy(matrixMap = it.matrixMap?.let(::frozenList)) })
+        )
         mappings = MappingSnapshot(frozenMap(nameToIdx), frozenMap(keyToIdx), frozenMap(codeToIdx), revision, geometry)
 
         log.info("Keyboard layout: ${keyToIdx.size} keys mapped from ${device.ledNames.size} LEDs (device: ${device.name})")
@@ -97,7 +94,9 @@ class KeyboardLayoutService : Disposable {
 
     private fun normalizeKeyName(name: String): String = KeyNames.normalize(name)
 
-    fun clear() { mappings = MappingSnapshot() }
+    fun clear() {
+        mappings = MappingSnapshot()
+    }
 
     override fun dispose() {
         clear()
@@ -111,58 +110,9 @@ class KeyboardLayoutService : Disposable {
          * Map common key names to Java VK_ key codes.
          */
         fun keyNameToKeyCode(name: String): Int? {
-            return KEY_NAME_TO_VK[name]
+            return KeyCodes.forName(name)
         }
 
-        private val KEY_NAME_TO_VK = buildMap {
-            // Letters
-            ('A'..'Z').forEach { put(it.toString(), KeyEvent.VK_A + (it - 'A')) }
-            // Digits
-            ('0'..'9').forEach { put(it.toString(), KeyEvent.VK_0 + (it - '0')) }
-            // F-keys
-            (1..12).forEach { put("F$it", KeyEvent.VK_F1 + (it - 1)) }
-            // Modifiers
-            put("LSHIFT", KeyEvent.VK_SHIFT)
-            put("RSHIFT", KeyEvent.VK_SHIFT)
-            put("LCONTROL", KeyEvent.VK_CONTROL)
-            put("RCONTROL", KeyEvent.VK_CONTROL)
-            put("LALT", KeyEvent.VK_ALT)
-            put("RALT", KeyEvent.VK_ALT)
-            put("LWIN", KeyEvent.VK_WINDOWS)
-            put("RWIN", KeyEvent.VK_WINDOWS)
-            // Navigation
-            put("ENTER", KeyEvent.VK_ENTER)
-            put("SPACE", KeyEvent.VK_SPACE)
-            put("TAB", KeyEvent.VK_TAB)
-            put("ESCAPE", KeyEvent.VK_ESCAPE)
-            put("BACKSPACE", KeyEvent.VK_BACK_SPACE)
-            put("DELETE", KeyEvent.VK_DELETE)
-            put("INSERT", KeyEvent.VK_INSERT)
-            put("HOME", KeyEvent.VK_HOME)
-            put("END", KeyEvent.VK_END)
-            put("PAGE UP", KeyEvent.VK_PAGE_UP)
-            put("PAGE DOWN", KeyEvent.VK_PAGE_DOWN)
-            put("UP", KeyEvent.VK_UP)
-            put("DOWN", KeyEvent.VK_DOWN)
-            put("LEFT", KeyEvent.VK_LEFT)
-            put("RIGHT", KeyEvent.VK_RIGHT)
-            // Punctuation
-            put("CAPS LOCK", KeyEvent.VK_CAPS_LOCK)
-            put("NUM LOCK", KeyEvent.VK_NUM_LOCK)
-            put("SCROLL LOCK", KeyEvent.VK_SCROLL_LOCK)
-            put("PRINT SCREEN", KeyEvent.VK_PRINTSCREEN)
-            put("PAUSE", KeyEvent.VK_PAUSE)
-            put("MINUS", KeyEvent.VK_MINUS)
-            put("EQUALS", KeyEvent.VK_EQUALS)
-            put("OPEN BRACKET", KeyEvent.VK_OPEN_BRACKET)
-            put("CLOSE BRACKET", KeyEvent.VK_CLOSE_BRACKET)
-            put("SEMICOLON", KeyEvent.VK_SEMICOLON)
-            put("QUOTE", KeyEvent.VK_QUOTE)
-            put("BACKSLASH", KeyEvent.VK_BACK_SLASH)
-            put("COMMA", KeyEvent.VK_COMMA)
-            put("PERIOD", KeyEvent.VK_PERIOD)
-            put("SLASH", KeyEvent.VK_SLASH)
-            put("BACK QUOTE", KeyEvent.VK_BACK_QUOTE)
-        }
+
     }
 }

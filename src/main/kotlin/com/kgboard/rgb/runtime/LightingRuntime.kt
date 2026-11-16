@@ -1,5 +1,7 @@
 package com.kgboard.rgb.runtime
 
+import com.kgboard.rgb.device.*
+
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.Executor
 import java.util.concurrent.RejectedExecutionException
@@ -16,14 +18,23 @@ class LightingRuntime(
     initial: RuntimeState,
     private val onError: (Throwable) -> Unit = {}
 ) : RuntimeEvents, AutoCloseable {
-    @Volatile private var state = initial
+    @Volatile
+    private var state = initial
     private val accepting = AtomicBoolean(true)
-    private data class Subscription(val listener: (RuntimeState) -> Unit, val active: AtomicBoolean = AtomicBoolean(true))
+
+    private data class Subscription(
+        val listener: (RuntimeState) -> Unit,
+        val active: AtomicBoolean = AtomicBoolean(true)
+    )
+
     private val subscriptions = CopyOnWriteArrayList<Subscription>()
     private var scheduled: Cancellation? = null
     private var wakeGeneration = 0L
-    private var outputSession: SessionId? = null
-    private var ownedDevices: Set<Int> = emptySet()
+    private var outputToken: InventoryToken? = null
+
+    private data class OwnedOutput(val binding: DeviceBinding, val token: InventoryToken)
+
+    private var ownedDevices: Map<Int, OwnedOutput> = emptyMap()
 
     fun snapshot(): RuntimeState = state
 
@@ -60,10 +71,15 @@ class LightingRuntime(
         scheduled = null
         val generation = ++wakeGeneration
         val finalFrames = if (previous.connection is ConnectionState.Ready && event !is RuntimeEvent.InventoryChanged &&
-            event !is RuntimeEvent.TransportFailed && event !is RuntimeEvent.ConnectFailed && transition.commands.any { it is RuntimeCommand.Connect || it is RuntimeCommand.Disconnect }) {
+            event !is RuntimeEvent.TransportFailed && event !is RuntimeEvent.ConnectFailed && transition.commands.any { it is RuntimeCommand.Connect || it is RuntimeCommand.Disconnect }
+        ) {
             val normal = policy.frames(previous.copy(preview = null), now).toMutableMap()
-            previous.preview?.device?.takeIf { it !in normal }?.let { index ->
-                previous.connection.devices.getOrNull(index)?.let { device -> normal[index] = List(device.numLeds) { LightingPolicy.color(previous.settings.idleColor) } }
+            previous.preview?.binding?.let { binding ->
+                previous.inventory()?.takeIf { it.token == previous.preview?.token }?.let { inventory ->
+                    val resolved = DeviceResolver.resolve(binding, inventory, previous.settings.untrustedSerials)
+                    if (resolved is DeviceResolution.Resolved && resolved.index !in normal)
+                        normal[resolved.index] = policy.retiredFrame(previous, inventory.devices[resolved.index])
+                }
             }
             normal.toMap()
         } else emptyMap()
@@ -80,28 +96,45 @@ class LightingRuntime(
             accepting.set(false)
             subscriptions.clear()
             writer.close()
-        } else listOfNotNull(policy.nextWakeAt(state, now), (state.connection as? ConnectionState.Backoff)?.retryAtMs, state.probeAtMs).minOrNull()?.let { due ->
+        } else listOfNotNull(
+            policy.nextWakeAt(state, now),
+            (state.connection as? ConnectionState.Backoff)?.retryAtMs,
+            state.probeAtMs
+        ).minOrNull()?.let { due ->
             scheduled = scheduler.scheduleAt(due) { dispatch(RuntimeEvent.Wake(generation)) }
         }
     }
 
     private fun render(now: Long) {
-        val ready = state.connection as? ConnectionState.Ready
-        if (ready?.session != outputSession) {
-            outputSession = ready?.session
-            ownedDevices = emptySet()
+        val inventory = state.inventory()
+        if (inventory?.token != outputToken) {
+            outputToken = inventory?.token
+            ownedDevices = emptyMap()
         }
-        if (ready == null) return
+        if (inventory == null) return
         val frames = policy.frames(state, now)
-        for (removed in ownedDevices - frames.keys) ready.devices.getOrNull(removed)?.let { device ->
-            writer.offer(ready.session, removed, List(device.numLeds) { if (state.shuttingDown && state.settings.resetOnExit) java.awt.Color.BLACK else LightingPolicy.color(state.settings.idleColor) })
+        for ((oldIndex, owned) in ownedDevices.filterKeys { it !in frames }) {
+            if (owned.token != inventory.token) continue
+            val resolution = DeviceResolver.resolve(owned.binding, inventory, state.settings.untrustedSerials)
+            if (resolution is DeviceResolution.Resolved && resolution.index == oldIndex)
+                writer.offer(
+                    inventory.token.session,
+                    resolution.index,
+                    policy.retiredFrame(state, inventory.devices[resolution.index])
+                )
         }
-        frames.forEach { (device, frame) -> writer.offer(ready.session, device, frame) }
-        ownedDevices = frozenSet(frames.keys)
+        frames.forEach { (device, frame) -> writer.offer(inventory.token.session, device, frame) }
+        ownedDevices = policy.outputs(state, now).filter { it.index in frames }.associate {
+            it.index to OwnedOutput(it.configured.binding, it.token)
+        }
     }
 
     private fun notify(subscription: Subscription) {
-        if (subscription.active.get()) try { subscription.listener(state) } catch (e: Exception) { onError(e) }
+        if (subscription.active.get()) try {
+            subscription.listener(state)
+        } catch (e: Exception) {
+            onError(e)
+        }
     }
 
     override fun close() {

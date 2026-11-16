@@ -7,7 +7,8 @@ import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 
 class RuntimeIntegrationTest {
-    @Test fun `shutdown retires preview only device while an earlier write is blocked`() {
+    @Test
+    fun `shutdown retires preview only device while an earlier write is blocked`() {
         val actor = java.util.concurrent.Executors.newSingleThreadExecutor()
         val network = java.util.concurrent.Executors.newSingleThreadExecutor()
         val ready = java.util.concurrent.CountDownLatch(1)
@@ -17,7 +18,7 @@ class RuntimeIntegrationTest {
         val writes = java.util.concurrent.CopyOnWriteArrayList<Pair<Int, List<Color>>>()
         val shouldBlock = java.util.concurrent.atomic.AtomicBoolean()
         val transport = object : com.kgboard.rgb.client.RgbTransport {
-            override fun connect(endpoint: Endpoint) = listOf(testDevice(), testDevice())
+            override fun connect(endpoint: Endpoint) = testDevices()
             override fun write(device: Int, colors: List<Color>) {
                 if (device == 1 && shouldBlock.compareAndSet(true, false)) {
                     blocked.countDown()
@@ -26,15 +27,18 @@ class RuntimeIntegrationTest {
                 writes.add(device to colors.toList())
                 if (device == 1 && colors[1] == Color.RED) previewSent.countDown()
             }
-            override fun close() { }
+
+            override fun close() {}
         }
         lateinit var runtime: LightingRuntime
         val writer = CoalescingFrameWriter(transport, network, RuntimeEvents { runtime.dispatch(it) })
         val scheduler = object : RuntimeScheduler {
             override fun scheduleAt(timeMs: Long, action: () -> Unit) = Cancellation { }
         }
-        runtime = LightingRuntime(actor, RuntimeClock { System.nanoTime() / 1_000_000 }, scheduler,
-            RuntimeReducer(), LightingPolicy(), writer, RuntimeState())
+        runtime = LightingRuntime(
+            actor, RuntimeClock { System.nanoTime() / 1_000_000 }, scheduler,
+            RuntimeReducer(), LightingPolicy(), writer, RuntimeState(settings = RuntimeSettings().withTestBindings())
+        )
         runtime.subscribe { if (it.connection is ConnectionState.Ready) ready.countDown() }
         val preview = SettingsPreviewSession(runtime)
         try {
@@ -61,20 +65,41 @@ class RuntimeIntegrationTest {
         }
     }
 
-    @Test fun `shutdown flushes black on configured and preview only device then closes writer`() {
-        val actor = ManualExecutor(); val network = ManualExecutor(); val clock = ManualClock()
+    @Test
+    fun `shutdown flushes black on configured and preview only device then closes writer`() {
+        val actor = ManualExecutor();
+        val network = ManualExecutor();
+        val clock = ManualClock()
         val scheduler = ManualScheduler(clock, actor)
         val writes = mutableListOf<Pair<Int, List<Color>>>()
         var closed = false
         val transport = object : com.kgboard.rgb.client.RgbTransport {
-            override fun connect(endpoint: Endpoint) = listOf(testDevice(), testDevice())
-            override fun write(device: Int, colors: List<Color>) { check(!closed); writes.add(device to colors.toList()) }
-            override fun close() { closed = true }
+            override fun connect(endpoint: Endpoint) = testDevices()
+            override fun write(device: Int, colors: List<Color>) {
+                check(!closed); writes.add(device to colors.toList())
+            }
+
+            override fun close() {
+                closed = true
+            }
         }
         lateinit var runtime: LightingRuntime
         val writer = CoalescingFrameWriter(transport, network, RuntimeEvents { runtime.dispatch(it) })
-        runtime = LightingRuntime(actor, clock, scheduler, RuntimeReducer(), LightingPolicy(), writer, RuntimeState())
-        fun drain() { repeat(100) { actor.drain(); network.drain(); if (!actor.hasPending && !network.hasPending) return }; error("Queues failed to settle") }
+        runtime = LightingRuntime(
+            actor,
+            clock,
+            scheduler,
+            RuntimeReducer(),
+            LightingPolicy(),
+            writer,
+            RuntimeState(settings = RuntimeSettings().withTestBindings())
+        )
+        fun drain() {
+            repeat(100) { actor.drain(); network.drain(); if (!actor.hasPending && !network.hasPending) return }; error(
+                "Queues failed to settle"
+            )
+        }
+
         val events = RuntimeEvents { runtime.dispatch(it); drain() }
         events.dispatch(RuntimeEvent.FocusChanged(true)); events.dispatch(RuntimeEvent.ConnectRequested())
         val preview = SettingsPreviewSession(events)
@@ -86,14 +111,20 @@ class RuntimeIntegrationTest {
         assertTrue(closed)
     }
 
-    @Test fun `project switch preview disable focus and static deadline restore physical output`() {
-        val h = RuntimeHarness(RuntimeSettings(idleColor = "#FFFFFF", dimBrightness = 10))
+    @Test
+    fun `project switch preview disable focus and static deadline restore physical output`() {
+        val h = RuntimeHarness(RuntimeSettings(idleColor = "#FFFFFF", dimBrightness = 10).withTestBindings())
         val events = RuntimeEvents { h.send(it) }
-        val a = ProjectRuntimeBinding(events, ProjectSettingsSnapshot())
-        val b = ProjectRuntimeBinding(events, ProjectSettingsSnapshot())
+        val a = ProjectRuntimeBinding(events, ProjectSettingsSnapshot().withTestTargets())
+        val b = ProjectRuntimeBinding(events, ProjectSettingsSnapshot().withTestTargets())
         a.start(); b.start()
         h.send(RuntimeEvent.ProjectActivated(a.id)); h.send(RuntimeEvent.FocusChanged(true))
-        h.send(RuntimeEvent.OperationChanged(a.id, OperationState(OperationId("run-a"), OperationKind.RUN, OperationPhase.RUNNING)))
+        h.send(
+            RuntimeEvent.OperationChanged(
+                a.id,
+                OperationState(OperationId("run-a"), OperationKind.RUN, OperationPhase.RUNNING)
+            )
+        )
         val run = h.lastFrame(0)
         val preview = SettingsPreviewSession(events)
         preview.preview(0, Color.RED, listOf(0)); assertEquals(Color.RED, h.lastFrame(0)[0])
@@ -106,11 +137,15 @@ class RuntimeIntegrationTest {
         assertEquals(List(3) { Color.WHITE }, h.lastFrame(0))
         b.dispose(); h.close(); assertTrue(h.writer.closed)
     }
-    @Test fun `real writer retries failed session with new geometry and preserves foreground owner`() {
-        val actor = ManualExecutor(); val network = ManualExecutor(); val clock = ManualClock()
+
+    @Test
+    fun `real writer retries failed session with new geometry and preserves foreground owner`() {
+        val actor = ManualExecutor();
+        val network = ManualExecutor();
+        val clock = ManualClock()
         val scheduler = ManualScheduler(clock, actor)
         val writes = mutableListOf<Pair<Int, List<Color>>>()
-        var devices = listOf(testDevice(), testDevice())
+        var devices = testDevices()
         var fail = false
         val transport = object : com.kgboard.rgb.client.RgbTransport {
             override fun connect(endpoint: Endpoint) = devices
@@ -118,17 +153,30 @@ class RuntimeIntegrationTest {
                 if (fail) throw java.io.IOException("reset")
                 writes.add(device to colors.toList())
             }
+
             override fun close() {}
         }
         lateinit var runtime: LightingRuntime
         val writer = CoalescingFrameWriter(transport, network, RuntimeEvents { runtime.dispatch(it) })
-        runtime = LightingRuntime(actor, clock, scheduler, RuntimeReducer(), LightingPolicy(), writer,
-            RuntimeState(settings = RuntimeSettings(dimOnFocusLoss = false, autoConnect = false)))
-        fun drain() { repeat(100) { actor.drain(); network.drain(); if (!actor.hasPending && !network.hasPending) return }; error("Queues failed to settle") }
+        runtime = LightingRuntime(
+            actor, clock, scheduler, RuntimeReducer(), LightingPolicy(), writer,
+            RuntimeState(settings = RuntimeSettings(dimOnFocusLoss = false, autoConnect = false).withTestBindings())
+        )
+        fun drain() {
+            repeat(100) { actor.drain(); network.drain(); if (!actor.hasPending && !network.hasPending) return }; error(
+                "Queues failed to settle"
+            )
+        }
+
         val events = RuntimeEvents { runtime.dispatch(it); drain() }
-        val a = ProjectRuntimeBinding(events, ProjectSettingsSnapshot()); val b = ProjectRuntimeBinding(events, ProjectSettingsSnapshot())
+        val a = ProjectRuntimeBinding(events, ProjectSettingsSnapshot().withTestTargets());
+        val b = ProjectRuntimeBinding(events, ProjectSettingsSnapshot().withTestTargets())
         try {
-            a.start(); b.start(); events.dispatch(RuntimeEvent.ProjectActivated(b.id)); events.dispatch(RuntimeEvent.FocusChanged(true))
+            a.start(); b.start(); events.dispatch(RuntimeEvent.ProjectActivated(b.id)); events.dispatch(
+                RuntimeEvent.FocusChanged(
+                    true
+                )
+            )
             events.dispatch(RuntimeEvent.ConnectRequested())
             assertTrue(runtime.snapshot().connection is ConnectionState.Ready)
             val op = OperationState(OperationId("b-run"), OperationKind.RUN, OperationPhase.RUNNING)
@@ -136,7 +184,12 @@ class RuntimeIntegrationTest {
             val running = writes.last().second
             a.dispose(); assertEquals(b.id, runtime.snapshot().activeProject)
             fail = true
-            events.dispatch(RuntimeEvent.OperationChanged(b.id, op.copy(phase = OperationPhase.TERMINATED, outcome = OperationOutcome.FAILURE, revision = 2)))
+            events.dispatch(
+                RuntimeEvent.OperationChanged(
+                    b.id,
+                    op.copy(phase = OperationPhase.TERMINATED, outcome = OperationOutcome.FAILURE, revision = 2)
+                )
+            )
             assertTrue(runtime.snapshot().connection is ConnectionState.Backoff)
             fail = false; devices = listOf(testDevice(7))
             scheduler.advanceBy(1000); drain()
@@ -150,6 +203,8 @@ class RuntimeIntegrationTest {
             assertNotEquals(Color.BLUE, writes.last().second[0])
             preview.close()
             assertFalse(runtime.snapshot().connectionWanted)
-        } finally { runtime.close(); drain() }
+        } finally {
+            runtime.close(); drain()
+        }
     }
 }

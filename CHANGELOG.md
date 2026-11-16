@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.1.0] - 2026-11-17
+
+### Added
+- Versioned, detached XML migration and settings drafts with independent scenario-state rules and lossless preservation of unsupported records.
+- Identity-based runtime device assignments, layout-confirmed raw targets and per-device shortcut key resolution, including mirror devices.
+
+### Fixed
+- Block every ordinary, idle, disabled and shutdown output without a confirmed device binding; retire outputs through their original identity rather than a reused index.
+- Fence session-only bindings across runtime restarts and preview output across connection changes.
+- Merge observed duplicate-serial metadata safely through concurrent Settings Apply; retain unavailable duplicate bindings in drafts.
+- Preserve typed targets while legacy settings forms edit colors or flags.
+
 ## [3.0.5] - 2026-11-16
 
 ### Added

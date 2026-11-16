@@ -44,7 +44,9 @@ class KgBoardProjectSettings : PersistentStateComponent<KgBoardProjectSettings.S
         var shortcutDebugColor: String = "#651FFF",
         var shortcutSearchColor: String = "#2979FF",
         var shortcutEditingColor: String = "#00C853",
-        var shortcutVcsColor: String = "#FF9100"
+        var shortcutVcsColor: String = "#FF9100",
+        var schemaVersion: Int = 0,
+        var ruleRecords: MutableList<com.kgboard.rgb.scenario.RuleRecord> = mutableListOf()
     )
 
     // @Volatile: read from git/analysis/shortcut background threads concurrently with EDT writes.

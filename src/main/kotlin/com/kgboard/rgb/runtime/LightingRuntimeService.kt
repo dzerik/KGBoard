@@ -31,8 +31,12 @@ class LightingRuntimeService : Disposable {
     private val focus: FrameFocusTracker
     private val source: IdeFocusedProjectSource
     val events: RuntimeEvents get() = runtime
+
     init {
-        val initial = RuntimeState(settings = RuntimeSettings.capture(KgBoardSettings.getInstance().state))
+        val initial = RuntimeState(
+            settings = RuntimeSettings.capture(com.kgboard.rgb.settings.SettingsMigration.app(KgBoardSettings.getInstance().state)),
+            groups = KeyGroupService.getInstance().definitions()
+        )
         val writer = CoalescingFrameWriter(transport, network, RuntimeEvents { events.dispatch(it) })
         val scheduler = object : RuntimeScheduler {
             override fun scheduleAt(timeMs: Long, action: () -> Unit): Cancellation {
@@ -40,14 +44,23 @@ class LightingRuntimeService : Disposable {
                 return Cancellation { future.cancel(false) }
             }
         }
-        runtime = LightingRuntime(actor, clock, scheduler, RuntimeReducer(), LightingPolicy(), writer, initial) { log.warn("Lighting runtime error", it) }
+        runtime = LightingRuntime(
+            actor,
+            clock,
+            scheduler,
+            RuntimeReducer(),
+            LightingPolicy(),
+            writer,
+            initial
+        ) { log.warn("Lighting runtime error", it) }
         source = IdeFocusedProjectSource { project -> projects[project]?.id }
         focus = FrameFocusTracker(source, events)
         focus.start()
         LowMemoryWatcher.register(Runnable { events.dispatch(RuntimeEvent.LowMemory) }, this)
         var pomodoroEnabled: Boolean? = null
-        var mappingDevice: Pair<SessionId, Int>? = null
+        var mappingDevice: DeviceMappingRevision? = null
         runtime.subscribe { state ->
+            if (closed.get()) return@subscribe
             if (pomodoroEnabled != state.settings.pomodoroEnabled) {
                 pomodoroEnabled = state.settings.pomodoroEnabled
                 ApplicationManager.getApplication().invokeLater {
@@ -57,25 +70,34 @@ class LightingRuntimeService : Disposable {
                     }
                 }
             }
-            val ready = state.connection as? ConnectionState.Ready
-            val key = ready?.let { it.session to state.settings.deviceIndex }
+            val key = state.primaryMapping()
             if (key != mappingDevice) {
                 mappingDevice = key
                 val layout = KeyboardLayoutService.getInstance()
-                val device = ready?.devices?.getOrNull(state.settings.deviceIndex)
-                if (device == null) layout.clear() else layout.refreshForDevice(device, DeviceMappingRevision(ready.session, state.settings.deviceIndex))
+                val device = state.primaryDevice()?.device
+                if (device == null) layout.clear() else layout.refreshForDevice(device, key)
                 KeyGroupService.getInstance().refreshFromDevice()
             }
+            KgBoardSettings.getInstance().mergeObservedSerials(state.settings.untrustedSerials)
+
         }
     }
+
     fun ensureStarted() {
         if (started.compareAndSet(false, true)) {
             val settings = snapshot().settings
             if (settings.enabled && settings.autoConnect) events.dispatch(RuntimeEvent.ConnectRequested())
         }
     }
-    fun register(project: Project, binding: ProjectRuntimeBinding) { projects[project] = binding; refreshFocus(); ensureStarted() }
-    fun unregister(project: Project) { projects.remove(project); refreshFocus() }
+
+    fun register(project: Project, binding: ProjectRuntimeBinding) {
+        projects[project] = binding; refreshFocus(); ensureStarted()
+    }
+
+    fun unregister(project: Project) {
+        projects.remove(project); refreshFocus()
+    }
+
     fun binding(project: Project): ProjectRuntimeBinding? = projects[project]
     fun refreshFocus() = source.refresh()
     fun snapshot() = runtime.snapshot()
@@ -89,13 +111,17 @@ class LightingRuntimeService : Disposable {
         try {
             actor.awaitTermination(remaining(), TimeUnit.NANOSECONDS)
             network.shutdown()
-            if (!network.awaitTermination(remaining(), TimeUnit.NANOSECONDS)) { transport.abort(); network.shutdownNow() }
+            if (!network.awaitTermination(remaining(), TimeUnit.NANOSECONDS)) {
+                transport.abort(); network.shutdownNow()
+            }
         } catch (_: InterruptedException) {
             Thread.currentThread().interrupt(); transport.abort(); network.shutdownNow(); actor.shutdownNow()
         }
         projects.clear()
     }
+
     companion object {
-        fun getInstance(): LightingRuntimeService = ApplicationManager.getApplication().getService(LightingRuntimeService::class.java)
+        fun getInstance(): LightingRuntimeService =
+            ApplicationManager.getApplication().getService(LightingRuntimeService::class.java)
     }
 }

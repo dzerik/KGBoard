@@ -13,13 +13,20 @@ import org.junit.jupiter.api.Assertions.*
 
 class SettingsPersistencePlatformTest {
     private lateinit var fixture: IdeaProjectTestFixture
-    @BeforeEach fun setUp() {
+    @BeforeEach
+    fun setUp() {
         fixture = IdeaTestFixtureFactory.getFixtureFactory().createFixtureBuilder(javaClass.simpleName).fixture
         EdtTestUtil.runInEdtAndWait<Throwable> { fixture.setUp() }
     }
-    @AfterEach fun tearDown() { EdtTestUtil.runInEdtAndWait<Throwable> { fixture.tearDown() } }
+
+    @AfterEach
+    fun tearDown() {
+        EdtTestUtil.runInEdtAndWait<Throwable> { fixture.tearDown() }
+    }
+
     private fun xml(name: String) = javaClass.getResourceAsStream("/settings/$name.xml")!!.use { JDOMUtil.load(it) }
-    @Test fun `real settings UI cancel and invalid apply never mutate persisted fields`() {
+    @Test
+    fun `real settings UI cancel and invalid apply never mutate persisted fields`() {
         EdtTestUtil.runInEdtAndWait<Throwable> {
             val persisted = KgBoardSettings.getInstance()
             val previous = RuntimeSettings.capture(persisted.state).toState()
@@ -41,15 +48,23 @@ class SettingsPersistencePlatformTest {
                 inputs.first { it.name == "app.host" }.text = "cancelled-host"
                 configurable.disposeUIResources()
                 assertEquals("draft-host", persisted.host)
-            } finally { configurable.disposeUIResources(); persisted.loadState(previous) }
+            } finally {
+                configurable.disposeUIResources(); persisted.loadState(previous)
+            }
         }
     }
-    @Test fun `device table refuses invalid in progress edit before apply`() {
+
+    @Test
+    fun `device table refuses invalid in progress edit before apply`() {
         EdtTestUtil.runInEdtAndWait<Throwable> {
             val persisted = KgBoardSettings.getInstance()
             val previous = RuntimeSettings.capture(persisted.state).toState()
-            persisted.loadState(KgBoardSettings.State(autoConnect = false, enabled = false,
-                deviceConfigs = mutableListOf(KgBoardSettings.DeviceConfig(0, "Keyboard"))))
+            persisted.loadState(
+                KgBoardSettings.State(
+                    autoConnect = false, enabled = false,
+                    deviceConfigs = mutableListOf(KgBoardSettings.DeviceConfig(0, "Keyboard"))
+                )
+            )
             val configurable = KgBoardConfigurable()
             fun tables(component: java.awt.Component): List<javax.swing.JTable> =
                 (if (component is javax.swing.JTable) listOf(component) else emptyList()) +
@@ -60,10 +75,14 @@ class SettingsPersistencePlatformTest {
                 (table.editorComponent as javax.swing.JTextField).text = "-1"
                 assertThrows(com.intellij.openapi.options.ConfigurationException::class.java) { configurable.apply() }
                 assertEquals(0, persisted.state.deviceConfigs.single().deviceIndex)
-            } finally { configurable.disposeUIResources(); persisted.loadState(previous) }
+            } finally {
+                configurable.disposeUIResources(); persisted.loadState(previous)
+            }
         }
     }
-    @Test fun `legacy XML values survive runtime snapshots and serializer round trip`() {
+
+    @Test
+    fun `legacy XML values survive runtime snapshots and serializer round trip`() {
         val app = XmlSerializer.deserialize(xml("app"), KgBoardSettings.State::class.java)
         val project = XmlSerializer.deserialize(xml("project"), KgBoardProjectSettings.State::class.java)
         val groups = XmlSerializer.deserialize(xml("groups"), KeyGroupService.GroupState::class.java)
@@ -74,21 +93,77 @@ class SettingsPersistencePlatformTest {
         assertEquals("1,2", groups.userGroups.single().ledIndices)
         val appCopy = RuntimeSettings.capture(app).toState()
         val projectCopy = ProjectSettingsSnapshot.capture(project).toState()
-        assertEquals(app, XmlSerializer.deserialize(XmlSerializer.serialize(appCopy), KgBoardSettings.State::class.java))
-        assertEquals(project, XmlSerializer.deserialize(XmlSerializer.serialize(projectCopy), KgBoardProjectSettings.State::class.java))
-        assertEquals(groups, XmlSerializer.deserialize(XmlSerializer.serialize(groups), KeyGroupService.GroupState::class.java))
+        assertEquals(
+            app,
+            XmlSerializer.deserialize(XmlSerializer.serialize(appCopy), KgBoardSettings.State::class.java)
+        )
+        assertEquals(
+            project,
+            XmlSerializer.deserialize(XmlSerializer.serialize(projectCopy), KgBoardProjectSettings.State::class.java)
+        )
+        assertEquals(
+            groups,
+            XmlSerializer.deserialize(XmlSerializer.serialize(groups), KeyGroupService.GroupState::class.java)
+        )
     }
 
-    @Test fun `typed groups and unknown target kinds round trip with stable IDs`() {
+    @Test
+    fun `typed groups and unknown target kinds round trip with stable IDs`() {
         val id = "user:00000000-0000-4000-8000-000000000001"
-        val groups = KeyGroupService.GroupState(mutableListOf(KeyGroupService.UserGroup("Named", "", id,
-            com.kgboard.rgb.target.TargetRecord.from(com.kgboard.rgb.target.TargetSpec.NamedKeys(listOf("Key: Esc"))))))
+        val groups = KeyGroupService.GroupState(
+            mutableListOf(
+                KeyGroupService.UserGroup(
+                    "Named", "", id,
+                    com.kgboard.rgb.target.TargetRecord.from(com.kgboard.rgb.target.TargetSpec.NamedKeys(listOf("Key: Esc")))
+                )
+            )
+        )
         val copy = XmlSerializer.deserialize(XmlSerializer.serialize(groups), KeyGroupService.GroupState::class.java)
         assertEquals(groups, copy)
         assertEquals(id, copy.userGroups.single().id)
-        val unknown = com.kgboard.rgb.target.TargetRecord(kind = "future-kind", names = mutableListOf("Esc"), raw = "unparsed")
-        val restored = XmlSerializer.deserialize(XmlSerializer.serialize(unknown), com.kgboard.rgb.target.TargetRecord::class.java)
+        val unknown =
+            com.kgboard.rgb.target.TargetRecord(kind = "future-kind", names = mutableListOf("Esc"), raw = "unparsed")
+        val restored =
+            XmlSerializer.deserialize(XmlSerializer.serialize(unknown), com.kgboard.rgb.target.TargetRecord::class.java)
         assertEquals(unknown, restored)
         assertNull(restored.toSpec())
+    }
+
+    @Test
+    fun `versioned app and project records survive platform XML serialization`() {
+        val app = SettingsMigration.app(KgBoardSettings.State())
+        app.bindingRecords = mutableListOf(
+            BindingRecord(
+                id = "00000000-0000-4000-8000-000000000001",
+                kind = "serial", type = 1, vendor = "Vendor", serial = "S", name = "Display hint", location = "USB hint"
+            )
+        )
+        app.untrustedSerials = mutableListOf(SerialRecord(1, "Vendor", "Duplicate"))
+        app.ruleRecords.single { it.id == "build.failure" }.target =
+            com.kgboard.rgb.target.TargetRecord.from(com.kgboard.rgb.target.TargetSpec.NamedKeys(listOf("Key: Esc")))
+        app.ruleRecords.add(
+            com.kgboard.rgb.scenario.RuleRecord(
+                id = "future.rule",
+                target = com.kgboard.rgb.target.TargetRecord(kind = "future-target", raw = "opaque")
+            )
+        )
+        val captured = RuntimeSettings.capture(app)
+        assertEquals(
+            app,
+            XmlSerializer.deserialize(XmlSerializer.serialize(captured.toState()), KgBoardSettings.State::class.java)
+        )
+        val project = SettingsMigration.project(KgBoardProjectSettings.State())
+        val projectSnapshot = ProjectSettingsSnapshot.capture(project)
+        assertEquals(
+            project,
+            XmlSerializer.deserialize(
+                XmlSerializer.serialize(projectSnapshot.toState()),
+                KgBoardProjectSettings.State::class.java
+            )
+        )
+        app.bindingRecords.single().serial = "mutated"
+        app.ruleRecords.first().target.names.add("mutated")
+        assertEquals("S", captured.toState().bindingRecords.single().serial)
+        assertFalse(captured.toState().ruleRecords.first().target.names.contains("mutated"))
     }
 }

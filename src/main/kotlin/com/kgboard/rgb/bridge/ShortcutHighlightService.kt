@@ -31,27 +31,50 @@ class ShortcutHighlightService(private val project: Project, private val scope: 
                     val binding = app.binding(project) ?: return@withContext
                     val snapshot = app.snapshot()
                     val state = snapshot.projects[binding.id] ?: return@withContext
-                    val mapping = (snapshot.connection as? ConnectionState.Ready)?.let { DeviceMappingRevision(it.session, snapshot.settings.deviceIndex) }
+                    val mapping = snapshot.primaryMapping()
                     val contexts = explicit.toMutableSet()
-                    if (state.operations.values.any { it.kind == OperationKind.DEBUG && it.phase != OperationPhase.TERMINATED }) contexts.add("debug")
+                    if (state.operations.values.any { it.kind == OperationKind.DEBUG && it.phase != OperationPhase.TERMINATED }) contexts.add(
+                        "debug"
+                    )
                     val editor = FileEditorManager.getInstance(project).selectedTextEditor
-                    if (SearchEverywhereManager.getInstance(project).isShown || editor?.let { EditorSearchSession.get(it) } != null) contexts.add("search")
-                    val layout = KeyboardLayoutService.getInstance().snapshot()
+                    if (SearchEverywhereManager.getInstance(project).isShown || editor?.let { EditorSearchSession.get(it) } != null) contexts.add(
+                        "search"
+                    )
                     val keymap = KeymapManager.getInstance().activeKeymap
-                    val indices = if (mapping == null || layout.revision != mapping) emptyMap() else contexts.associateWith { context -> CONTEXT_ACTIONS[context].orEmpty().flatMap { action ->
-                        keymap.getShortcuts(action).filterIsInstance<KeyboardShortcut>().mapNotNull { layout.keyCodes[it.firstKeyStroke.keyCode] }
-                    }.distinct() }
-                    val facts = Triple(mapping, contexts.toSet(), indices)
-                    if (facts != last) { last = facts; binding.emit(RuntimeEvent.ShortcutsChanged(binding.id, facts.second, facts.third, facts.first)) }
+                    val codes = contexts.associateWith { context ->
+                        CONTEXT_ACTIONS[context].orEmpty().flatMap { action ->
+                            keymap.getShortcuts(action).filterIsInstance<KeyboardShortcut>()
+                                .map { it.firstKeyStroke.keyCode }
+                        }.distinct()
+                    }
+                    val facts = Triple(mapping, contexts.toSet(), codes)
+                    if (facts != last) {
+                        last = facts
+                        binding.emit(RuntimeEvent.ShortcutsChanged(binding.id, facts.second, keyCodes = facts.third))
+                    }
+
                 }
                 delay(500)
             }
         }
     }
-    fun activateContext(context: String) { explicit.add(context) }
-    fun deactivateContext(context: String) { explicit.remove(context) }
-    fun clearAll() { explicit.clear() }
-    override fun dispose() { poll?.cancel(); explicit.clear() }
+
+    fun activateContext(context: String) {
+        explicit.add(context)
+    }
+
+    fun deactivateContext(context: String) {
+        explicit.remove(context)
+    }
+
+    fun clearAll() {
+        explicit.clear()
+    }
+
+    override fun dispose() {
+        poll?.cancel(); explicit.clear()
+    }
+
     companion object {
         private val CONTEXT_ACTIONS = mapOf(
             "debug" to listOf(
@@ -72,6 +95,7 @@ class ShortcutHighlightService(private val project: Project, private val scope: 
             )
         )
 
-        fun getInstance(project: Project): ShortcutHighlightService = project.getService(ShortcutHighlightService::class.java)
+        fun getInstance(project: Project): ShortcutHighlightService =
+            project.getService(ShortcutHighlightService::class.java)
     }
 }
