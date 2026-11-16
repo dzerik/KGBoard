@@ -7,6 +7,60 @@ import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 
 class RuntimeIntegrationTest {
+    @Test fun `shutdown retires preview only device while an earlier write is blocked`() {
+        val actor = java.util.concurrent.Executors.newSingleThreadExecutor()
+        val network = java.util.concurrent.Executors.newSingleThreadExecutor()
+        val ready = java.util.concurrent.CountDownLatch(1)
+        val previewSent = java.util.concurrent.CountDownLatch(1)
+        val blocked = java.util.concurrent.CountDownLatch(1)
+        val release = java.util.concurrent.CountDownLatch(1)
+        val writes = java.util.concurrent.CopyOnWriteArrayList<Pair<Int, List<Color>>>()
+        val shouldBlock = java.util.concurrent.atomic.AtomicBoolean()
+        val transport = object : com.kgboard.rgb.client.RgbTransport {
+            override fun connect(endpoint: Endpoint) = listOf(testDevice(), testDevice())
+            override fun write(device: Int, colors: List<Color>) {
+                if (device == 1 && shouldBlock.compareAndSet(true, false)) {
+                    blocked.countDown()
+                    check(release.await(3, java.util.concurrent.TimeUnit.SECONDS))
+                }
+                writes.add(device to colors.toList())
+                if (device == 1 && colors[1] == Color.RED) previewSent.countDown()
+            }
+            override fun close() { }
+        }
+        lateinit var runtime: LightingRuntime
+        val writer = CoalescingFrameWriter(transport, network, RuntimeEvents { runtime.dispatch(it) })
+        val scheduler = object : RuntimeScheduler {
+            override fun scheduleAt(timeMs: Long, action: () -> Unit) = Cancellation { }
+        }
+        runtime = LightingRuntime(actor, RuntimeClock { System.nanoTime() / 1_000_000 }, scheduler,
+            RuntimeReducer(), LightingPolicy(), writer, RuntimeState())
+        runtime.subscribe { if (it.connection is ConnectionState.Ready) ready.countDown() }
+        val preview = SettingsPreviewSession(runtime)
+        try {
+            runtime.dispatch(RuntimeEvent.FocusChanged(true))
+            runtime.dispatch(RuntimeEvent.ConnectRequested())
+            assertTrue(ready.await(3, java.util.concurrent.TimeUnit.SECONDS))
+            preview.preview(1, Color.RED, listOf(1))
+            assertTrue(previewSent.await(3, java.util.concurrent.TimeUnit.SECONDS))
+            shouldBlock.set(true)
+            preview.preview(1, Color.BLUE, listOf(1))
+            assertTrue(blocked.await(3, java.util.concurrent.TimeUnit.SECONDS))
+            runtime.close()
+            actor.submit {}.get(3, java.util.concurrent.TimeUnit.SECONDS)
+            release.countDown()
+            network.shutdown()
+            assertTrue(network.awaitTermination(3, java.util.concurrent.TimeUnit.SECONDS))
+            assertEquals(List(3) { Color.BLACK }, writes.last { it.first == 0 }.second)
+            assertEquals(List(3) { Color.BLACK }, writes.last { it.first == 1 }.second)
+        } finally {
+            release.countDown(); preview.close(); runtime.close()
+            actor.shutdownNow(); network.shutdownNow()
+            assertTrue(actor.awaitTermination(3, java.util.concurrent.TimeUnit.SECONDS))
+            assertTrue(network.awaitTermination(3, java.util.concurrent.TimeUnit.SECONDS))
+        }
+    }
+
     @Test fun `shutdown flushes black on configured and preview only device then closes writer`() {
         val actor = ManualExecutor(); val network = ManualExecutor(); val clock = ManualClock()
         val scheduler = ManualScheduler(clock, actor)

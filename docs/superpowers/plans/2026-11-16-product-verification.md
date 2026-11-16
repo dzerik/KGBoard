@@ -71,7 +71,7 @@ cleanup latch. `blockWrites` gates server processing; to force blocking local
 transport I/O use existing gated RgbTransport too, since TCP buffering alone cannot
 guarantee `write()` blocks. Keep evidence labels explicit.
 
-- [ ] **Step 1: Write failing tests.**
+- [x] **Step 1: Write failing tests.**
 
 ```kotlin
 @Test fun `simulator observes actual client frames and survives reset`() {
@@ -93,8 +93,8 @@ encoder solely by round-tripping through production parser. A1 adds parse tests 
 all versions0–5. Add bounded await/no-response, reconnect inventory reorder, same
 LED count/different names, preview-only shutdown during gated RgbTransport write.
 
-- [ ] **Step 2: RED.** Run `./gradlew test --tests '*OpenRgbSimulatorTest' -PlocalPlatformPath=/home/dzerik/.cache/kgboard-sdk/2026.3/installation/idea-IU-263.7307.200 --console=plain`.
-- [ ] **Step 3: Implement fixture and packet handling.** Write little-endian packet
+- [x] **Step 2: RED.** Run `./gradlew test --tests '*OpenRgbSimulatorTest' -PlocalPlatformPath=/home/dzerik/.cache/kgboard-sdk/2026.3/installation/idea-IU-263.7307.200 --console=plain`.
+- [x] **Step 3: Implement fixture and packet handling.** Write little-endian packet
 header with magic ORGB, device/request/size; implement protocol request/version,
 controller count/data, custom mode/update LEDs and inventory probe paths used by client.
 Controller encoder follows OpenRGBSDK documented field gates, with zero modes/simple
@@ -117,10 +117,10 @@ on close. No Thread.sleep in synchronization; reset uses SO_LINGER=0 to close ac
 socket. Close server/socket and release all gates in finally. Record metadata only
 in test process, never production diagnostics. Retain successful-send cache regression.
 
-- [ ] **Step 4: GREEN.** Repeat RED/full baseline suite; verify simulator classes
+- [x] **Step 4: GREEN.** Repeat RED/full baseline suite; verify simulator classes
 are absent from buildPlugin ZIP. Protocol0 parsing test becomes GREEN only in A1,
 not by encoding a nonexistent vendor into v0.
-- [ ] **Step 5: Commit.** PATCH bump/CHANGELOG/diff check; commit `test: add bounded OpenRGB SDK simulator and wire fixtures`.
+- [x] **Step 5: Commit.** PATCH bump/CHANGELOG/diff check; commit `test: add bounded OpenRGB SDK simulator and wire fixtures`.
 
 ## Task E2: Двойные часы и resume fence
 
