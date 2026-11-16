@@ -24,7 +24,8 @@ class KeyboardLayoutService : Disposable {
     private val log = Logger.getInstance(KeyboardLayoutService::class.java)
 
     data class MappingSnapshot(val ledNames: Map<String, Int> = emptyMap(), val keyNames: Map<String, Int> = emptyMap(),
-        val keyCodes: Map<Int, Int> = emptyMap(), val revision: DeviceMappingRevision? = null)
+        val keyCodes: Map<Int, Int> = emptyMap(), val revision: DeviceMappingRevision? = null,
+        val device: RgbDeviceInfo? = null)
     @Volatile private var mappings = MappingSnapshot()
     fun snapshot(): MappingSnapshot = mappings
     val isAvailable: Boolean get() = mappings.keyNames.isNotEmpty()
@@ -66,24 +67,22 @@ class KeyboardLayoutService : Disposable {
     fun getAllMappings(): Map<String, Int> = mappings.keyNames
 
     private fun buildMappings(device: RgbDeviceInfo, revision: DeviceMappingRevision?) {
-        val nameToIdx = mutableMapOf<String, Int>()
-        val keyToIdx = mutableMapOf<String, Int>()
-        val codeToIdx = mutableMapOf<Int, Int>()
-
+        val raw = device.ledNames.withIndex().groupBy({ it.value }, { it.index })
+        val keys = mutableMapOf<String, MutableSet<Int>>()
+        val codes = mutableMapOf<Int, MutableSet<Int>>()
         device.ledNames.forEachIndexed { index, ledName ->
-            nameToIdx[ledName] = index
-            val keyName = extractKeyName(ledName)
-            if (keyName != null) {
-                val normalized = normalizeKeyName(keyName)
-                keyToIdx[normalized] = index
-                val keyCode = keyNameToKeyCode(normalized)
-                if (keyCode != null) {
-                    codeToIdx[keyCode] = index
-                }
-            }
+            val keyName = extractKeyName(ledName) ?: return@forEachIndexed
+            val normalized = normalizeKeyName(keyName)
+            keys.getOrPut(normalized) { linkedSetOf() }.add(index)
+            keyNameToKeyCode(normalized)?.let { code -> codes.getOrPut(code) { linkedSetOf() }.add(index) }
         }
-
-        mappings = MappingSnapshot(frozenMap(nameToIdx), frozenMap(keyToIdx), frozenMap(codeToIdx), revision)
+        val nameToIdx = raw.mapNotNull { (name, indices) -> indices.singleOrNull()?.let { name to it } }.toMap()
+        val keyToIdx = keys.mapNotNull { (name, indices) -> indices.singleOrNull()?.let { name to it } }.toMap()
+        val codeToIdx = codes.mapNotNull { (code, indices) -> indices.singleOrNull()?.let { code to it } }.toMap()
+        val geometry = device.copy(ledNames = frozenList(device.ledNames),
+            displayNames = frozenList(device.displayNames), colors = frozenList(device.colors),
+            zones = frozenList(device.zones.map { it.copy(matrixMap = it.matrixMap?.let(::frozenList)) }))
+        mappings = MappingSnapshot(frozenMap(nameToIdx), frozenMap(keyToIdx), frozenMap(codeToIdx), revision, geometry)
 
         log.info("Keyboard layout: ${keyToIdx.size} keys mapped from ${device.ledNames.size} LEDs (device: ${device.name})")
     }
@@ -96,13 +95,7 @@ class KeyboardLayoutService : Disposable {
         } else null
     }
 
-    private fun normalizeKeyName(name: String): String {
-        return name.uppercase().trim()
-            .replace("LEFT ", "L")
-            .replace("RIGHT ", "R")
-            .replace("NUMBER PAD ", "NUM")
-            .replace("NUMPAD ", "NUM")
-    }
+    private fun normalizeKeyName(name: String): String = KeyNames.normalize(name)
 
     fun clear() { mappings = MappingSnapshot() }
 

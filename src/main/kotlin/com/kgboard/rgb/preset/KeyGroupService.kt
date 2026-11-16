@@ -7,13 +7,15 @@ import com.intellij.openapi.components.State
 import com.intellij.openapi.components.Storage
 import com.intellij.openapi.diagnostic.Logger
 import com.kgboard.rgb.layout.KeyboardLayoutService
+import com.kgboard.rgb.target.*
+import java.util.UUID
 
 /**
  * Manages key groups: built-in definitions + user-defined custom groups.
  * Resolves key names to LED indices via KeyboardLayoutService.
  *
  * Built-in groups are defined by key names and resolved at runtime.
- * User-defined groups store raw LED indices directly.
+ * User groups retain stable IDs and typed targets; legacy indices require layout confirmation.
  */
 @Service(Service.Level.APP)
 @State(name = "KgBoardKeyGroups", storages = [Storage("kgboard-keygroups.xml")])
@@ -23,12 +25,18 @@ class KeyGroupService : PersistentStateComponent<KeyGroupService.GroupState> {
 
     data class UserGroup(
         var name: String = "",
-        var ledIndices: String = "" // comma-separated LED indices
-    )
+        var ledIndices: String = "", // Legacy field retained for XML compatibility.
+        var id: String = "",
+        var target: TargetRecord? = null
+    ) {
+        fun copyDeep() = copy(target = target?.copyDeep())
+    }
 
     data class GroupState(
         var userGroups: MutableList<UserGroup> = mutableListOf()
-    )
+    ) {
+        fun copyDeep() = copy(userGroups = userGroups.map { it.copyDeep() }.toMutableList())
+    }
 
     @Volatile
     private var state = GroupState()
@@ -39,7 +47,9 @@ class KeyGroupService : PersistentStateComponent<KeyGroupService.GroupState> {
 
     override fun getState(): GroupState = state
     override fun loadState(state: GroupState) {
-        this.state = state
+        this.state = state.copyDeep().also { copy ->
+            copy.userGroups.forEach { if (it.id.isBlank()) it.id = "user:${UUID.randomUUID()}" }
+        }
     }
 
     /** Resolve built-in group key names to LED indices via KeyboardLayoutService. */
@@ -47,30 +57,28 @@ class KeyGroupService : PersistentStateComponent<KeyGroupService.GroupState> {
         return resolvedBuiltInGroups[groupId] ?: emptyList()
     }
 
-    /** Get all available groups: built-in (with resolved indices) + user-defined. */
+    /** Snapshot definitions independently of one device's current indices. */
+    fun definitions(): Map<String, GroupDefinition> {
+        val userGroups = state.userGroups.toList()
+        val counts = userGroups.groupingBy { it.id }.eachCount()
+        return java.util.Collections.unmodifiableMap(buildMap {
+            KeyGroupDefinitions.BUILT_IN_GROUPS.forEach { (id, names) ->
+                val stableId = "builtin:$id"
+                put(stableId, GroupDefinition(stableId, KeyGroupDefinitions.DISPLAY_NAMES.getValue(id),
+                    TargetSpec.NamedKeys(names.toList())))
+            }
+            userGroups.filter { it.id.startsWith("user:") && counts[it.id] == 1 &&
+                runCatching { UUID.fromString(it.id.removePrefix("user:")) }.isSuccess }.forEach { group ->
+                put(group.id, GroupDefinition(group.id, group.name, group.target?.toSpec()
+                    ?: if (group.target == null) TargetSpec.RawIndices(group.ledIndices, null) else TargetSpec.Unassigned))
+            }
+        })
+    }
+
+    /** Compatibility view for legacy CSV controls; unconfirmed raw groups are excluded. */
     fun getAvailableGroups(): Map<String, List<Int>> {
-        val result = mutableMapOf<String, List<Int>>()
-
-        // Built-in groups (only those with at least one resolved LED)
-        for ((groupId, indices) in resolvedBuiltInGroups) {
-            if (indices.isNotEmpty()) {
-                result[groupId] = indices
-            }
-        }
-
-        // User-defined groups
-        for (group in state.userGroups) {
-            if (group.name.isNotBlank()) {
-                val indices = group.ledIndices.split(",")
-                    .mapNotNull { it.trim().toIntOrNull() }
-                    .filter { it >= 0 }
-                if (indices.isNotEmpty()) {
-                    result[group.name] = indices
-                }
-            }
-        }
-
-        return result
+        val device = KeyboardLayoutService.getInstance().snapshot().device ?: return emptyMap()
+        return groupsForDevice(device)
     }
 
     /** Refresh built-in group cache from current device layout. Call after device connection. */
@@ -95,23 +103,18 @@ class KeyGroupService : PersistentStateComponent<KeyGroupService.GroupState> {
 
     /** Resolve a draft device without changing the live layout. */
     fun groupsForDevice(device: com.kgboard.rgb.client.RgbDeviceInfo): Map<String, List<Int>> {
-        val layout = KeyboardLayoutService()
-        layout.refreshForDevice(device)
-        return buildMap {
-            for ((id, keys) in KeyGroupDefinitions.BUILT_IN_GROUPS) {
-                val indices = layout.getLedIndices(keys)
-                if (indices.isNotEmpty()) put(id, indices)
-            }
-            for (group in state.userGroups) put(group.name, runCatching { com.kgboard.rgb.settings.SettingsValidation.indices(group.ledIndices, device.numLeds) }.getOrDefault(emptyList()))
-        }
+        val definitions = definitions()
+        return definitions.mapValues { (_, group) ->
+            TargetResolver.resolve(group.target, device, definitions).indices
+        }.filterValues { it.isNotEmpty() }
     }
 
     /** Get display name for a group ID. */
     fun getDisplayName(groupId: String): String {
         // Check built-in first
-        KeyGroupDefinitions.DISPLAY_NAMES[groupId]?.let { return it }
+        KeyGroupDefinitions.DISPLAY_NAMES[groupId.removePrefix("builtin:")]?.let { return it }
         // Check user groups
-        state.userGroups.find { it.name == groupId }?.let { return it.name }
+        state.userGroups.find { it.id == groupId }?.let { return it.name }
         return groupId
     }
 

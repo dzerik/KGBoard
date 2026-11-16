@@ -9,6 +9,15 @@ import java.awt.Color
 import java.awt.event.KeyEvent
 
 class KeyboardLayoutServiceTest {
+    @Test fun `ambiguous aliases and duplicate key codes are excluded from shortcuts`() {
+        val layout = KeyboardLayoutService()
+        layout.refreshForDevice(deviceWithLeds("Key: Left Shift", "Key: LShift", "Key: A", "Key: A"))
+        assertNull(layout.getLedIndex("lshift"))
+        assertNull(layout.getLedIndexForKeyCode(KeyEvent.VK_SHIFT))
+        assertNull(layout.getLedIndex("A"))
+        assertNull(layout.getLedIndexForKeyCode(KeyEvent.VK_A))
+    }
+
 
     private lateinit var service: KeyboardLayoutService
 

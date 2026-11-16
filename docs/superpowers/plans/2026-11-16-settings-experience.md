@@ -144,11 +144,11 @@ fields but excludes colors. Keep payload-v0 tests independent of production enco
 
 ## Task A2: Typed targets, groups и единый каталог сценариев
 
-**Files:** Create `target/{TargetSpec,TargetResolver}.kt`,
+**Files:** Create `target/{TargetSpec,TargetResolver,TargetRecord}.kt`, `layout/KeyNames.kt`,
 `scenario/{ScenarioCatalog,ScenarioEffects,RuleAppearance}.kt`; Modify
 `preset/{KeyGroupDefinitions,KeyGroupService}.kt`, `layout/KeyboardLayoutService.kt`;
 Test `target/TargetResolverTest.kt`, `scenario/ScenarioCatalogTest.kt`,
-`preset/KeyGroupServiceTest.kt`.
+`preset/KeyGroupServiceTest.kt`, `settings/SettingsPersistencePlatformTest.kt`.
 
 **Interfaces:** consumes A1 fingerprint/device. Produces:
 
@@ -187,7 +187,7 @@ pomodoro.work/break/longBreak/transition; git.conflict/dirty/ahead/behind/diverg
 synced/branch; analysis.error/warning/clean; shortcuts.debug/search.
 Unavailable Git states get no fake color. Unknown future IDs persist but `byId` returns null.
 
-- [ ] **Step 1: Write failing tests.**
+- [x] **Step 1: Write failing tests.**
 
 ```kotlin
 @Test fun `raw target is invalid after reorder with unchanged LED count`() {
@@ -222,8 +222,8 @@ raw values `""`, `"-1"`, `"2147483648"`, `"0,,1"`, `"2"` for two LED device;
 all produce empty indices and reason. Assert partial `Esc,Missing` returns Esc only,
 deleted/cyclic groups are unavailable, rename preserves group ID and target.
 
-- [ ] **Step 2: RED.** Run `./gradlew test --tests '*TargetResolverTest' --tests '*ScenarioCatalogTest' --tests '*KeyGroupServiceTest' -PlocalPlatformPath=/home/dzerik/.cache/kgboard-sdk/2026.3/installation/idea-IU-263.7307.200 --console=plain`.
-- [ ] **Step 3: Implement resolver and catalogue.** Use existing key-name aliases,
+- [x] **Step 2: RED.** Run `./gradlew test --tests '*TargetResolverTest' --tests '*ScenarioCatalogTest' --tests '*KeyGroupServiceTest' -PlocalPlatformPath=/home/dzerik/.cache/kgboard-sdk/2026.3/installation/idea-IU-263.7307.200 --console=plain`.
+- [x] **Step 3: Implement resolver and catalogue.** Use existing key-name aliases,
 but index alias→list rather than overwriting collisions. Raw parsing delegates strict
 `SettingsValidation.indices`, rejects empty, requires matching fingerprint. Named
 keys collect only unique matches; missing yields Partial if any resolved, otherwise
@@ -248,8 +248,8 @@ Gradient end color keeps the existing #FFD600 phase default.
 Keep branch background separate from git status target. Add coverage assertion that
 all known legacy feature/state combinations have exactly one catalogue entry.
 
-- [ ] **Step 4: GREEN.** Repeat RED command; run existing layout/preset/effect tests. Confirm no fake QWERTY map was introduced.
-- [ ] **Step 5: Commit.** Version/CHANGELOG + diff check; stage A2 files and commit `refactor: define scenario rules and typed LED targets`.
+- [x] **Step 4: GREEN.** Repeat RED command; run existing layout/preset/effect tests. Confirm no fake QWERTY map was introduced.
+- [x] **Step 5: Commit.** Version/CHANGELOG + diff check; stage A2 files and commit `refactor: define scenario rules and typed LED targets`.
 
 ## Task A3: XML migration и атомарный runtime cutover
 

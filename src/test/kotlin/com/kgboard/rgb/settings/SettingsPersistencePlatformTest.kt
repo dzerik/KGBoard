@@ -78,4 +78,17 @@ class SettingsPersistencePlatformTest {
         assertEquals(project, XmlSerializer.deserialize(XmlSerializer.serialize(projectCopy), KgBoardProjectSettings.State::class.java))
         assertEquals(groups, XmlSerializer.deserialize(XmlSerializer.serialize(groups), KeyGroupService.GroupState::class.java))
     }
+
+    @Test fun `typed groups and unknown target kinds round trip with stable IDs`() {
+        val id = "user:00000000-0000-4000-8000-000000000001"
+        val groups = KeyGroupService.GroupState(mutableListOf(KeyGroupService.UserGroup("Named", "", id,
+            com.kgboard.rgb.target.TargetRecord.from(com.kgboard.rgb.target.TargetSpec.NamedKeys(listOf("Key: Esc"))))))
+        val copy = XmlSerializer.deserialize(XmlSerializer.serialize(groups), KeyGroupService.GroupState::class.java)
+        assertEquals(groups, copy)
+        assertEquals(id, copy.userGroups.single().id)
+        val unknown = com.kgboard.rgb.target.TargetRecord(kind = "future-kind", names = mutableListOf("Esc"), raw = "unparsed")
+        val restored = XmlSerializer.deserialize(XmlSerializer.serialize(unknown), com.kgboard.rgb.target.TargetRecord::class.java)
+        assertEquals(unknown, restored)
+        assertNull(restored.toSpec())
+    }
 }

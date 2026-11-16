@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.0.5] - 2026-11-16
+
+### Added
+- Typed LED targets with named-key, stable-group and confirmed-layout resolution; unknown targets stay preserved and unavailable.
+- A shared scenario catalogue and effect factory with independent per-state rules and fixed priorities.
+
+### Fixed
+- Reject ambiguous key aliases and shortcut key-code mappings instead of overwriting earlier LED matches.
+- Preserve user-group UUIDs across renames and XML round trips; resolve long/cyclic group references without recursion.
+
 ## [3.0.4] - 2026-11-16
 
 ### Fixed
