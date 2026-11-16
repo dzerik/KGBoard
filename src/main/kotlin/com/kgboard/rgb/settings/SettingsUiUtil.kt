@@ -2,7 +2,7 @@ package com.kgboard.rgb.settings
 
 import com.intellij.openapi.ui.popup.JBPopupFactory
 import com.intellij.ui.ColorPanel
-import com.kgboard.rgb.client.OpenRgbConnectionService
+import com.kgboard.rgb.runtime.*
 import com.kgboard.rgb.layout.KeyboardLayoutService
 import com.kgboard.rgb.preset.KeyGroupService
 import java.awt.Color
@@ -39,26 +39,19 @@ object SettingsUiUtil {
 
     /** Validate a comma-separated LED-index string. Returns an error message, or null if valid. */
     fun validateLedIndices(raw: String): String? {
-        val trimmed = raw.trim()
-        if (trimmed.isEmpty()) return null // empty = all LEDs, valid
-        val tokens = trimmed.split(",").map { it.trim() }.filter { it.isNotEmpty() }
-        val bad = tokens.firstOrNull { it.toIntOrNull()?.let { n -> n < 0 } != false }
-        return if (bad != null) "Invalid LED index: '$bad' (use non-negative integers separated by commas)" else null
+        return try { SettingsValidation.indices(raw); null } catch (error: IllegalArgumentException) { error.message }
+
     }
 
     /**
      * Shows a chooser of available key groups; appends the chosen group's LED indices to [textField].
      * Performs a lazy layout/group refresh if groups are empty but a connection is active.
      */
-    fun showKeyGroupPopup(textField: JTextField) {
+    fun showKeyGroupPopup(textField: JTextField, deviceIndex: Int? = null) {
         val groupService = KeyGroupService.getInstance()
-        var groups = groupService.getAvailableGroups()
-
-        if (groups.isEmpty() && OpenRgbConnectionService.getInstance().isConnected) {
-            KeyboardLayoutService.getInstance().refresh()
-            groupService.refreshFromDevice()
-            groups = groupService.getAvailableGroups()
-        }
+        val state = LightingRuntimeService.getInstance().snapshot()
+        val device = (state.connection as? ConnectionState.Ready)?.devices?.getOrNull(deviceIndex ?: state.settings.deviceIndex)
+        val groups = if (device == null) emptyMap() else groupService.groupsForDevice(device)
 
         if (groups.isEmpty()) {
             JBPopupFactory.getInstance()

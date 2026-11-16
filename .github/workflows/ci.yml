@@ -30,6 +30,10 @@ jobs:
       - name: Run tests
         run: ./gradlew test
 
+      - name: Verify plugin compatibility
+        timeout-minutes: 10
+        run: ./gradlew verifyPlugin
+
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v4

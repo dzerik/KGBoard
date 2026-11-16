@@ -10,7 +10,7 @@
   - Желтая пульсация во время компиляции
   - Зеленая вспышка при успешной сборке
   - Красный статический цвет при ошибках сборки
-  - Оранжевая вспышка при отмене сборки
+  - Отмена снимает слой сборки без сигнала успеха
 
 - **Тестирование (Testing)**:
   - Синяя пульсация во время запуска тестов
@@ -27,7 +27,7 @@
   - Затемнение клавиатуры при потере фокуса IDE (настраиваемая яркость)
   - Восстановление текущего эффекта при возврате фокуса
   - Сброс LED в чёрный при закрытии IDE
-  - Очистка эффектов и возврат в idle при закрытии проекта
+  - Закрытие проекта снимает только принадлежащие ему состояния
 
 - **Статус в реальном времени**:
   - Виджет в статус-баре IDE с индикацией подключения к OpenRGB
@@ -45,117 +45,56 @@
 
 ## Архитектура
 
-### Структура модулей
-
-Плагин организован в несколько логических слоев:
-
-```mermaid
-graph TD
-    subgraph Bridge["Bridge Layer (IDE → Plugin)"]
-        BuildListener[BuildEventListener]
-        TestListener[TestEventListener]
-        ExecListener[ExecutionEventListener]
-        FocusListener[FocusEventListener]
-        LifecycleHandler[AppLifecycleHandler]
-        ProjectListener[ProjectFocusListener]
-        StartupActivity[KgBoardStartupActivity]
-        StatusWidget[KgBoardStatusWidget]
-    end
-
-    subgraph Effect["Effect Layer (Visual Logic)"]
-        EffectManager[EffectManagerService]
-        Effects[RgbEffect Types:<br/>StaticEffect<br/>PulseEffect<br/>FlashEffect<br/>ProgressEffect]
-    end
-
-    subgraph Client["Client Layer (OpenRGB Protocol)"]
-        ConnectionService[OpenRgbConnectionService]
-        RgbClient[OpenRgbClient]
-        Protocol[OpenRgbProtocol]
-    end
-
-    subgraph Settings["Settings Layer"]
-        KgBoardSettings[KgBoardSettings]
-        Configurable[KgBoardConfigurable UI]
-    end
-
-    BuildListener --> EffectManager
-    TestListener --> EffectManager
-    ExecListener --> EffectManager
-    FocusListener --> EffectManager
-    LifecycleHandler --> ConnectionService
-    ProjectListener --> EffectManager
-    EffectManager --> ConnectionService
-    ConnectionService --> RgbClient
-    RgbClient --> Protocol
-
-    EffectManager -.-> KgBoardSettings
-    ConnectionService -.-> KgBoardSettings
-    StatusWidget -.-> ConnectionService
-    StartupActivity -.-> ConnectionService
-
-    Configurable --> KgBoardSettings
-    Configurable -.-> ConnectionService
-```
-
-### Поток данных
+Единственный application-level `LightingRuntimeService` владеет состоянием и выводом.
+Проектные адаптеры сообщают факты; reducer последовательно обрабатывает их, policy
+вычисляет кадры, а отдельный сетевой worker отправляет их в OpenRGB.
 
 ```mermaid
-sequenceDiagram
-    participant IDE as IntelliJ IDEA
-    participant Listener as Event Listener
-    participant EffectMgr as EffectManagerService
-    participant ConnSvc as ConnectionService
-    participant Client as OpenRgbClient
-    participant OpenRGB as OpenRGB Server
-
-    IDE->>Listener: Событие (Build/Test/Run)
-    Listener->>EffectMgr: applyEffect(RgbEffect)
-    EffectMgr->>EffectMgr: Проверка приоритета эффекта
-    EffectMgr->>ConnSvc: setAllLeds(deviceIndex, color)
-    ConnSvc->>Client: updateLeds(colors)
-    Client->>OpenRGB: TCP packet (UPDATELEDS)
-    OpenRGB-->>Client: ACK
-    Client-->>ConnSvc: Success
-
-    Note over EffectMgr: Запуск таймера возврата в Idle
-    EffectMgr->>EffectMgr: Timeout (3000ms)
-    EffectMgr->>ConnSvc: setAllLeds(idleColor)
+flowchart LR
+    IDE[IDE events] --> Binding[ProjectRuntimeBinding]
+    Focus[Window focus] --> Runtime[LightingRuntime]
+    Settings[Settings draft / Apply / preview] --> Runtime
+    Binding --> Runtime
+    Runtime --> Reducer[RuntimeReducer]
+    Reducer --> Policy[LightingPolicy]
+    Policy --> Writer[CoalescingFrameWriter]
+    Writer --> Transport[OpenRgbTransport]
+    Transport --> Server[OpenRGB SDK server]
+    Transport --> Runtime
+    Runtime --> UI[Immutable snapshots / status widgets]
 ```
 
-### Компоненты
+Подсветкой управляет активное окно проекта. Фоновые проекты сохраняют свои факты,
+но не записывают LED; закрытие фонового проекта не сбрасывает активный. При потере
+фокуса затемнение применяется поверх всех эффектов, а возврат восстанавливает текущий кадр.
 
-#### 1. Bridge Layer (Мост между IDE и плагином)
+Run/Debug/Build/Test имеют отдельные идентификаторы. Завершение одной операции открывает
+сохранившиеся нижние слои. Отмена, несостоявшийся запуск и ноль выполненных тестов
+не показывают зелёный успех. Терминальные эффекты живут `effectDurationMs` для всех целей.
+Build наблюдается через `ProjectTaskListener`; самостоятельные external-system задачи
+за пределами `ProjectTaskManager` в этой версии не отслеживаются.
 
-- **BuildEventListener** - слушает события компиляции (CompilationStatusListener)
-- **TestEventListener** - слушает события тестирования (SMTRunnerEventsListener)
-- **ExecutionEventListener** - слушает события запуска/отладки (ExecutionListener)
-- **FocusEventListener** - обрабатывает фокус/расфокус IDE (ApplicationActivationListener)
-- **AppLifecycleHandler** - обрабатывает закрытие IDE (AppLifecycleListener)
-- **ProjectFocusListener** - обрабатывает открытие/закрытие проектов (ProjectManagerListener)
-- **KgBoardStartupActivity** - автоподключение к OpenRGB при открытии проекта
-- **KgBoardStatusWidget** - виджет в статус-баре с индикацией состояния подключения
+Анализ и TODO относятся к выбранному текстовому документу. Смена вкладки, изменение текста,
+закрытие или удаление файла сразу инвалидируют предыдущий результат. Неизвестный анализ,
+индексация, неподходящий редактор и подтверждённый результат различаются в статусе.
 
-#### 2. Effect Layer (Управление визуальными эффектами)
+Настройки редактируют отдельный черновик. Apply валидирует его целиком и публикует один
+снимок; Cancel сохраняет прежнюю конфигурацию. Connect использует текущие host/port;
+после Cancel диагностическое подключение возвращается к исходному намерению и endpoint.
+После Apply следующий Cancel возвращается к уже применённой конфигурации. Явный Disconnect
+сохраняет ручное отключение. Test использует текущие устройство, цвет и LED-поле;
+закрытие диалога, Disable, смена устройства и Disconnect снимают предпросмотр.
+Для неизвестного устройства числовые индексы можно сохранить, но Test недоступен до проверки диапазона.
 
-- **EffectManagerService** (Project-level) - оркестрирует эффекты, управляет приоритетами и таймаутами
-- **RgbEffect** - абстракция эффекта с приоритетом:
-  - `StaticEffect` - статический цвет
-  - `PulseEffect` - пульсация (breathing effect)
-  - `FlashEffect` - быстрая вспышка с автовозвратом
-  - `ProgressEffect` - прогресс-бар (зарезервировано для будущих функций)
+Статичные кадры не держат цикл анимации. У каждого устройства свой кеш успешной отправки;
+новый кадр заменяет ожидающий. Ошибка I/O закрывает сессию, retry использует задержки
+1–30 секунд. Ручной Disconnect отменяет retry. Раз в 5 секунд worker проверяет соединение
+и состав устройств; изменение геометрии запускает новую сессию и перестраивает раскладку.
 
-#### 3. Client Layer (Связь с OpenRGB)
-
-- **OpenRgbConnectionService** (Application-level) - управление lifecycle подключения, автопереподключение
-- **OpenRgbClient** - низкоуровневый TCP клиент для связи с OpenRGB SDK
-- **OpenRgbProtocol** - реализация бинарного протокола OpenRGB SDK
-
-#### 4. Settings Layer (Настройки)
-
-- **KgBoardSettings** - хранение и персистентность настроек (kgboard.xml)
-- **KgBoardConfigurable** - UI страница настроек в Settings → Tools → KGBoard RGB
-
----
+Shortcut-контексты `debug` и `search` включаются по живым debug sessions, Search Everywhere
+и поиску в редакторе. `editing`/`vcs` сохраняют настройки и явный API активации;
+автоматическое определение этих контекстов не реализовано. Git сохраняет прежнюю семантику
+индикаторов: различие локального и tracked remote hash считается «unpushed» без определения направления расхождения.
 
 ## Требования
 
@@ -480,9 +419,9 @@ cd /home/dzerik/Development/KGBoard
 | Событие IDE | Тип эффекта | Цвет по умолчанию | Приоритет | Длительность | Описание |
 |-------------|-------------|-------------------|-----------|--------------|----------|
 | **Build: started** | `PulseEffect` | `#FFD600` (желтый) | 5 | До завершения | Пульсация во время компиляции |
-| **Build: success** | `FlashEffect` | `#00C853` (зеленый) | 7 | 2000 мс | Быстрая вспышка при успехе |
+| **Build: success** | `FlashEffect` | `#00C853` (зеленый) | 7 | effectDurationMs | Быстрая вспышка при успехе |
 | **Build: failure** | `StaticEffect` | `#FF1744` (красный) | 9 | 3000 мс | Статический красный при ошибках |
-| **Build: aborted** | `FlashEffect` | `#FF9100` (оранжевый) | 8 | 1000 мс | Вспышка при отмене сборки |
+| **Build: aborted** | Снятие слоя | — | — | Сразу | Без сигнала успеха |
 | **Test: started** | `PulseEffect` | `#2979FF` (синий) | 6 | До завершения | Синяя пульсация при тестировании |
 | **Test: all passed** | `FlashEffect` | `#00C853` (зеленый) | 7 | 2000 мс | Зеленая вспышка при успехе |
 | **Test: failed** | `StaticEffect` | `#FF1744` (красный) | 8 | 3000 мс | Красный при провале тестов |
@@ -499,11 +438,10 @@ cd /home/dzerik/Development/KGBoard
 
 ### Система приоритетов
 
-Эффекты имеют приоритеты (0-10, где 10 = наивысший). Если активен эффект с приоритетом N, эффекты с приоритетом ниже N игнорируются.
+Эффекты имеют приоритеты (0-10, где 10 = наивысший). Если активен эффект с приоритетом N, нижние слои сохраняются и открываются после завершения верхнего; прицелы LED композируются независимо.
 
 **Приоритеты по убыванию:**
 1. **Build failure** (9) - критическая ошибка сборки
-2. **Build aborted** (8) - прерванная сборка
 3. **Test failed** (8) - провалившиеся тесты
 4. **Build success / Test pass / Process error** (7) - завершающие события
 5. **Debug / Test running** (6) - процессы с высоким приоритетом
@@ -772,198 +710,42 @@ sudo reboot
 
 ## Разработка
 
-Информация для разработчиков, желающих доработать плагин.
+Информация для разработчиков, желающих доработать плагин. Результаты отдельного
+[UX/UI-аудита и предложение редизайна](docs/ux-ui-audit.md) описывают ограничения нынешних настроек;
+переработка runtime не заменяет переработку интерфейса.
 
-### Структура проекта
+| Каталог | Назначение |
+|---|---|
+| `runtime/` | Неизменяемые снимки, события, reducer, policy, очереди и дедлайны |
+| `bridge/` | Disposable адаптеры SDK, фокус окон и статус |
+| `client/` | Блокирующий TCP transport и протокол OpenRGB |
+| `effect/` | Типы эффектов и чистая математика цветов |
+| `settings/` | XML, черновики, общая валидация и scoped preview |
+| `layout/`, `preset/`, `pomodoro/` | Раскладка, группы клавиш и facade таймера |
+| `src/test/` | Unit, TCP reset, детерминированные сценарии и SDK fixtures |
 
-```
-KGBoard/
-├── src/main/
-│   ├── kotlin/com/kgboard/rgb/
-│   │   ├── bridge/              # IDE listeners и UI компоненты
-│   │   │   ├── AppLifecycleHandler.kt      # Закрытие IDE → сброс LED
-│   │   │   ├── BuildEventListener.kt       # Компиляция
-│   │   │   ├── ExecutionEventListener.kt   # Run/Debug
-│   │   │   ├── FocusEventListener.kt       # Фокус/расфокус IDE
-│   │   │   ├── KgBoardStartupActivity.kt   # Автоподключение
-│   │   │   ├── KgBoardStatusWidgetFactory.kt # Виджет статус-бара
-│   │   │   ├── ProjectFocusListener.kt     # Открытие/закрытие проектов
-│   │   │   └── TestEventListener.kt        # Тестирование
-│   │   ├── client/              # OpenRGB SDK клиент
-│   │   │   ├── OpenRgbClient.kt
-│   │   │   ├── OpenRgbConnectionService.kt
-│   │   │   └── OpenRgbProtocol.kt
-│   │   ├── effect/              # Визуальные эффекты
-│   │   │   ├── RgbEffect.kt
-│   │   │   └── EffectManagerService.kt
-│   │   └── settings/            # Настройки плагина
-│   │       ├── KgBoardSettings.kt
-│   │       └── KgBoardConfigurable.kt
-│   └── resources/
-│       └── META-INF/
-│           └── plugin.xml       # Манифест плагина
-├── build.gradle.kts             # Gradle конфигурация
-├── gradle.properties            # Версии и параметры
-├── CHANGELOG.md                 # История изменений
-├── CLAUDE.md                    # Правила проекта
-├── CODE_OF_CONDUCT.md           # Кодекс поведения
-├── CONTRIBUTING.md              # Гайд для контрибьюторов
-├── CONTRIBUTORS.md              # Список контрибьюторов
-├── LICENSE                      # Apache 2.0
-├── SECURITY.md                  # Политика безопасности
-└── .editorconfig                # Настройки форматирования
+Чтобы добавить событие, сначала опишите его факт в `RuntimeEvent`, переход в `RuntimeReducer`
+и отображение в соответствующей policy. Адаптер подписывается до начальной сверки,
+несёт идентификатор владельца/ревизию и снимает подписки при dispose. Не выполняйте сетевой
+I/O, не создавайте compositor или отдельный таймер эффектов в listener.
+
+Новый тип эффекта требует чистого вычисления в `EffectColorComputer`, immutable копирования
+цели в reducer и определения анимационных wake в policy. Новая настройка должна пройти
+`RuntimeSettings.capture/toState` либо `ProjectSettingsSnapshot.capture/toState`, валидацию,
+черновик UI и XML round-trip тесты.
+
+```bash
+./gradlew test buildPlugin
+./gradlew verifyPlugin
+./gradlew runIde
 ```
 
-### Как добавить новый RGB эффект
-
-1. **Создать класс эффекта** в `effect/RgbEffect.kt`:
-
-```kotlin
-class BlinkEffect(
-    val color: Color,
-    val onDurationMs: Long = 200,
-    val offDurationMs: Long = 200,
-    val times: Int = 3,
-    override val name: String = "blink",
-    priority: Int = 0
-) : RgbEffect(priority)
-```
-
-2. **Реализовать логику** в `EffectManagerService.kt`:
-
-```kotlin
-fun applyEffect(effect: RgbEffect, timeoutMs: Long? = null) {
-    // ...
-    when (effect) {
-        is StaticEffect -> applyStatic(effect)
-        is PulseEffect -> applyPulse(effect)
-        is FlashEffect -> applyFlash(effect)
-        is ProgressEffect -> applyProgress(effect)
-        is BlinkEffect -> applyBlink(effect)  // <-- Добавить
-    }
-    // ...
-}
-
-private fun applyBlink(effect: BlinkEffect) {
-    var count = 0
-    animationTask = scheduler.scheduleAtFixedRate({
-        try {
-            val color = if (count % 2 == 0) effect.color else Color.BLACK
-            setAllLeds(color)
-            count++
-            if (count >= effect.times * 2) {
-                animationTask?.cancel(false)
-                returnToIdle()
-            }
-        } catch (e: Exception) {
-            log.warn("Blink effect error: ${e.message}")
-        }
-    }, 0, effect.onDurationMs, TimeUnit.MILLISECONDS)
-}
-```
-
-3. **Использовать** в любом Listener:
-
-```kotlin
-effectManager.applyEffect(
-    BlinkEffect(
-        color = Color.CYAN,
-        times = 5,
-        priority = 7
-    )
-)
-```
-
-### Как добавить новый Event Listener
-
-1. **Создать listener класс** в `bridge/`:
-
-```kotlin
-package com.kgboard.rgb.bridge
-
-import com.intellij.openapi.project.Project
-import com.intellij.openapi.vcs.CheckinProjectPanel
-import com.intellij.openapi.vcs.changes.CommitContext
-import com.intellij.openapi.vcs.checkin.CheckinHandler
-import com.intellij.openapi.vcs.checkin.CheckinHandlerFactory
-import com.kgboard.rgb.effect.EffectManagerService
-import com.kgboard.rgb.effect.FlashEffect
-import com.kgboard.rgb.settings.KgBoardSettings
-
-/**
- * Пример: подсветка при VCS commit
- */
-class VcsCommitListener : CheckinHandlerFactory() {
-    override fun createHandler(panel: CheckinProjectPanel, commitContext: CommitContext): CheckinHandler {
-        return object : CheckinHandler() {
-            override fun checkinSuccessful() {
-                val project = panel.project
-                val settings = KgBoardSettings.getInstance()
-                if (!settings.enabled) return
-
-                EffectManagerService.getInstance(project).applyTemporary(
-                    FlashEffect(
-                        color = Color.CYAN,
-                        durationMs = 1000,
-                        name = "vcs-commit",
-                        priority = 6
-                    )
-                )
-            }
-        }
-    }
-}
-```
-
-2. **Зарегистрировать** в `plugin.xml`:
-
-```xml
-<extensions defaultExtensionNs="com.intellij">
-    <!-- Existing extensions... -->
-    <checkinHandlerFactory
-        implementation="com.kgboard.rgb.bridge.VcsCommitListener"/>
-</extensions>
-```
-
-3. **Опционально**: добавить настройку цвета в `KgBoardSettings.kt` и UI в `KgBoardConfigurable.kt`.
-
-### Как добавить настройку
-
-1. **Добавить поле** в `KgBoardSettings.State`:
-
-```kotlin
-data class State(
-    // ... existing fields ...
-    var vcsCommitColor: String = "#00BCD4"
-)
-```
-
-2. **Добавить accessor**:
-
-```kotlin
-val vcsCommitColor: Color get() = parseColor(state.vcsCommitColor)
-```
-
-3. **Добавить UI** в `KgBoardConfigurable.kt` (Kotlin UI DSL v2 + ColorPanel):
-
-```kotlin
-// Объявить ColorPanel в классе
-private val vcsCommitColorPanel = colorPanel()
-
-// В createPanel() добавить в нужную group()
-group("VCS Events") {
-    colorRow("Commit color:", vcsCommitColorPanel, "Cyan flash on successful commit")
-}
-
-// В apply() сохранить значение
-s.state.vcsCommitColor = toHex(vcsCommitColorPanel.selectedColor)
-
-// В loadColorPanels() загрузить значение
-vcsCommitColorPanel.selectedColor = s.vcsCommitColor
-
-// В isModified() добавить проверку
-colorChanged(vcsCommitColorPanel, s.state.vcsCommitColor)
-```
+Для локального SDK добавьте `-PlocalPlatformPath=/path/to/idea-2026.3`.
+`verifyPlugin --offline` использует уже скачанный verifier и SDK без Marketplace-запросов.
+Проверка реального устройства обязательна перед заявлением аппаратной совместимости:
+Connect, Test→Cancel, два окна, параллельные Run/Debug/Test, focus во время pulse,
+image/no tabs, TCP reconnect, смена устройства и shutdown. Unit-тесты и SDK fixtures
+не заменяют эту проверку; в данной миграции физическое оборудование не проверялось.
 
 ### Полезные ссылки для разработки
 

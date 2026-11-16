@@ -1,64 +1,29 @@
 package com.kgboard.rgb.bridge
 
+import com.intellij.openapi.editor.Document
+import com.intellij.openapi.fileEditor.FileDocumentManager
 import com.intellij.openapi.fileEditor.FileDocumentManagerListener
-import com.intellij.openapi.project.ProjectManager
-import com.kgboard.rgb.effect.EffectManagerService
-import com.kgboard.rgb.effect.FlashEffect
-import com.kgboard.rgb.settings.KgBoardSettings
+import com.intellij.openapi.project.ProjectLocator
+import com.kgboard.rgb.runtime.*
+import java.util.WeakHashMap
+import java.util.concurrent.atomic.AtomicLong
 
-/**
- * Triggers a brief flash on file save (Ctrl+S / Cmd+S).
- * Registered as applicationListener via plugin.xml.
- *
- * Supports dual-path dispatch:
- * - Without LED indices: Phase 1 API (applyTemporary)
- * - With LED indices: Phase 2 API (addTargetedEffect)
- */
+/** Save only modified documents, once per batch and only for their owning projects. */
 class FileSaveListener : FileDocumentManagerListener {
-
-    companion object {
-        const val EFFECT_ID = "file-save"
+    private val announced = WeakHashMap<Document, Long>()
+    private val revisions = AtomicLong()
+    override fun beforeAllDocumentsSaving() = announce(FileDocumentManager.getInstance().unsavedDocuments.toList())
+    override fun beforeDocumentSaving(document: Document) {
+        if (FileDocumentManager.getInstance().isDocumentUnsaved(document)) announce(listOf(document))
     }
-
-    override fun beforeAllDocumentsSaving() {
-        val settings = KgBoardSettings.getInstance()
-        if (!settings.enabled || !settings.state.fileSaveFlashEnabled) return
-
-        val color = settings.parseColor(settings.state.fileSaveFlashColor)
-        val ledIndices = settings.fileSaveLedIndices
-        val isTargeted = ledIndices.isNotEmpty()
-        val openProjects = ProjectManager.getInstance().openProjects
-
-        for (project in openProjects) {
-            if (project.isDisposed) continue
-            try {
-                val effectManager = EffectManagerService.getInstance(project)
-                if (isTargeted) {
-                    val target = settings.resolveTarget(ledIndices)
-                    effectManager.addTargetedEffect(
-                        EFFECT_ID,
-                        FlashEffect(
-                            color = color,
-                            durationMs = 300,
-                            name = "file-save",
-                            priority = 3,
-                            target = target
-                        ),
-                        timeoutMs = 400
-                    )
-                } else {
-                    effectManager.applyTemporary(
-                        FlashEffect(
-                            color = color,
-                            durationMs = 300,
-                            name = "file-save",
-                            priority = 3
-                        )
-                    )
-                }
-            } catch (_: Exception) {
-                // project service may not be available
-            }
-        }
+    @Synchronized private fun announce(documents: List<Document>) {
+        val app = LightingRuntimeService.getInstance()
+        val owners = documents.filter { announced[it] != it.modificationStamp }.flatMap { document ->
+            announced[document] = document.modificationStamp
+            val file = FileDocumentManager.getInstance().getFile(document) ?: return@flatMap emptyList()
+            ProjectLocator.getInstance().getProjectsForFile(file).toList()
+        }.distinct()
+        val revision = revisions.incrementAndGet()
+        owners.forEach { project -> app.binding(project)?.let { it.emit(RuntimeEvent.DocumentsSaved(it.id, revision)) } }
     }
 }

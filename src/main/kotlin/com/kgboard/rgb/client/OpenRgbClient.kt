@@ -42,6 +42,7 @@ class OpenRgbClient(
             if (isConnected) return
             try {
                 val s = Socket()
+                socket = s
                 // Bounded connect timeout: a plain Socket(host, port) would block for the
                 // full OS-level TCP timeout (tens of seconds) if the host is unreachable.
                 s.connect(InetSocketAddress(host, port), CONNECT_TIMEOUT_MS)
@@ -51,32 +52,31 @@ class OpenRgbClient(
                 negotiateProtocolVersion()
                 setClientName(clientName)
                 log.info("Connected to OpenRGB at $host:$port")
-            } catch (e: IOException) {
-                try {
-                    socket?.close()
-                } catch (_: IOException) {
-                }
-                socket = null
+            } catch (e: Exception) {
+                disconnect()
                 throw OpenRgbException("Failed to connect to OpenRGB at $host:$port", e)
             }
         }
     }
 
+    /** Closing the socket also aborts an outstanding read; never wait for its request lock. */
     fun disconnect() {
-        synchronized(lock) {
-            try {
-                socket?.close()
-            } catch (_: IOException) {
-            }
-            socket = null
-            log.info("Disconnected from OpenRGB")
+        val previous = socket
+        socket = null
+        try { previous?.close() } catch (_: IOException) { }
+    }
+
+    private inline fun <T> request(action: () -> T): T = synchronized(lock) {
+        try { action() } catch (error: Exception) {
+            disconnect()
+            throw error
         }
     }
 
     override fun close() = disconnect()
 
     fun getControllerCount(): Int {
-        synchronized(lock) {
+        request {
             val s = requireConnection()
             OpenRgbProtocol.writeHeader(s.getOutputStream(), 0, OpenRgbProtocol.NET_PACKET_ID_REQUEST_CONTROLLER_COUNT, 0)
             val header = OpenRgbProtocol.readHeader(s.getInputStream())
@@ -86,12 +86,12 @@ class OpenRgbClient(
     }
 
     fun getControllerData(deviceIndex: Int): RgbDeviceInfo {
-        synchronized(lock) {
+        request {
             val s = requireConnection()
             // Send protocol version as data
             val versionData = java.nio.ByteBuffer.allocate(4)
                 .order(java.nio.ByteOrder.LITTLE_ENDIAN)
-                .putInt(OpenRgbProtocol.CLIENT_PROTOCOL_VERSION)
+                .putInt(protocolVersion)
                 .array()
             OpenRgbProtocol.writeHeader(s.getOutputStream(), deviceIndex, OpenRgbProtocol.NET_PACKET_ID_REQUEST_CONTROLLER_DATA, versionData.size)
             s.getOutputStream().write(versionData)
@@ -103,7 +103,7 @@ class OpenRgbClient(
     }
 
     fun getAllDevices(): List<RgbDeviceInfo> {
-        synchronized(lock) {
+        request {
             val s = requireConnection()
             OpenRgbProtocol.writeHeader(s.getOutputStream(), 0, OpenRgbProtocol.NET_PACKET_ID_REQUEST_CONTROLLER_COUNT, 0)
             val countHeader = OpenRgbProtocol.readHeader(s.getInputStream())
@@ -113,7 +113,7 @@ class OpenRgbClient(
             return (0 until count).map { deviceIndex ->
                 val versionData = java.nio.ByteBuffer.allocate(4)
                     .order(java.nio.ByteOrder.LITTLE_ENDIAN)
-                    .putInt(OpenRgbProtocol.CLIENT_PROTOCOL_VERSION)
+                    .putInt(protocolVersion)
                     .array()
                 OpenRgbProtocol.writeHeader(s.getOutputStream(), deviceIndex, OpenRgbProtocol.NET_PACKET_ID_REQUEST_CONTROLLER_DATA, versionData.size)
                 s.getOutputStream().write(versionData)
@@ -126,14 +126,14 @@ class OpenRgbClient(
     }
 
     fun setCustomMode(deviceIndex: Int) {
-        synchronized(lock) {
+        request {
             val s = requireConnection()
             OpenRgbProtocol.writeHeader(s.getOutputStream(), deviceIndex, OpenRgbProtocol.NET_PACKET_ID_RGBCONTROLLER_SETCUSTOMMODE, 0)
         }
     }
 
     fun updateLeds(deviceIndex: Int, colors: List<Color>) {
-        synchronized(lock) {
+        request {
             val s = requireConnection()
             val data = OpenRgbProtocol.encodeUpdateLeds(colors)
             OpenRgbProtocol.writeHeader(s.getOutputStream(), deviceIndex, OpenRgbProtocol.NET_PACKET_ID_RGBCONTROLLER_UPDATELEDS, data.size)
@@ -143,7 +143,7 @@ class OpenRgbClient(
     }
 
     fun updateZoneLeds(deviceIndex: Int, zoneIndex: Int, colors: List<Color>) {
-        synchronized(lock) {
+        request {
             val s = requireConnection()
             val data = OpenRgbProtocol.encodeUpdateZoneLeds(zoneIndex, colors)
             OpenRgbProtocol.writeHeader(s.getOutputStream(), deviceIndex, OpenRgbProtocol.NET_PACKET_ID_RGBCONTROLLER_UPDATEZONELEDS, data.size)
@@ -153,7 +153,7 @@ class OpenRgbClient(
     }
 
     fun updateSingleLed(deviceIndex: Int, ledIndex: Int, color: Color) {
-        synchronized(lock) {
+        request {
             val s = requireConnection()
             val data = OpenRgbProtocol.encodeUpdateSingleLed(ledIndex, color)
             OpenRgbProtocol.writeHeader(s.getOutputStream(), deviceIndex, OpenRgbProtocol.NET_PACKET_ID_RGBCONTROLLER_UPDATESINGLELED, data.size)

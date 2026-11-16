@@ -5,6 +5,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.0.0] - 2026-11-16
+
+### Changed
+- Replace project compositors and effect managers with one application runtime, immutable state snapshots, a serial event queue and a single bounded network writer.
+- Give active project windows exclusive lighting ownership; compose focus dimming and per-device roles through one policy.
+- Scope code analysis and TODO results to the selected document revision, with explicit unknown/indexing/not-applicable states.
+- Apply settings atomically from validated drafts; diagnostic Connect and temporary Test previews are scoped to the settings dialog.
+- Move Pomodoro phases and deadlines into the runtime and derive remaining time without independent ticking threads.
+- Use ProjectTaskListener for build lifecycle, retain independent operation identities and restore lower-priority effects on completion.
+- Bound terminal effects consistently by effectDurationMs for global and per-key targets. Cancelled, empty and not-started runs do not signal success.
+
+### Fixed
+- Fence old connection results, retry with bounded backoff, close failed sockets and retain per-device successful-send caches.
+- Coalesce pending frames, preserve return-to-previous-color updates during in-flight writes and flush preview retirement frames before disconnect.
+- Expire static effects without a second IDE event; prevent background projects, disabled features and stale editor results from overwriting current output.
+- Cancel preview on close, device changes, Disable and Disconnect; preserve manual disconnect through Settings Cancel.
+- Refresh device geometry and keyboard mappings after reconnect or inventory changes; respect skipCustomMode and negotiated protocol versions.
+
+### Added
+- Deterministic runtime, transport concurrency, TCP reset, settings validation and real IDEA263 lifecycle/XML/UI regression tests.
+- CI plugin compatibility verification, documented runtime extension contracts and a separate UX/UI audit with fixture screen captures and a proposed settings redesign. Physical OpenRGB hardware verification remains pending.
+
 ## [2.0.0] - 2026-11-16
 
 ### Changed

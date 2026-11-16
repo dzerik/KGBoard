@@ -33,6 +33,20 @@ class KeyboardLayoutServiceTest {
     // ── isAvailable ──
 
     @Test
+    fun `mapping snapshot remains consistent across device refresh`() {
+        val layout = KeyboardLayoutService()
+        val first = com.kgboard.rgb.client.RgbDeviceInfo(0, "a", "", "", 1, listOf("Key: A"), emptyList(), emptyList())
+        layout.refreshForDevice(first)
+        val before = layout.snapshot()
+        layout.refreshForDevice(first.copy(ledNames = listOf("Key: B")))
+        org.junit.jupiter.api.Assertions.assertEquals(0, before.keyNames["A"])
+        org.junit.jupiter.api.Assertions.assertNull(before.keyNames["B"])
+        org.junit.jupiter.api.Assertions.assertNull(layout.snapshot().keyNames["A"])
+        layout.clear()
+        org.junit.jupiter.api.Assertions.assertTrue(layout.snapshot().keyCodes.isEmpty())
+    }
+
+    @Test
     fun `isAvailable false before refresh`() {
         assertFalse(service.isAvailable)
     }

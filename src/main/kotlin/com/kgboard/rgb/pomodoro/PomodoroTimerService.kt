@@ -1,260 +1,46 @@
 package com.kgboard.rgb.pomodoro
 
 import com.intellij.openapi.Disposable
+import com.intellij.openapi.application.ApplicationManager
+import com.intellij.openapi.application.ModalityState
 import com.intellij.openapi.components.Service
-import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.project.Project
-import com.kgboard.rgb.effect.*
-import com.kgboard.rgb.settings.KgBoardSettings
+import com.kgboard.rgb.bridge.ProjectRuntimeService
+import com.kgboard.rgb.runtime.*
 import java.util.concurrent.CopyOnWriteArrayList
-import java.util.concurrent.Executors
-import java.util.concurrent.ScheduledFuture
-import java.util.concurrent.TimeUnit
-import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.atomic.AtomicBoolean
 
-/**
- * Pomodoro timer with RGB visualization.
- *
- * State machine: IDLE → WORK → BREAK → WORK → ... → LONG_BREAK → IDLE
- *
- * Effects:
- * - WORK: GradientEffect green→yellow over work period
- * - BREAK: PulseEffect blue
- * - LONG_BREAK: PulseEffect blue (slower)
- * - Phase transition: FlashEffect white
- */
+/** Compatibility facade; timing and transitions belong entirely to LightingRuntime. */
 @Service(Service.Level.PROJECT)
 class PomodoroTimerService(private val project: Project) : Disposable {
-
-    private val log = Logger.getInstance(PomodoroTimerService::class.java)
-
     enum class Phase { IDLE, WORK, BREAK, LONG_BREAK }
-
-    private val scheduler = Executors.newSingleThreadScheduledExecutor { r ->
-        Thread(r, "KGBoard-Pomodoro-${project.name}").apply { isDaemon = true }
-    }
-
-    @Volatile
-    var currentPhase: Phase = Phase.IDLE
-        private set
-    private val _completedSessions = AtomicInteger(0)
-    val completedSessions: Int get() = _completedSessions.get()
-    @Volatile
-    var remainingSeconds: Int = 0
-        private set
-
-    private var tickTask: ScheduledFuture<*>? = null
-    /**
-     * Incremented whenever the ticking task is (re)started or stopped. A scheduled tick that was
-     * already in-flight when the phase changed (cancel(false) cannot interrupt a running runnable)
-     * carries a stale generation and is discarded — prevents a double phase transition.
-     */
-    private val tickGeneration = AtomicInteger(0)
+    private val app = LightingRuntimeService.getInstance()
+    private val binding = ProjectRuntimeService.getInstance(project).binding
     private val listeners = CopyOnWriteArrayList<() -> Unit>()
-
-    /** Lock for state transitions to prevent skip()/onPhaseComplete() race */
-    private val stateLock = Any()
-
-    companion object {
-        const val EFFECT_ID = "pomodoro"
-        const val TRANSITION_EFFECT_ID = "pomodoro-transition"
-
-        fun getInstance(project: Project): PomodoroTimerService =
-            project.getService(PomodoroTimerService::class.java)
+    private val closed = AtomicBoolean()
+    private var last: Pair<PomodoroState, Int>? = null
+    private val subscription = app.subscribe { snapshot ->
+        val state = snapshot.projects[binding.id]?.pomodoro ?: PomodoroState()
+        val value = state to state.remainingSeconds(snapshot.nowMs)
+        if (last != value) {
+            last = value
+            ApplicationManager.getApplication().invokeLater({ if (!closed.get()) listeners.forEach { it() } }, ModalityState.any())
+        }
     }
-
+    private fun state() = app.snapshot().projects[binding.id]?.pomodoro ?: PomodoroState()
+    val currentPhase: Phase get() = Phase.valueOf(state().phase.name)
+    val completedSessions: Int get() = state().completedSessions
+    val remainingSeconds: Int get() = state().remainingSeconds(app.snapshot().nowMs)
     val isRunning: Boolean get() = currentPhase != Phase.IDLE
-
-    fun addChangeListener(listener: () -> Unit) {
-        listeners.add(listener)
+    fun start() { ProjectRuntimeService.getInstance(project).start(); binding.emit(RuntimeEvent.PomodoroStart(binding.id)) }
+    fun stop() { binding.emit(RuntimeEvent.PomodoroStop(binding.id)) }
+    fun skip() { binding.emit(RuntimeEvent.PomodoroSkip(binding.id)) }
+    fun addChangeListener(listener: () -> Unit) { if (!closed.get()) listeners.add(listener) }
+    fun removeChangeListener(listener: () -> Unit) { listeners.remove(listener) }
+    fun formatTimeRemaining(): String = "%02d:%02d".format(remainingSeconds / 60, remainingSeconds % 60)
+    fun phaseDisplayName(): String = when(currentPhase) {
+        Phase.IDLE -> "Idle"; Phase.WORK -> "Work"; Phase.BREAK -> "Break"; Phase.LONG_BREAK -> "Long Break"
     }
-
-    fun removeChangeListener(listener: () -> Unit) {
-        listeners.remove(listener)
-    }
-
-    fun start() {
-        val settings = KgBoardSettings.getInstance()
-        if (!settings.pomodoroEnabled) return
-
-        synchronized(stateLock) {
-            _completedSessions.set(0)
-            startWorkPhase()
-        }
-        log.info("Pomodoro started")
-    }
-
-    fun stop() {
-        synchronized(stateLock) {
-            tickGeneration.incrementAndGet() // invalidate any in-flight tick
-            tickTask?.cancel(false)
-            tickTask = null
-            currentPhase = Phase.IDLE
-            remainingSeconds = 0
-
-            val effectManager = EffectManagerService.getInstance(project)
-            effectManager.removeTargetedEffect(EFFECT_ID)
-            effectManager.removeTargetedEffect(TRANSITION_EFFECT_ID)
-        }
-        notifyListeners()
-        log.info("Pomodoro stopped")
-    }
-
-    fun skip() {
-        synchronized(stateLock) {
-            when (currentPhase) {
-                Phase.WORK -> {
-                    _completedSessions.incrementAndGet()
-                    startBreakPhase()
-                }
-                Phase.BREAK, Phase.LONG_BREAK -> startWorkPhase()
-                Phase.IDLE -> {}
-            }
-        }
-    }
-
-    private fun startWorkPhase() {
-        val settings = KgBoardSettings.getInstance()
-        currentPhase = Phase.WORK
-        remainingSeconds = settings.pomodoroWorkMinutes * 60
-        val target = settings.resolveTarget(settings.pomodoroLedIndices)
-
-        // Flash transition
-        flashTransition()
-
-        // Gradient effect green→yellow
-        val effectManager = EffectManagerService.getInstance(project)
-        effectManager.addTargetedEffect(
-            EFFECT_ID,
-            GradientEffect(
-                startColor = settings.pomodoroWorkColor,
-                endColor = settings.parseColor("#FFD600"),
-                durationMs = remainingSeconds * 1000L,
-                name = "pomodoro-work",
-                priority = 1,
-                target = target
-            )
-        )
-
-        startTicking()
-        notifyListeners()
-    }
-
-    private fun startBreakPhase() {
-        val settings = KgBoardSettings.getInstance()
-        val sessions = _completedSessions.get()
-        val isLongBreak = sessions > 0 &&
-            sessions % settings.pomodoroSessionsBeforeLongBreak == 0
-
-        if (isLongBreak) {
-            currentPhase = Phase.LONG_BREAK
-            remainingSeconds = settings.pomodoroLongBreakMinutes * 60
-        } else {
-            currentPhase = Phase.BREAK
-            remainingSeconds = settings.pomodoroBreakMinutes * 60
-        }
-
-        flashTransition()
-
-        val target = settings.resolveTarget(settings.pomodoroLedIndices)
-        val effectManager = EffectManagerService.getInstance(project)
-        effectManager.addTargetedEffect(
-            EFFECT_ID,
-            PulseEffect(
-                color = settings.pomodoroBreakColor,
-                periodMs = if (isLongBreak) 2000 else 1200,
-                name = "pomodoro-break",
-                priority = 1,
-                target = target
-            )
-        )
-
-        startTicking()
-        notifyListeners()
-    }
-
-    private fun flashTransition() {
-        val settings = KgBoardSettings.getInstance()
-        val target = settings.resolveTarget(settings.pomodoroLedIndices)
-        val effectManager = EffectManagerService.getInstance(project)
-        effectManager.addTargetedEffect(
-            TRANSITION_EFFECT_ID,
-            FlashEffect(
-                color = settings.pomodoroTransitionColor,
-                durationMs = 600,
-                name = "pomodoro-transition",
-                priority = 5,
-                target = target
-            ),
-            timeoutMs = 700
-        )
-    }
-
-    private fun startTicking() {
-        tickTask?.cancel(false)
-        val gen = tickGeneration.incrementAndGet()
-        tickTask = scheduler.scheduleAtFixedRate({
-            if (gen != tickGeneration.get()) return@scheduleAtFixedRate // superseded by skip/stop
-            if (remainingSeconds > 0) {
-                remainingSeconds--
-                notifyListeners()
-            } else {
-                onPhaseComplete(gen)
-            }
-        }, 1, 1, TimeUnit.SECONDS)
-    }
-
-    private fun onPhaseComplete(gen: Int) {
-        synchronized(stateLock) {
-            // Re-check under the lock: a skip()/stop() may have run between the tick's guard and here.
-            if (gen != tickGeneration.get()) return
-            tickTask?.cancel(false)
-            tickTask = null
-
-            when (currentPhase) {
-                Phase.WORK -> {
-                    _completedSessions.incrementAndGet()
-                    startBreakPhase()
-                }
-                Phase.BREAK, Phase.LONG_BREAK -> {
-                    startWorkPhase()
-                }
-                Phase.IDLE -> {}
-            }
-        }
-    }
-
-    private fun notifyListeners() {
-        listeners.forEach {
-            try { it() } catch (_: Exception) {}
-        }
-    }
-
-    override fun dispose() {
-        tickGeneration.incrementAndGet()
-        tickTask?.cancel(false)
-        tickTask = null
-        try {
-            val effectManager = EffectManagerService.getInstance(project)
-            effectManager.removeTargetedEffect(EFFECT_ID)
-            effectManager.removeTargetedEffect(TRANSITION_EFFECT_ID)
-        } catch (_: Exception) {
-            // project may already be disposed
-        }
-        listeners.clear()
-        scheduler.shutdownNow()
-    }
-
-    fun formatTimeRemaining(): String {
-        val min = remainingSeconds / 60
-        val sec = remainingSeconds % 60
-        return "%02d:%02d".format(min, sec)
-    }
-
-    fun phaseDisplayName(): String = when (currentPhase) {
-        Phase.IDLE -> "Idle"
-        Phase.WORK -> "Work"
-        Phase.BREAK -> "Break"
-        Phase.LONG_BREAK -> "Long Break"
-    }
+    override fun dispose() { closed.set(true); subscription.cancel(); listeners.clear() }
+    companion object { fun getInstance(project: Project): PomodoroTimerService = project.getService(PomodoroTimerService::class.java) }
 }

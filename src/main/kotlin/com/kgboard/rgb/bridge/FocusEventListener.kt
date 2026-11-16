@@ -1,57 +1,10 @@
 package com.kgboard.rgb.bridge
-
 import com.intellij.openapi.application.ApplicationActivationListener
-import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.wm.IdeFrame
-import com.kgboard.rgb.client.OpenRgbConnectionService
-import com.kgboard.rgb.settings.KgBoardSettings
-import java.awt.Color
-
-/**
- * Handles IDE window focus changes:
- * - Focus lost → dim keyboard to idle or turn off
- * - Focus gained → restore current effect
- */
+import com.kgboard.rgb.runtime.*
 class FocusEventListener : ApplicationActivationListener {
-
-    private val log = Logger.getInstance(FocusEventListener::class.java)
-
-    override fun applicationActivated(ideFrame: IdeFrame) {
-        try {
-            val settings = KgBoardSettings.getInstance()
-            if (!settings.enabled) return
-
-            log.info("IDE gained focus — restoring RGB")
-            val project = ideFrame.project ?: return
-            val effectManager = com.kgboard.rgb.effect.EffectManagerService.getInstance(project)
-            effectManager.restoreCurrentEffect()
-        } catch (e: Exception) {
-            log.warn("Focus activated error: ${e.message}")
-        }
-    }
-
+    override fun applicationActivated(ideFrame: IdeFrame) = LightingRuntimeService.getInstance().refreshFocus()
     override fun applicationDeactivated(ideFrame: IdeFrame) {
-        try {
-            val settings = KgBoardSettings.getInstance()
-            if (!settings.enabled || !settings.dimOnFocusLoss) return
-
-            log.info("IDE lost focus — dimming RGB")
-            val connection = OpenRgbConnectionService.getInstance()
-            if (connection.isConnected) {
-                val factor = settings.dimBrightness / 100f
-                val dimColor = dimColor(settings.idleColor, factor)
-                connection.setAllLedsMultiDevice(dimColor)
-            }
-        } catch (e: Exception) {
-            log.warn("Focus deactivated error: ${e.message}")
-        }
-    }
-
-    private fun dimColor(color: Color, factor: Float): Color {
-        return Color(
-            (color.red * factor).toInt().coerceIn(0, 255),
-            (color.green * factor).toInt().coerceIn(0, 255),
-            (color.blue * factor).toInt().coerceIn(0, 255)
-        )
+        LightingRuntimeService.getInstance().events.dispatch(RuntimeEvent.FocusChanged(false))
     }
 }

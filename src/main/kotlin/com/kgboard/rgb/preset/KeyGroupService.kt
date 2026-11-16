@@ -93,6 +93,19 @@ class KeyGroupService : PersistentStateComponent<KeyGroupService.GroupState> {
         log.info("Key groups: resolved ${resolved.size} built-in groups ($total total LEDs)")
     }
 
+    /** Resolve a draft device without changing the live layout. */
+    fun groupsForDevice(device: com.kgboard.rgb.client.RgbDeviceInfo): Map<String, List<Int>> {
+        val layout = KeyboardLayoutService()
+        layout.refreshForDevice(device)
+        return buildMap {
+            for ((id, keys) in KeyGroupDefinitions.BUILT_IN_GROUPS) {
+                val indices = layout.getLedIndices(keys)
+                if (indices.isNotEmpty()) put(id, indices)
+            }
+            for (group in state.userGroups) put(group.name, runCatching { com.kgboard.rgb.settings.SettingsValidation.indices(group.ledIndices, device.numLeds) }.getOrDefault(emptyList()))
+        }
+    }
+
     /** Get display name for a group ID. */
     fun getDisplayName(groupId: String): String {
         // Check built-in first

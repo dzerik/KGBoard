@@ -1,0 +1,5 @@
+<State>
+  <option name="gitLedIndices" value="1,2" />
+  <option name="analysisLedIndices" value="3" />
+  <option name="gitBranchColorRules"><list><GitColorRule><option name="pattern" value="^feature/" /><option name="color" value="#112233" /></GitColorRule></list></option>
+</State>

@@ -3,7 +3,7 @@ package com.kgboard.rgb.effect
 import java.awt.Color
 
 /**
- * Pure computation of effect colors — extracted from LedCompositor for testability.
+ * Pure computation of effect colors — shared by the runtime and deterministic tests.
  * All methods are stateless and thread-safe.
  */
 object EffectColorComputer {
@@ -126,7 +126,7 @@ object EffectColorComputer {
     /**
      * Resolve effect target to LED index list (pure, no service dependencies).
      * Zone targets require device info, supplied by the optional [zoneResolver]
-     * (LedCompositor passes its device-aware resolver). Without it, Zone resolves to empty.
+     * (the runtime passes its device-aware resolver). Without it, Zone resolves to empty.
      */
     internal fun resolveIndices(
         target: EffectTarget,

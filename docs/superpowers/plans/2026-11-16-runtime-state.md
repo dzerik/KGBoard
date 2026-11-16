@@ -1,6 +1,6 @@
 # KGBoard Runtime State Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Подсветка достоверно отражает актуальное состояние IDEA при конкурирующих событиях, переключении файлов/проектов, потере фокуса и разрывах OpenRGB.
 
@@ -23,9 +23,9 @@
 
 ## Перед Task 1: workspace и baseline
 
-- [ ] При начале исполнения применить using-git-worktrees: проверить существующую isolation.
+- [x] При начале исполнения применить using-git-worktrees: проверить существующую isolation.
   Если пользователь выбрал работу в текущей ветке, сохранить этот выбор и не создавать worktree.
-- [ ] До изменения продуктового кода выполнить
+- [x] До изменения продуктового кода выполнить
   `JAVA_HOME=/usr/lib/jvm/java-25-openjdk-amd64 ./gradlew test buildPlugin --console=plain`.
   Записать точные результаты тестов и сборки. Сетевая загрузка SDK не считается ни
   failing regression, ни успешным baseline. Устранить проблемы окружения до TDD-цикла.
@@ -141,7 +141,7 @@ interface RuntimeEvents { fun dispatch(event: RuntimeEvent) }
 `CancelWake`, `Connect(endpoint, session)`, `Disconnect(session)`, `OfferFrame(session, device, colors)`.
 Конструкторы событий — data class внутри sealed interface `RuntimeEvent`.
 
-- [ ] **Step 1:** Добавить тест перехода через публичный reducer и фикстуру настроек.
+- [x] **Step 1:** Добавить тест перехода через публичный reducer и фикстуру настроек.
 
 ```kotlin
 @Test fun `terminating A preserves running B`() {
@@ -167,8 +167,8 @@ interface RuntimeEvents { fun dispatch(event: RuntimeEvent) }
 Закрытый ProjectId не принимается до нового ProjectOpened; новый binding получает новый ID.
 Тест полноты снимка сопоставляет имена полей State с DTO, исключая только явно вычисляемые поля.
 
-- [ ] **Step 2:** Запустить `JAVA_HOME=/usr/lib/jvm/java-25-openjdk-amd64 ./gradlew test --tests '*RuntimeReducerTest' --tests '*RuntimeSettingsTest'`. Ожидать RED из-за отсутствующего нового контракта; ошибки загрузки SDK фиксировать отдельно.
-- [ ] **Step 3:** Реализовать DTO и переходы копированием map; terminal outcome хранить как факт, активность вычислять по phase. Удаление project чистит только его layers/operations/preview. Capture создаёт собственные immutable collections; отражение используется только тестом полноты.
+- [x] **Step 2:** Запустить `JAVA_HOME=/usr/lib/jvm/java-25-openjdk-amd64 ./gradlew test --tests '*RuntimeReducerTest' --tests '*RuntimeSettingsTest'`. Ожидать RED из-за отсутствующего нового контракта; ошибки загрузки SDK фиксировать отдельно.
+- [x] **Step 3:** Реализовать DTO и переходы копированием map; terminal outcome хранить как факт, активность вычислять по phase. Удаление project чистит только его layers/operations/preview. Capture создаёт собственные immutable collections; отражение используется только тестом полноты.
 
 ```kotlin
 val project = state.projects[event.project] ?: return Transition(state, emptyList())
@@ -188,8 +188,8 @@ return Transition(state.copy(projects = state.projects + (event.project to updat
 operation; она хранится в OperationState и сравнивается до обновления. Произвольный порядок сообщений не исправляется
 сравнением времени из разных потоков.
 
-- [ ] **Step 4:** Добиться GREEN и выполнить существующие `*KgBoardSettings*Test`, `*RgbEffectTest`, `*EffectTargetTest`.
-- [ ] **Step 5:** Проверить diff; отметить Task 1 выполненным. Изменения остаются в рабочей ветке до атомарного коммита Task 10.
+- [x] **Step 4:** Добиться GREEN и выполнить существующие `*KgBoardSettings*Test`, `*RgbEffectTest`, `*EffectTargetTest`.
+- [x] **Step 5:** Проверить diff; отметить Task 1 выполненным. Изменения остаются в рабочей ветке до атомарного коммита Task 10.
 
 ## Task 2: политика композиции и deadline статичных слоёв
 
@@ -200,7 +200,7 @@ operation; она хранится в OperationState и сравнивается
 `Disconnected`, `Connecting(session, endpoint)`, `Backoff(session, retryAtMs, error)`.
 В RuntimeState отдельно хранить connect intent и next session number.
 
-- [ ] **Step 1:** Написать тесты фактических кадров: focus dim/restoration для static и pulse;
+- [x] **Step 1:** Написать тесты фактических кадров: focus dim/restoration для static и pulse;
 подавленный Debug восстанавливается после Test; одинаковый приоритет стабильно разрешается
 `createdAtMs`, затем `EffectKey`; у indicator нет глобального слоя, но сохранена сортировка.
 
@@ -219,8 +219,8 @@ operation; она хранится в OperationState и сравнивается
 Фикстура для frame-тестов: два RgbDeviceInfo с тремя LED, готовое соединение и
 активный открытый проект. Использовать реальный composeFrame и реальные эффекты.
 
-- [ ] **Step 2:** Запустить `./gradlew test --tests '*LightingPolicyTest'` под JDK 25; получить RED на отсутствии политики.
-- [ ] **Step 3:** Перед composeFrame отфильтровать владельца/feature flags/deadlines, отсортировать
+- [x] **Step 2:** Запустить `./gradlew test --tests '*LightingPolicyTest'` под JDK 25; получить RED на отсутствии политики.
+- [x] **Step 3:** Перед composeFrame отфильтровать владельца/feature flags/deadlines, отсортировать
 слои детерминированно и сформировать кадр каждого устройства независимо. Для indicator убрать
 AllLeds; ambient — idle; mirror/primary используют собственный LED count и zone resolver.
 При Unfocused+dim сформировать dim-idle для всех enabled устройств после выбора обычных слоёв;
@@ -238,8 +238,8 @@ val deadline = layers.mapNotNull { it.expiresAtMs }.filter { it > nowMs }.minOrN
 Unfocused+dim/Disabled не держит анимационные кадры, но сохраняет необходимые deadlines
 процессов и Pomodoro. Просроченные слои снимаются reducer при Wake, даже когда вывода нет.
 
-- [ ] **Step 4:** GREEN новых тестов и существующих `*EffectColorComputerTest`, `*ComposeFrameTest`, `*ResolveIndicesTest`.
-- [ ] **Step 5:** Проверить, что нет копии отдельного compositor-алгоритма для indicator. Отметить Task 2.
+- [x] **Step 4:** GREEN новых тестов и существующих `*EffectColorComputerTest`, `*ComposeFrameTest`, `*ResolveIndicesTest`.
+- [x] **Step 5:** Проверить, что нет копии отдельного compositor-алгоритма для indicator. Отметить Task 2.
 
 ## Task 3: последовательный runtime и детерминированный стенд
 
@@ -260,7 +260,7 @@ Task 3 определяет интерфейс `FrameWriter` в RuntimePorts:
 `drain` не двигает время. Fake writer хранит копии предложенных кадров; позднее тесты
 Task 4 отдельно проверяют реальные отправки CoalescingFrameWriter.
 
-- [ ] **Step 1:** Написать тест expired static → idle без вторичного события;
+- [x] **Step 1:** Написать тест expired static → idle без вторичного события;
 старый Wake после Disable/Shutdown; разные перестановки событий двух независимых процессов.
 Первый кадр фокуса проверить через writer, а не поля state.
 
@@ -279,8 +279,8 @@ Task 4 отдельно проверяют реальные отправки Coa
 Проверять окончание shutdown отдельным fake-writer списком команд: финальная запись допустима
 только одна, после неё новых offer/connect нет.
 
-- [ ] **Step 2:** RED: `./gradlew test --tests '*LightingRuntimeTest'`.
-- [ ] **Step 3:** Реализовать одну очередь dispatch, цикл reduce→publish→commands→policy,
+- [x] **Step 2:** RED: `./gradlew test --tests '*LightingRuntimeTest'`.
+- [x] **Step 3:** Реализовать одну очередь dispatch, цикл reduce→publish→commands→policy,
 монотонный clock через `System.nanoTime()` и один отменяемый wake handle с generation.
 Колбэки источников только ставят события в очередь. Подписчики UI не вызываются под lock;
 публикация snapshot — атомарная ссылка. Runtime close idempotent; поздние события не принимаются.
@@ -295,9 +295,9 @@ override fun dispatch(event: RuntimeEvent) {
 публикует snapshot и выдаёт команды. Исключения transport/computation преобразуются в события
 ошибки; `ProcessCanceledException` в IDE-адаптерах не превращается в ошибку анализа.
 
-- [ ] **Step 4:** GREEN; новые тесты используют управляемое время, без Thread.sleep. Повторить
+- [x] **Step 4:** GREEN; новые тесты используют управляемое время, без Thread.sleep. Повторить
 их со 100 фиксированными seed перестановок независимых событий, сравнивая итоговые кадры.
-- [ ] **Step 5:** Проверить тестами отсутствие сетевых вызовов на runtime thread и сохранение
+- [x] **Step 5:** Проверить тестами отсутствие сетевых вызовов на runtime thread и сохранение
 блокирующего транспорта вне EDT. Отметить Task 3.
 
 ## Task 4: соединение, reconnect, bounded writer и кеш каждого устройства
@@ -318,11 +318,11 @@ OpenRgbTransport реализует его, конструктор writer при
 вызывается RuntimeReducer только для connection-related событий. Он чистый и не владеет
 executor/transport; изменения состояния публикует исключительно LightingRuntime.
 
-- [ ] **Step 1:** Перенести TCP reset repro в OpenRgbReconnectTest: локальный ServerSocket
+- [x] **Step 1:** Перенести TCP reset repro в OpenRgbReconnectTest: локальный ServerSocket
 отвечает на negotiation/name, затем закрывает peer с SO_LINGER=0; запрос клиента должен
 закрыть сессию после SocketException. Повторное подключение должно реально принять новый socket.
 Использовать latch/future с ограниченным timeout; timeout служит аварийным пределом, не синхронизацией.
-- [ ] **Step 2:** RED; написать writer-тест с блокируемым transport и 1000 кадрами на устройство.
+- [x] **Step 2:** RED; написать writer-тест с блокируемым transport и 1000 кадрами на устройство.
 
 ```kotlin
 @Test fun `pending frames are replaced while transport is blocked`() {
@@ -348,20 +348,20 @@ connect/first write/release/second write и списком успешных writ
 таймаут 5 секунд и падают при превышении. `RecordingRuntimeEvents : RuntimeEvents`
 сохраняет события в ConcurrentLinkedQueue. Закрытие обязательно в finally в итоговом тесте.
 
-- [ ] **Step 3:** В OpenRgbClient каждое исключение I/O закрывает socket и переводит его в null
+- [x] **Step 3:** В OpenRgbClient каждое исключение I/O закрывает socket и переводит его в null
 под существующим lock. Никакого сетевого запроса в isConnected. Controller выдаёт новую SessionId
 при смене endpoint/намерения; результат старой сессии игнорирует. Backoff starts 1s, doubles
 до 30s, сбрасывается после Ready; ручной Disconnect отменяет retry и инвалидирует сессию.
-- [ ] **Step 4:** Writer хранит не более одного выполняющегося write и одного pending кадра
+- [x] **Step 4:** Writer хранит не более одного выполняющегося write и одного pending кадра
 на доступное устройство. Новые кадры заменяют pending; disconnect/connect имеют управляющий
 приоритет. Последний успешно записанный кадр кешируется по session+device. После ошибки
 и нового Ready кеш очищается. Помещённый в очередь кадр не считается успешно записанным.
 `skipCustomMode` сохраняется как настройка transport connect/config, проверяется regression test.
-- [ ] **Step 5:** GREEN: reset→retry→ready; Disconnect во время Connect; старый callback после
+- [x] **Step 5:** GREEN: reset→retry→ready; Disconnect во время Connect; старый callback после
 новой сессии; два устройства с неизменным primary; reconnect с новым LED count/без устройств;
 равные кадры после новой сессии всё равно отправляются; close прекращает retries. Проверить
 `./gradlew test --tests '*OpenRgb*Test' --tests '*FrameWriterTest' --tests '*ConnectionControllerTest'`.
-- [ ] **Step 6:** Отметить Task 4; существующий OpenRgbConnectionService пока не заменять в
+- [x] **Step 6:** Отметить Task 4; существующий OpenRgbConnectionService пока не заменять в
 живых регистрациях. Исправление socket допустимо, второй runtime writer остаётся неактивным.
 
 ## Task 5: lifetime проектов и корректный владелец фокуса
@@ -377,20 +377,20 @@ connect/first write/release/second write и списком успешных writ
 владельца, не доверяет запоздалой паре window-lost/window-gained.
 Binding всегда подписывается, затем выполняет reconciliation с ревизией.
 
-- [ ] **Step 1:** RED тест с fake source: A→B без application-deactivated. В выводе только B;
+- [x] **Step 1:** RED тест с fake source: A→B без application-deactivated. В выводе только B;
 закрытие A ничего не меняет; деактивация приложения применяет dim к B; возврат выбирает
 актуальное окно. Initial callback, пришедший до завершения snapshot, не затирается старым снимком.
-- [ ] **Step 2:** Проверить API на SDK 263: native Window focus через AWT WindowFocusListener
+- [x] **Step 2:** Проверить API на SDK 263: native Window focus через AWT WindowFocusListener
 для IDE frames и WindowManager; слушать открытие/закрытие рамок, а не только ApplicationActivationListener.
 Существующие application focus listeners передают события runtime; прямые LED-записи удалить при cutover.
-- [ ] **Step 3:** Реализовать binding с собственным Disposable и снимком только валидного проекта.
+- [x] **Step 3:** Реализовать binding с собственным Disposable и снимком только валидного проекта.
 Reconciliation охватывает DumbService.isDumb, выбранный editor, живые RunContentDescriptors
 и XDebuggerManager.debugSessions; неизвестные terminal results не восстанавливать как success.
 При закрытии generation binding инвалидируется до отмены вычислений.
-- [ ] **Step 4:** GREEN новых тестов и интеграционная проверка закрытия проекта при queued callback.
+- [x] **Step 4:** GREEN новых тестов и интеграционная проверка закрытия проекта при queued callback.
 Listener count после 20 open/close циклов возвращается к исходному. Shutdown отправляет только
 один финальный кадр по resetOnExit с транспортным пределом не более 3 секунд.
-- [ ] **Step 5:** До cutover готовые классы без service/extension registration. Отметить Task 5.
+- [x] **Step 5:** До cutover готовые классы без service/extension registration. Отметить Task 5.
 
 ## Task 6: операции Build/Run/Debug/Test с идентичностью
 
@@ -406,15 +406,15 @@ Registry хранит ссылки только в пределах project Disp
 Для build identity использовать ProjectTaskContext.sessionId, при null — identity самого context
 и назначенный счётчик; результат ProjectTaskManager.Result.context возвращает тот же ключ.
 
-- [ ] **Step 1:** RED тесты всех перестановок завершения A/B; debug pause→resume→stop;
+- [x] **Step 1:** RED тесты всех перестановок завершения A/B; debug pause→resume→stop;
 startScheduled→notStarted; cancelled build/test; ignored-only и zero tests; поздний duplicate finish.
 OperationOutcome.NOT_EXECUTED не создаёт зелёную вспышку. Считать leaf tests, исключая suites/root.
-- [ ] **Step 2:** Проверить на SDK 2026.3 и использовать ProjectTaskListener.TOPIC:
+- [x] **Step 2:** Проверить на SDK 2026.3 и использовать ProjectTaskListener.TOPIC:
 `started(context)` и `finished(result)`, `result.context`, `isAborted`, `hasErrors`.
 Это даёт пары начала/конца; не выдумывать started из fileGenerated. Удалить дублирующую
 регистрацию CompilationStatusListener при cutover. Источники сборки вне ProjectTaskManager
 не выдаются за наблюдаемые; поддержка самостоятельных external-system задач в эту миграцию не добавляется.
-- [ ] **Step 3:** Сопоставить SM test root с process descriptor:
+- [x] **Step 3:** Сопоставить SM test root с process descriptor:
 
 ```kotlin
 val descriptor = ExecutionManager.getInstance(project).getRunningDescriptors { true }
@@ -430,10 +430,10 @@ val handler = descriptor?.processHandler
 самостоятельный ID до появления корреляции, не связывать по времени/имени. Для descriptor
 с SMTRunnerConsoleView обычный RUN не создаёт отдельный визуальный слой. Корреляция не должна
 убирать независимо работающий Run другого handler; закрепить это тестом.
-- [ ] **Step 4:** Все listeners передают facts с revision. Reducer сохраняет нижние слои;
+- [x] **Step 4:** Все listeners передают facts с revision. Reducer сохраняет нижние слои;
 policy использует имеющиеся приоритеты цветов. При terminal действие касается только ID
 операции, а не `returnToIdle()` всей подсветки. Breakpoint связан с конкретной debug session.
-- [ ] **Step 5:** GREEN трёх новых наборов; проверить начальную сверку уже работающих процессов,
+- [x] **Step 5:** GREEN трёх новых наборов; проверить начальную сверку уже работающих процессов,
 отсутствие опоры на mutable runProfile.name и очистку registry. После завершения снять callbacks
 источника; после окончания terminal-вспышки удалить его state, сохраняя запрет адаптера на
 повторное использование OperationId. Registry выдаёт уникальные ID и отбрасывает callbacks
@@ -456,10 +456,10 @@ policy использует имеющиеся приоритеты цветов
 `AnalysisResult` = `Unknown`, `NotApplicable`, `Ready(hasErrors: Boolean, hasWarnings: Boolean)`;
 editor и indexing остаются независимыми полями ProjectState.
 
-- [ ] **Step 1:** RED тесты выбора A→B→image→none, последнего закрытого редактора, удаления файла,
+- [x] **Step 1:** RED тесты выбора A→B→image→none, последнего закрытого редактора, удаления файла,
 отмены read action и старого результата после изменения stamp. Показать чистый B только
 после достоверного Ready(B), не после отсутствия markup или инспекций.
-- [ ] **Step 2:** Подписать FILE_EDITOR_MANAGER.selectionChanged/fileClosed/fileOpened,
+- [x] **Step 2:** Подписать FILE_EDITOR_MANAGER.selectionChanged/fileClosed/fileOpened,
 DocumentListener для активного документа, VFS deletion и daemon lifecycle. Событие всегда
 сверяется с текущей selection; asynchronous result несёт file URL, stamp и request sequence.
 Проверять validity и dispose до/после read action; не удерживать PSI в runtime.
@@ -472,21 +472,21 @@ if (project.editorRevision != event.revision || project.indexing) {
 
 Это первая проверка в reducer для результатов анализа; disabled feature не уничтожает
 подписку. При применении настроек policy сразу снимает выключенный слой.
-- [ ] **Step 3:** Errors/warnings получать для выбранного editor/document, не Wolf whole-project
+- [x] **Step 3:** Errors/warnings получать для выбранного editor/document, не Wolf whole-project
 вместе с selected-file warnings. Отсутствие данных, dumb mode и отмена дают Unknown.
 TODO применим отдельно от инспекций; результаты PSI считаются только для валидной ревизии.
 При смене selection/stamp предыдущие analysis/TODO layers инвалидировать немедленно.
-- [ ] **Step 4:** Git callback/poll возвращает facts и revision; regex rules компилируются при
+- [x] **Step 4:** Git callback/poll возвращает facts и revision; regex rules компилируются при
 SettingsApplied. Сохранить existing indicator meaning, не вводить новую трактовку Git-состояний.
 Indexing подписывается всегда с initial isDumb. LowMemory тоже подписывается независимо от toggle.
 Shortcut service формирует facts contexts по existing настройкам; debug context привязать к
 наличию debug session, search — к IDE SearchEverywhere/Find UI lifetime, без прямых LED calls.
 Не обещать editing/vcs automatic contexts, пока нет SDK-события: сохранить существующие настройки
 и возможность явной активации через `ShortcutsChanged`, отметить ограничение в документации.
-- [ ] **Step 5:** Save listener проверяет modified documents до save, определяет owning projects,
+- [x] **Step 5:** Save listener проверяет modified documents до save, определяет owning projects,
 один DocumentsSaved на batch, ноль на пустой save-all. При закрытии binding отменяет read
 tasks и poll; запоздалый callback игнорируется. GREEN новых трёх наборов и toggle off/on без reopen.
-- [ ] **Step 6:** Отметить Task 7; не оставлять старый Git poll и новый poll одновременно при cutover.
+- [x] **Step 6:** Отметить Task 7; не оставлять старый Git poll и новый poll одновременно при cutover.
 
 ## Task 8: Pomodoro как часть той же очереди
 
@@ -501,17 +501,17 @@ enum `PomodoroPhase { IDLE, WORK, BREAK, LONG_BREAK }`; события
 сохраняет public start/stop/skip, isRunning/currentPhase/remainingSeconds/completedSessions,
 formatTimeRemaining/phaseDisplayName и listener API для widget/actions.
 
-- [ ] **Step 1:** RED sequence-тест skip перед старым tick, stop перед due tick, длительная задержка
+- [x] **Step 1:** RED sequence-тест skip перед старым tick, stop перед due tick, длительная задержка
 scheduler, длинный перерыв после N циклов, смена проекта во время work, выключение функции.
 remainingSeconds >= 0 и вывод соответствует новой фазе после любого старого wake.
-- [ ] **Step 2:** В reducer каждая команда меняет phase/deadline/generation атомарно;
+- [x] **Step 2:** В reducer каждая команда меняет phase/deadline/generation атомарно;
 remainingSeconds вычисляется `max(0, (deadlineMs - nowMs + 999) / 1000)`.
 На запоздалом wake выполнить максимум один переход фазы и начать следующую от nowMs,
 без проигрывания серии пропущенных перерывов и вспышек. Зафиксировать это тестом.
-- [ ] **Step 3:** Policy создаёт Gradient/Pulse/transition layers из текущего PomodoroState.
+- [x] **Step 3:** Policy создаёт Gradient/Pulse/transition layers из текущего PomodoroState.
 Удалить собственный ScheduledExecutorService таймера; facade публикует изменения UI через EDT,
 widget снимает подписку без получения уже disposed project service.
-- [ ] **Step 4:** GREEN runtime и facade тестов. Сверить дефолты 25/5/15/4 и настройки target/color
+- [x] **Step 4:** GREEN runtime и facade тестов. Сверить дефолты 25/5/15/4 и настройки target/color
 с прежними XML; ноль unmanaged ticking threads после закрытия проекта. Отметить Task 8.
 
 ## Task 9: атомарный Apply, диагностический Connect и scoped preview
@@ -530,29 +530,29 @@ test `settings/SettingsPreviewSessionTest.kt`, `SettingsApplyTest.kt`, `Settings
 `connect(endpoint)`, `preview(device, color, indices)`, `applied()`, `close()`.
 `close()` после applied всё равно удаляет preview, но не откатывает новый SettingsApplied.
 
-- [ ] **Step 1:** RED тесты Test→OK/Cancel сразу, repeated Test, Apply device0→1 во время preview,
+- [x] **Step 1:** RED тесты Test→OK/Cancel сразу, repeated Test, Apply device0→1 во время preview,
 Disconnect/Disable, отсутствующее устройство. Отдельно Connect с изменёнными host/port до Apply:
 он использует черновик, Cancel возвращает исходный endpoint и connect intent, изначально
 disconnected остаётся disconnected. Старый UI id не снимает preview нового диалога.
-- [ ] **Step 2:** UI сначала собирает и валидирует весь draft, затем одним SettingsApplied
+- [x] **Step 2:** UI сначала собирает и валидирует весь draft, затем одним SettingsApplied
 публикует глубокий снимок и заменяет persisted State. Новые данные не попадают в runtime
 через частичные setters. Project Apply работает аналогично. reset только меняет draft.
 Использовать отдельную модель draft, чтобы super.apply/tabPanels.apply не меняли singleton
 по одному полю до полной валидации. Тест: невалидный LED CSV не меняет даже host/color.
-- [ ] **Step 3:** Preview — слой с высоким приоритетом и заданным устройством; после его удаления
+- [x] **Step 3:** Preview — слой с высоким приоритетом и заданным устройством; после его удаления
 пересчитать обычные кадры, не записывать idle напрямую и не ставить paused всем проектам.
 UI disposable безусловно вызывает session.close. При dim/Disabled preview подчиняется
 верхней политике приложения. Удалить testAlarm и direct testLeds calls после cutover.
-- [ ] **Step 4:** Validation различает пустое поле и malformed: `",,"`, отрицательные, overflow,
+- [x] **Step 4:** Validation различает пустое поле и malformed: `",,"`, отрицательные, overflow,
 нечисловые и >=numLeds — ошибка. Если устройство неизвестно, разрешить сохранение чисел,
 но запретить Test и явно сообщить, что диапазон ещё не проверен. Не превращать malformed в AllLeds.
 UI combo показывает имена/индексы; отсутствие сохранённого индекса видно как недоступный выбор.
-- [ ] **Step 5:** После нового устройства/Ready обновить layout/groups одним immutable mapping
+- [x] **Step 5:** После нового устройства/Ready обновить layout/groups одним immutable mapping
 snapshot, очистить mapping при отсутствии устройства. Settings и status widget подписаны на
 один runtime snapshot: disconnected/connecting/ready/backoff/no-device/error. Analysis label
 показывает unknown/indexing/not-applicable/result. Listener UI работает только на EDT и снимается
 в dispose. GREEN всех новых тестов и существующих settings/layout/key-group tests.
-- [ ] **Step 6:** Отметить Task 9. Проверить, что открытый Settings не заставляет runtime создавать
+- [x] **Step 6:** Отметить Task 9. Проверить, что открытый Settings не заставляет runtime создавать
 facades/композиторы всех проектов и не изменяет настройки по Cancel.
 
 ## Task 10: сборка сервисов, атомарное переключение и итоговая проверка
@@ -571,18 +571,18 @@ Test `runtime/RuntimeIntegrationTest.kt`, `bridge/RuntimeLifecyclePlatformTest.k
 Только этот сервис создаёт event executor, scheduler, transport worker и runtime.
 ProjectRuntimeBinding принадлежит проекту и не владеет транспортом.
 
-- [ ] **Step 1:** Проверить записанные результаты workspace/baseline prerequisite перед Task 1;
+- [x] **Step 1:** Проверить записанные результаты workspace/baseline prerequisite перед Task 1;
 сопоставить новые failures с baseline, не скрывая их выключением тестов или проверок.
-- [ ] **Step 2:** RED интеграционных тестов: приложение с двумя project bindings и одной fake-сетью;
+- [x] **Step 2:** RED интеграционных тестов: приложение с двумя project bindings и одной fake-сетью;
 все 10 групп последовательностей спецификации проверяют отправленные кадры. В platform-тестах
 проверить реальную подписку selectionChanged, initial dumb state, XML round-trip старых fixtures,
 Apply/Cancel и dispose. Подготовить старые XML fixtures в `src/test/resources/settings/` для
 app/project/keygroups, используя нынешние serializer аннотации и имена storage.
-- [ ] **Step 3:** В одном working-tree переключении зарегистрировать единственный app runtime,
+- [x] **Step 3:** В одном working-tree переключении зарегистрировать единственный app runtime,
 подключить все адаптеры, удалить старые service registrations/direct paths. Git adapter остаётся
 в optional Git4Idea config; runtime не импортирует git4idea и загружается без Git-плагина.
 На старте подписать наблюдение до initial reconciliation независимо от enabled.
-- [ ] **Step 4:** Заменить все consumers OpenRgbConnectionService/EffectManagerService/LedCompositor;
+- [x] **Step 4:** Заменить все consumers OpenRgbConnectionService/EffectManagerService/LedCompositor;
 удалить эти реализации и paused-флаг. RgbEffect, EffectColorComputer, протокол и настройки XML
 сохранить. Проверить отсутствие второй точки создания OpenRgbClient и старых render loops.
 
@@ -595,7 +595,7 @@ rg -n 'setAllLeds|testLeds|updateLeds' src/main/kotlin/com/kgboard/rgb/bridge sr
 Первый и третий поиски должны быть пустыми; конструктор OpenRgbClient остаётся только
 в transport, низкоуровневые update методы — только в client. Проверки поведения остаются
 главным критерием, поиск служит контролем полноты миграции.
-- [ ] **Step 5:** Использовать уже настроенную plugin verification target IDEA 2026.3
+- [x] **Step 5:** Использовать уже настроенную plugin verification target IDEA 2026.3
 (IU, build 263.*). Отдельная IC для этой версии не публикуется. Компиляция и проверка
 выполняются на одной базе; не возвращать декларацию поддержки 243–253.* без отдельного
 запроса и совместимой сборки под прежний Java runtime. В CI выполнять unit/build и
@@ -611,7 +611,7 @@ intellijPlatform {
 }
 ```
 
-- [ ] **Step 6:** Выполнить под JDK 25:
+- [x] **Step 6:** Выполнить под JDK 25:
 
 ```bash
 ./gradlew test buildPlugin --console=plain
@@ -646,11 +646,11 @@ private lateinit var fixture: IdeaProjectTestFixture
 close background project и shutdown. Записать IDE/OpenRGB/device versions и каждый результат.
 Без оборудования явно оставить hardware verification неподтверждённой, не изображать зелёный
 статус; unit/integration фейки не доказывают совместимость конкретной клавиатуры.
-- [ ] **Step 8:** Обновить README/CONTRIBUTING с семантикой active project, анализа выбранного
+- [x] **Step 8:** Обновить README/CONTRIBUTING с семантикой active project, анализа выбранного
 файла, Cancel/preview и ограничений источников сборки/shortcut contexts. Привести Mermaid
 архитектуру в соответствие. AGENTS.md не переписывать: пользователь запретил изменять
 существующий AGENTS.md при первоначальной задаче; упоминание удалённых модулей в нём отсутствует.
-- [ ] **Step 9:** Повысить pluginVersion до 3.0.0, добавить секцию CHANGELOG с изменённой
+- [x] **Step 9:** Повысить pluginVersion до 3.0.0, добавить секцию CHANGELOG с изменённой
 архитектурой и пользовательским поведением, повторить buildPlugin для ZIP с финальной версией.
 Зафиксировать только проверенную миграцию, план и необходимую документацию:
 
@@ -682,7 +682,7 @@ tag или публикацию без отдельного запроса по�
 
 ## Передача на исполнение
 
-План подготовлен для проверки пользователем; продуктовые изменения ещё не начаты.
+План исполнен; результаты автоматических проверок и ограничения аппаратной проверки приведены в `docs/runtime-verification.md`.
 Рекомендуется последовательное исполнение основным агентом (Native), потому что задачи
 используют общие DTO, один reducer и связанный cutover. После завершения — независимый
 review всей ветки. Альтернатива — отдельный implementer/reviewer на каждое задание

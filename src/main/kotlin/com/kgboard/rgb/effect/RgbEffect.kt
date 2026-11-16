@@ -2,6 +2,9 @@ package com.kgboard.rgb.effect
 
 import java.awt.Color
 
+/** Pure timing metadata shared by rendering and composition tests. */
+data class ActiveEffect(val effect: RgbEffect, val startTime: Long, val timeoutMs: Long = 0)
+
 /**
  * Represents an RGB visual effect that can be applied to a keyboard.
  */

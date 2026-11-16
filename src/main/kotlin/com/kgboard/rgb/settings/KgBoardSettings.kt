@@ -53,7 +53,7 @@ class KgBoardSettings : PersistentStateComponent<KgBoardSettings.State> {
         var resetOnExit: Boolean = true,
 
         // Connection behavior
-        var skipCustomMode: Boolean = false, // Skip setCustomMode before updateLeds (fixes EVision keyboards)
+        var skipCustomMode: Boolean = false, // Skip setCustomMode before LED writes (fixes EVision keyboards)
 
         // Multi-device
         var multiDeviceEnabled: Boolean = false,

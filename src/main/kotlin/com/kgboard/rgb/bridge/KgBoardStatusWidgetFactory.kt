@@ -1,69 +1,44 @@
 package com.kgboard.rgb.bridge
 
+import com.intellij.openapi.application.ApplicationManager
+import com.intellij.openapi.application.ModalityState
 import com.intellij.openapi.project.Project
-import com.intellij.openapi.util.Disposer
-import com.intellij.openapi.wm.StatusBar
-import com.intellij.openapi.wm.StatusBarWidget
-import com.intellij.openapi.wm.StatusBarWidgetFactory
-import com.kgboard.rgb.client.OpenRgbConnectionService
+import com.intellij.openapi.wm.*
+import com.kgboard.rgb.runtime.*
 import java.awt.Component
-import java.awt.event.MouseAdapter
 import java.awt.event.MouseEvent
 
 class KgBoardStatusWidgetFactory : StatusBarWidgetFactory {
-
-    override fun getId(): String = "KGBoardStatus"
-    override fun getDisplayName(): String = "KGBoard RGB"
-    override fun isAvailable(project: Project): Boolean = true
-
+    override fun getId() = "KGBoardStatus"
+    override fun getDisplayName() = "KGBoard RGB"
+    override fun isAvailable(project: Project) = true
     override fun createWidget(project: Project): StatusBarWidget = KgBoardStatusWidget()
-
     class KgBoardStatusWidget : StatusBarWidget, StatusBarWidget.TextPresentation {
-
         private var statusBar: StatusBar? = null
-
-        override fun ID(): String = "KGBoardStatus"
-
+        private var subscription: Cancellation? = null
+        private var disposed = false
+        override fun ID() = "KGBoardStatus"
         override fun install(statusBar: StatusBar) {
             this.statusBar = statusBar
+            var last: String? = null
+            subscription = LightingRuntimeService.getInstance().subscribe { state ->
+                val presentation = connectionStatus(state) + analysisStatus(state.projects[state.activeProject])
+                if (presentation == last) return@subscribe
+                last = presentation
+                ApplicationManager.getApplication().invokeLater({ if (!disposed) statusBar.updateWidget(ID()) }, ModalityState.any())
+            }
         }
-
         override fun getPresentation(): StatusBarWidget.WidgetPresentation = this
-
-        override fun getText(): String {
-            val service = OpenRgbConnectionService.getInstance()
-            return if (service.isConnected) {
-                "RGB: ON (${service.deviceCount})"
-            } else {
-                "RGB: OFF"
-            }
-        }
-
+        override fun getText(): String = "RGB: ${connectionStatus(LightingRuntimeService.getInstance().snapshot())}"
         override fun getTooltipText(): String {
-            val service = OpenRgbConnectionService.getInstance()
-            return if (service.isConnected) {
-                "KGBoard: Connected to OpenRGB (${service.deviceCount} devices)"
-            } else {
-                "KGBoard: Not connected to OpenRGB. Click to connect."
-            }
+            val state = LightingRuntimeService.getInstance().snapshot()
+            return "KGBoard: ${connectionStatus(state)}; ${analysisStatus(state.projects[state.activeProject])}"
         }
-
-        override fun getAlignment(): Float = Component.CENTER_ALIGNMENT
-
-        override fun getClickConsumer(): com.intellij.util.Consumer<MouseEvent>? {
-            return com.intellij.util.Consumer {
-                val service = OpenRgbConnectionService.getInstance()
-                if (service.isConnected) {
-                    service.disconnect()
-                } else {
-                    service.connect()
-                }
-                statusBar?.updateWidget(ID())
-            }
+        override fun getAlignment() = Component.CENTER_ALIGNMENT
+        override fun getClickConsumer() = com.intellij.util.Consumer<MouseEvent> {
+            val service = LightingRuntimeService.getInstance()
+            service.events.dispatch(if (service.snapshot().connectionWanted) RuntimeEvent.DisconnectRequested else RuntimeEvent.ConnectRequested())
         }
-
-        override fun dispose() {
-            statusBar = null
-        }
+        override fun dispose() { disposed = true; subscription?.cancel(); subscription = null; statusBar = null }
     }
 }

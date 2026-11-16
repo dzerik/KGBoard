@@ -38,18 +38,6 @@
     <depends optional="true" config-file="kgboard-git.xml">Git4Idea</depends>
 
     <extensions defaultExtensionNs="com.intellij">
-        <!-- Application-level service: OpenRGB connection manager -->
-        <applicationService
-                serviceImplementation="com.kgboard.rgb.client.OpenRgbConnectionService"/>
-
-        <!-- Project-level service: LED compositor (buffered rendering engine) -->
-        <projectService
-                serviceImplementation="com.kgboard.rgb.effect.LedCompositor"/>
-
-        <!-- Project-level service: effect manager per project (facade over compositor) -->
-        <projectService
-                serviceImplementation="com.kgboard.rgb.effect.EffectManagerService"/>
-
         <!-- Settings page (application-level) -->
         <applicationConfigurable
                 parentId="tools"
@@ -79,20 +67,6 @@
         <!-- Project-level settings -->
         <projectService
                 serviceImplementation="com.kgboard.rgb.settings.KgBoardProjectSettings"/>
-
-        <!-- Project-level services: Phase 2 features -->
-        <projectService
-                serviceImplementation="com.kgboard.rgb.bridge.CodeAnalysisListener"/>
-        <projectService
-                serviceImplementation="com.kgboard.rgb.bridge.IdeNotificationListener"/>
-        <projectService
-                serviceImplementation="com.kgboard.rgb.bridge.ShortcutHighlightService"/>
-        <projectService
-                serviceImplementation="com.kgboard.rgb.bridge.TodoIndicatorListener"/>
-        <projectService
-                serviceImplementation="com.kgboard.rgb.bridge.DebuggerBreakpointListener"/>
-        <projectService
-                serviceImplementation="com.kgboard.rgb.pomodoro.PomodoroTimerService"/>
 
         <!-- Status bar widgets -->
         <statusBarWidgetFactory
@@ -141,20 +115,4 @@
                 topic="com.intellij.openapi.fileEditor.FileDocumentManagerListener"/>
     </applicationListeners>
 
-    <projectListeners>
-        <!-- Build events listener -->
-        <listener
-                class="com.kgboard.rgb.bridge.BuildEventListener"
-                topic="com.intellij.openapi.compiler.CompilationStatusListener"/>
-
-        <!-- Execution events listener -->
-        <listener
-                class="com.kgboard.rgb.bridge.ExecutionEventListener"
-                topic="com.intellij.execution.ExecutionListener"/>
-
-        <!-- Test events listener -->
-        <listener
-                class="com.kgboard.rgb.bridge.TestEventListener"
-                topic="com.intellij.execution.testframework.sm.runner.SMTRunnerEventsListener"/>
-    </projectListeners>
 </idea-plugin>

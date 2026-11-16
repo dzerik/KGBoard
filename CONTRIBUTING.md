@@ -61,25 +61,43 @@ Types: `feat`, `fix`, `refactor`, `docs`, `chore`, `perf`, `test`
 
 ## Project Structure
 
-```
-src/main/kotlin/com/kgboard/rgb/
-├── client/     — OpenRGB TCP client and protocol
-├── effect/     — Effect engine (static, pulse, flash, progress)
-├── bridge/     — IDE event listeners → effects
-└── settings/   — Settings persistence and UI
-```
+| Package | Responsibility |
+|---|---|
+| `runtime/` | Immutable facts, reducer, policies, deadlines and the single writer |
+| `bridge/` | Project-lifetime IDE adapters and UI presentation |
+| `client/` | Blocking OpenRGB transport and binary protocol |
+| `effect/` | Effect types and pure composition math |
+| `settings/` | XML persistence, drafts, validation and scoped previews |
 
-## Adding a New Effect
+## Changing Runtime Behavior
 
-1. Add a new subclass to `RgbEffect.kt`
-2. Handle it in `EffectManagerService.applyEffect()` and `restoreCurrentEffect()`
-3. Add corresponding settings/colors to `KgBoardSettings`
+Write a failing sequence test with `RuntimeHarness` before changing state handling.
+Assert emitted frames as well as snapshots. Keep network work on the writer worker;
+callbacks only dispatch facts with project/operation/session/revision identifiers.
+Subscribe before initial reconciliation, independently of feature flags, and cancel
+subscriptions and reads when the owning project closes.
 
-## Adding a New IDE Event Listener
+Build/Test terminal layers use the configured duration; cancelled, not-started and
+empty test runs must never report success. Analysis is scoped to the selected
+document; unknown data must not become a clean result. Only the active project owns
+output, and focus dimming applies after composition.
 
-1. Create a listener class in `bridge/`
-2. Register it in `plugin.xml` under `<projectListeners>` or `<applicationListeners>`
-3. Use `EffectManagerService` to apply effects in response to events
+Settings bindings edit a separate draft. Validate the complete draft before replacing
+persisted state and dispatching SettingsApplied. Test/Connect use draft values; all
+preview cleanup goes through the same runtime writer. Preserve old XML fields and
+cover snapshot conversion and serialization round trips when adding settings.
+
+## Verification
+
+Run `./gradlew test buildPlugin` and `./gradlew verifyPlugin`. Tests use JUnit Jupiter 6,
+manual time/fake transports and real SDK263 project fixtures. To verify an already
+cached SDK without Marketplace access, use `verifyPlugin --offline`.
+
+Hardware QA must record IDE, OpenRGB and device versions and check Connect, Test→Cancel,
+two project windows, overlapping operations, focus loss, non-text/no editor, reconnect,
+device changes and shutdown. The current migration has no physical-device verification.
+Shortcut editing/vcs contexts remain explicit; independent external-system build tasks
+outside ProjectTaskManager are not observed.
 
 ## Reporting Issues
 

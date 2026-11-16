@@ -1,0 +1,8 @@
+<State>
+  <option name="host" value="192.0.2.1" />
+  <option name="port" value="6743" />
+  <option name="skipCustomMode" value="true" />
+  <option name="deviceIndex" value="2" />
+  <option name="buildLedIndices" value="1,2" />
+  <option name="deviceConfigs"><list><DeviceConfig><option name="deviceIndex" value="2" /><option name="name" value="Keyboard" /><option name="enabled" value="true" /><option name="role" value="indicator" /></DeviceConfig></list></option>
+</State>

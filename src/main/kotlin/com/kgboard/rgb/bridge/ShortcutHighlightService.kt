@@ -1,41 +1,58 @@
 package com.kgboard.rgb.bridge
 
 import com.intellij.openapi.Disposable
-import com.intellij.openapi.actionSystem.KeyboardShortcut
+import com.intellij.openapi.application.EDT
 import com.intellij.openapi.components.Service
-import com.intellij.openapi.diagnostic.Logger
-import com.intellij.openapi.keymap.KeymapManager
 import com.intellij.openapi.project.Project
-import com.kgboard.rgb.effect.EffectManagerService
-import com.kgboard.rgb.effect.EffectTarget
-import com.kgboard.rgb.effect.StaticEffect
+import com.intellij.openapi.actionSystem.KeyboardShortcut
+import com.intellij.openapi.keymap.KeymapManager
+import com.intellij.openapi.fileEditor.FileEditorManager
+import com.intellij.ide.actions.searcheverywhere.SearchEverywhereManager
+import com.intellij.find.EditorSearchSession
 import com.kgboard.rgb.layout.KeyboardLayoutService
-import com.kgboard.rgb.settings.KgBoardProjectSettings
-import com.kgboard.rgb.settings.KgBoardSettings
-import java.awt.Color
+import com.kgboard.rgb.runtime.*
+import kotlinx.coroutines.*
 import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.Executors
-import java.util.concurrent.ScheduledFuture
-import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicBoolean
 
-/**
- * Highlights keyboard shortcuts relevant to the current context.
- *
- * Contexts:
- * - debug: step over, step into, resume, etc.
- * - search: find, replace, find in files
- * - editing: copy, paste, undo, redo
- * - vcs: commit, push, pull, update
- * - always: user-configured always-on shortcuts
- */
 @Service(Service.Level.PROJECT)
-class ShortcutHighlightService(private val project: Project) : Disposable {
-
-    private val log = Logger.getInstance(ShortcutHighlightService::class.java)
-
+class ShortcutHighlightService(private val project: Project, private val scope: CoroutineScope) : Disposable {
+    private val explicit = ConcurrentHashMap.newKeySet<String>()
+    private val started = AtomicBoolean()
+    private var poll: Job? = null
+    fun start() {
+        if (!started.compareAndSet(false, true)) return
+        poll = scope.launch {
+            var last: Triple<DeviceMappingRevision?, Set<String>, Map<String, List<Int>>>? = null
+            while (isActive) {
+                withContext(Dispatchers.EDT) {
+                    if (project.isDisposed) return@withContext
+                    val app = LightingRuntimeService.getInstance()
+                    val binding = app.binding(project) ?: return@withContext
+                    val snapshot = app.snapshot()
+                    val state = snapshot.projects[binding.id] ?: return@withContext
+                    val mapping = (snapshot.connection as? ConnectionState.Ready)?.let { DeviceMappingRevision(it.session, snapshot.settings.deviceIndex) }
+                    val contexts = explicit.toMutableSet()
+                    if (state.operations.values.any { it.kind == OperationKind.DEBUG && it.phase != OperationPhase.TERMINATED }) contexts.add("debug")
+                    val editor = FileEditorManager.getInstance(project).selectedTextEditor
+                    if (SearchEverywhereManager.getInstance(project).isShown || editor?.let { EditorSearchSession.get(it) } != null) contexts.add("search")
+                    val layout = KeyboardLayoutService.getInstance().snapshot()
+                    val keymap = KeymapManager.getInstance().activeKeymap
+                    val indices = if (mapping == null || layout.revision != mapping) emptyMap() else contexts.associateWith { context -> CONTEXT_ACTIONS[context].orEmpty().flatMap { action ->
+                        keymap.getShortcuts(action).filterIsInstance<KeyboardShortcut>().mapNotNull { layout.keyCodes[it.firstKeyStroke.keyCode] }
+                    }.distinct() }
+                    val facts = Triple(mapping, contexts.toSet(), indices)
+                    if (facts != last) { last = facts; binding.emit(RuntimeEvent.ShortcutsChanged(binding.id, facts.second, facts.third, facts.first)) }
+                }
+                delay(500)
+            }
+        }
+    }
+    fun activateContext(context: String) { explicit.add(context) }
+    fun deactivateContext(context: String) { explicit.remove(context) }
+    fun clearAll() { explicit.clear() }
+    override fun dispose() { poll?.cancel(); explicit.clear() }
     companion object {
-        const val EFFECT_ID_PREFIX = "shortcut:"
-
         private val CONTEXT_ACTIONS = mapOf(
             "debug" to listOf(
                 "StepOver", "StepInto", "StepOut", "Resume", "Pause",
@@ -55,113 +72,6 @@ class ShortcutHighlightService(private val project: Project) : Disposable {
             )
         )
 
-        fun getInstance(project: Project): ShortcutHighlightService =
-            project.getService(ShortcutHighlightService::class.java)
-    }
-
-    /** Thread-safe: mutated from listener threads, iterated on the debounce thread. */
-    private val activeContexts: MutableSet<String> = ConcurrentHashMap.newKeySet()
-
-    private val debounceScheduler = Executors.newSingleThreadScheduledExecutor { r ->
-        Thread(r, "KGBoard-ShortcutDebounce-${project.name}").apply { isDaemon = true }
-    }
-    @Volatile
-    private var debounceTask: ScheduledFuture<*>? = null
-
-    fun activateContext(context: String) {
-        val projectSettings = KgBoardProjectSettings.getInstance(project)
-        if (!projectSettings.shortcutHighlightEnabled) return
-        if (context !in projectSettings.shortcutContexts) return
-
-        activeContexts.add(context)
-        scheduleUpdateHighlights()
-    }
-
-    fun deactivateContext(context: String) {
-        if (activeContexts.remove(context)) {
-            clearHighlightsForContext(context)
-        }
-    }
-
-    fun clearAll() {
-        val effectManager = EffectManagerService.getInstance(project)
-        for (context in activeContexts) {
-            effectManager.removeTargetedEffect("$EFFECT_ID_PREFIX$context")
-        }
-        activeContexts.clear()
-    }
-
-    private fun scheduleUpdateHighlights() {
-        debounceTask?.cancel(false)
-        debounceTask = debounceScheduler.schedule({ updateHighlights() }, 150, TimeUnit.MILLISECONDS)
-    }
-
-    private fun updateHighlights() {
-        val settings = KgBoardSettings.getInstance()
-        if (!settings.enabled) return
-
-        val layout = KeyboardLayoutService.getInstance()
-        if (!layout.isAvailable) return
-
-        val keymap = KeymapManager.getInstance().activeKeymap
-
-        for (context in activeContexts) {
-            val actionIds = CONTEXT_ACTIONS[context] ?: continue
-            val ledIndices = mutableListOf<Int>()
-
-            for (actionId in actionIds) {
-                val shortcuts = keymap.getShortcuts(actionId)
-                for (shortcut in shortcuts) {
-                    if (shortcut is KeyboardShortcut) {
-                        val keyCode = shortcut.firstKeyStroke.keyCode
-                        layout.getLedIndexForKeyCode(keyCode)?.let { ledIndices.add(it) }
-                    }
-                }
-            }
-
-            if (ledIndices.isNotEmpty()) {
-                val effectManager = EffectManagerService.getInstance(project)
-                effectManager.addTargetedEffect(
-                    "$EFFECT_ID_PREFIX$context",
-                    StaticEffect(
-                        color = contextColor(context),
-                        name = "shortcut-$context",
-                        priority = 1,
-                        target = EffectTarget.LedSet(ledIndices.distinct())
-                    )
-                )
-            }
-        }
-    }
-
-    private fun clearHighlightsForContext(context: String) {
-        val effectManager = EffectManagerService.getInstance(project)
-        effectManager.removeTargetedEffect("$EFFECT_ID_PREFIX$context")
-    }
-
-    private fun contextColor(context: String): Color {
-        val settings = KgBoardSettings.getInstance()
-        val projectSettings = KgBoardProjectSettings.getInstance(project)
-        return when (context) {
-            "debug" -> settings.parseColor(projectSettings.shortcutDebugColor)
-            "search" -> settings.parseColor(projectSettings.shortcutSearchColor)
-            "editing" -> settings.parseColor(projectSettings.shortcutEditingColor)
-            "vcs" -> settings.parseColor(projectSettings.shortcutVcsColor)
-            else -> Color.WHITE
-        }
-    }
-
-    override fun dispose() {
-        debounceTask?.cancel(false)
-        debounceScheduler.shutdownNow()
-        try {
-            val effectManager = EffectManagerService.getInstance(project)
-            for (context in activeContexts) {
-                effectManager.removeTargetedEffect("$EFFECT_ID_PREFIX$context")
-            }
-        } catch (_: Exception) {
-            // project may already be disposed
-        }
-        activeContexts.clear()
+        fun getInstance(project: Project): ShortcutHighlightService = project.getService(ShortcutHighlightService::class.java)
     }
 }
