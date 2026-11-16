@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.0.1] - 2026-11-16
+
+### Added
+- A researched product evolution design and five package specifications covering native settings, typed LED targets, stable device bindings, output diagnostics, lighting profiles, Git/build integrations and cross-IDE/hardware verification.
+- Explicit legacy XML migration rules, first-upgrade device confirmation, optional integration boundaries and pinned IDEA/PyCharm/WebStorm263 verification targets.
+
+### Changed
+- Document the full user-approved roadmap and its acceptance criteria. Product runtime behavior is unchanged; implementation awaits review of the new written specifications.
+
 ## [3.0.0] - 2026-11-16
 
 ### Changed
