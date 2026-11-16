@@ -89,7 +89,7 @@ class OpenRgbClient(
         request {
             val s = requireConnection()
             // Send protocol version as data
-            val versionData = java.nio.ByteBuffer.allocate(4)
+            val versionData = if (protocolVersion == 0) byteArrayOf() else java.nio.ByteBuffer.allocate(4)
                 .order(java.nio.ByteOrder.LITTLE_ENDIAN)
                 .putInt(protocolVersion)
                 .array()
@@ -111,7 +111,7 @@ class OpenRgbClient(
             val count = OpenRgbProtocol.parseControllerCount(countPayload)
 
             return (0 until count).map { deviceIndex ->
-                val versionData = java.nio.ByteBuffer.allocate(4)
+                val versionData = if (protocolVersion == 0) byteArrayOf() else java.nio.ByteBuffer.allocate(4)
                     .order(java.nio.ByteOrder.LITTLE_ENDIAN)
                     .putInt(protocolVersion)
                     .array()
@@ -177,9 +177,20 @@ class OpenRgbClient(
         OpenRgbProtocol.writeHeader(s.getOutputStream(), 0, OpenRgbProtocol.NET_PACKET_ID_REQUEST_PROTOCOL_VERSION, versionData.size)
         s.getOutputStream().write(versionData)
         s.getOutputStream().flush()
-        val header = OpenRgbProtocol.readHeader(s.getInputStream())
+        // Protocol0 servers ignore this newer request. Only a timeout before ANY
+        // response byte permits fallback; a partial header is a broken connection.
+        val first = try { s.getInputStream().read() } catch (_: java.net.SocketTimeoutException) {
+            protocolVersion = 0
+            return
+        }
+        if (first == -1) throw OpenRgbException("Connection closed during protocol negotiation")
+        val header = OpenRgbProtocol.readHeader(java.io.SequenceInputStream(
+            java.io.ByteArrayInputStream(byteArrayOf(first.toByte())), s.getInputStream()))
+        if (header.packetId != OpenRgbProtocol.NET_PACKET_ID_REQUEST_PROTOCOL_VERSION || header.dataSize != 4)
+            throw OpenRgbException("Invalid protocol negotiation response")
         val payload = OpenRgbProtocol.readPayload(s.getInputStream(), header.dataSize)
-        val serverVersion = if (header.dataSize >= 4) payload.getInt() else 0
+        val serverVersion = payload.getInt()
+        if (serverVersion < 0) throw OpenRgbException("Invalid protocol version")
         protocolVersion = minOf(OpenRgbProtocol.CLIENT_PROTOCOL_VERSION, serverVersion)
         log.info("OpenRGB protocol: server=$serverVersion, client=${OpenRgbProtocol.CLIENT_PROTOCOL_VERSION}, negotiated=$protocolVersion")
     }

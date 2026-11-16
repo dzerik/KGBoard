@@ -20,7 +20,8 @@ import kotlin.concurrent.thread
 data class RecordedWrite(val connection: Long, val device: Int, val colors: List<Color>)
 
 /** Loopback-only server. All waits and shutdown are bounded; no test classes enter the plugin. */
-class OpenRgbSdkSimulator(private val version: Int, controllers: List<ControllerFixtureSpec>) : AutoCloseable {
+class OpenRgbSdkSimulator(private val version: Int, controllers: List<ControllerFixtureSpec>,
+    private val respondToNegotiation: Boolean = true) : AutoCloseable {
     init { require(version in 0..6) }
 
     private val server = ServerSocket(0, 8, InetAddress.getLoopbackAddress())
@@ -89,7 +90,7 @@ class OpenRgbSdkSimulator(private val version: Int, controllers: List<Controller
             }
             fun int(value: Int) = ByteBuffer.allocate(4).order(ByteOrder.LITTLE_ENDIAN).putInt(value).array()
             when (id) {
-                40 -> respond(int(version))
+                40 -> if (respondToNegotiation) respond(int(version))
                 50, 1100 -> Unit
                 0 -> respond(int(inventory.get().size))
                 1 -> {

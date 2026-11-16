@@ -1,6 +1,8 @@
 package com.kgboard.rgb.client
 
 import com.kgboard.rgb.runtime.Endpoint
+import com.kgboard.rgb.testing.ControllerFixture
+import com.kgboard.rgb.testing.ControllerFixtureSpec
 import java.awt.Color
 import java.net.ServerSocket
 import java.nio.ByteBuffer
@@ -30,14 +32,9 @@ class OpenRgbTransportTest {
                             OpenRgbProtocol.NET_PACKET_ID_REQUEST_PROTOCOL_VERSION -> respond(int(0))
                             OpenRgbProtocol.NET_PACKET_ID_REQUEST_CONTROLLER_COUNT -> respond(int(1))
                             OpenRgbProtocol.NET_PACKET_ID_REQUEST_CONTROLLER_DATA -> {
-                                requestedVersion = data.int
-                                val payload = ByteBuffer.allocate(128).order(ByteOrder.LITTLE_ENDIAN)
-                                payload.putInt(0).putInt(1)
-                                repeat(6) { payload.putShort(0) }
-                                payload.putShort(0).putInt(0).putShort(0).putShort(1)
-                                val name = "Key: A\u0000".toByteArray()
-                                payload.putShort(name.size.toShort()).put(name).putInt(0).putShort(1).putInt(0)
-                                respond(payload.array().copyOf(payload.position()))
+                                assertEquals(0, header.dataSize)
+                                requestedVersion = 0
+                                respond(ControllerFixture.encode(0, ControllerFixtureSpec(ledNames = listOf("Key: A"))))
                             }
                             OpenRgbProtocol.NET_PACKET_ID_RGBCONTROLLER_UPDATELEDS -> return@submit ids to requestedVersion
                         }

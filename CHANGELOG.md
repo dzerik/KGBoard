@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.0.4] - 2026-11-16
+
+### Fixed
+- Parse controller identity, display names and geometry using protocol0–5 field gates with bounded payload/string/count validation.
+- Send protocol0 controller requests without a version payload and support unversioned servers that ignore protocol negotiation.
+
+### Added
+- Pure endpoint/session-aware device binding resolution with serial trust checks, ambiguous-device rejection and ordered layout fingerprints.
+
 ## [3.0.3] - 2026-11-16
 
 ### Added

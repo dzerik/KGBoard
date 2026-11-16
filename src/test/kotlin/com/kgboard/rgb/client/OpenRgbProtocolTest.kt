@@ -216,7 +216,7 @@ class OpenRgbProtocolTest {
             ledNames = listOf("Key: A", "Key: B", "Key: C"),
             colors = listOf(Color.RED, Color.GREEN, Color.BLUE)
         )
-        val device = OpenRgbProtocol.parseControllerData(buf)
+        val device = OpenRgbProtocol.parseControllerData(buf, protocolVersion = 1)
         assertEquals("Keyboard", device.name)
         assertEquals("TestVendor", device.vendor)
         assertEquals("Test", device.description)
@@ -327,7 +327,7 @@ class OpenRgbProtocolTest {
         numZones: Int, zoneName: String, zoneLeds: Int,
         ledNames: List<String>, colors: List<Color>
     ): ByteBuffer = buildDevicePayload(
-        protocolVersion = 0, name = name, vendor = vendor, description = description,
+        protocolVersion = 1, name = name, vendor = vendor, description = description,
         numZones = numZones, zoneName = zoneName, zoneLeds = zoneLeds,
         ledNames = ledNames, colors = colors
     )
@@ -363,7 +363,7 @@ class OpenRgbProtocolTest {
         writeInt(0) // deviceType
 
         writeString(name)
-        writeString(vendor)
+        if (protocolVersion >= 1) writeString(vendor)
         writeString(description)
         writeString("1.0") // version
         writeString("SN123") // serial
@@ -441,6 +441,7 @@ class OpenRgbProtocolTest {
         }
 
         val data = out.toByteArray()
+        ByteBuffer.wrap(data).order(ByteOrder.LITTLE_ENDIAN).putInt(data.size)
         return ByteBuffer.wrap(data).order(ByteOrder.LITTLE_ENDIAN)
     }
 }

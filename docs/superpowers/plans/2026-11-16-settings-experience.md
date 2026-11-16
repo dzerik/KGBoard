@@ -41,9 +41,11 @@ Runtime model/reducer/policies/preview/keyboard mapping меняются в A3/A
 
 ## Task A1: Controller identity и разрешение устройств
 
-**Files:** Modify `client/{OpenRgbProtocol,OpenRgbTransport}.kt`; Create
+**Files:** Modify `client/{OpenRgbProtocol,OpenRgbClient,OpenRgbTransport}.kt`; Create
+`client/ControllerDataReader.kt`,
 `device/{DeviceBinding,DeviceResolver,LayoutFingerprint}.kt`;
-Test `client/OpenRgbProtocolTest.kt`, `device/DeviceResolverTest.kt`.
+Test `client/{OpenRgbProtocolTest,ControllerMetadataTest,OpenRgbTransportTest}.kt`,
+`device/DeviceResolverTest.kt`.
 Зависимость: E1 даёт реальные versioned binary fixtures.
 
 **Interfaces:** consumes `Endpoint`, `SessionId`, `RgbDeviceInfo`.
@@ -81,7 +83,7 @@ untrusted: Set<SerialKey>): DeviceBinding` rejects stale choice;
 not colors. `DeviceResolver.duplicates(devices): Set<SerialKey>` persists observed
 duplicates via A3, so a later partial inventory cannot silently promote an unsafe ID.
 
-- [ ] **Step 1: Write failing tests.** Add a test device factory inside `DeviceResolverTest`:
+- [x] **Step 1: Write failing tests.** Add a test device factory inside `DeviceResolverTest`:
 
 ```kotlin
 private fun device(serial: String, name: String = "Board", location: String = "usb1") =
@@ -114,8 +116,8 @@ For protocol0–5 use E1 `ControllerFixture.encode(version, ControllerFixtureSpe
 metadata after parse; truncate each fixture at every byte and expect bounded
 `OpenRgbException`, never partial device acceptance.
 
-- [ ] **Step 2: RED.** Run `./gradlew test --tests '*DeviceResolverTest' --tests '*OpenRgbProtocolTest' -PlocalPlatformPath=/home/dzerik/.cache/kgboard-sdk/2026.3/installation/idea-IU-263.7307.200 --console=plain`. New types/missing metadata must fail.
-- [ ] **Step 3: Implement parsing and matching.** Preserve serial/location/version;
+- [x] **Step 2: RED.** Run `./gradlew test --tests '*DeviceResolverTest' --tests '*OpenRgbProtocolTest' -PlocalPlatformPath=/home/dzerik/.cache/kgboard-sdk/2026.3/installation/idea-IU-263.7307.200 --console=plain`. New types/missing metadata must fail.
+- [x] **Step 3: Implement parsing and matching.** Preserve serial/location/version;
 vendor is read only for version≥1, display names only version≥5. Keep negotiation≤5.
 Check lengths/counts against payload before allocating. Replace underflow/index
 exceptions with protocol errors carrying field name, not arbitrary payload contents.
@@ -137,8 +139,8 @@ Fingerprint uses SHA-256 with length-prefixed UTF-8 names and fixed-width intege
 including zone boundaries/matrix map. Transport inventory comparison includes these
 fields but excludes colors. Keep payload-v0 tests independent of production encoder.
 
-- [ ] **Step 4: GREEN.** Repeat RED command; run E1 simulator version matrix and reset test. Assert equal fingerprint with changed colors and different fingerprint with swapped names at same LED count.
-- [ ] **Step 5: Commit.** Update version/CHANGELOG and `git diff --check` per common rules; stage only A1 files and version files. Commit `fix: preserve controller identity and reject ambiguous device matches`.
+- [x] **Step 4: GREEN.** Repeat RED command; run E1 simulator version matrix and reset test. Assert equal fingerprint with changed colors and different fingerprint with swapped names at same LED count.
+- [x] **Step 5: Commit.** Update version/CHANGELOG and `git diff --check` per common rules; stage only A1 files and version files. Commit `fix: preserve controller identity and reject ambiguous device matches`.
 
 ## Task A2: Typed targets, groups и единый каталог сценариев
 
