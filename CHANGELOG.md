@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.9.1] - 2026-11-17
+
+### Fixed
+- Build the distribution from a clean checkout without a leftover searchable-options directory.
+- Exclude empty package directories from JARs to keep clean and incremental packaging consistent.
+
+### Changed
+- Run the complete pinned IDEA native suite in CI, including diagnostics, build pipelines and local Git status.
+- Record final verification separately from hardware, locale and operating-system checks that have not run.
+
 ## [3.9.0] - 2026-11-17
 
 ### Added

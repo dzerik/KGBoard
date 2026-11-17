@@ -1,0 +1,10 @@
+CAPABILITY|git|AVAILABLE|null
+CAPABILITY|tests.sm|AVAILABLE|null
+CAPABILITY|build.roots|AVAILABLE|null
+CAPABILITY|build.automake|AVAILABLE|null
+CAPABILITY|debug|AVAILABLE|null
+RUNVIEW|start|1|parent=0|build=1|none|errors=[]
+RUNTIME|5fcfe193-f4e4-4723-baa5-f5c987392ccc|RUNNING|null|1
+RUNVIEW|finish|1|parent=0|build=1|SuccessResultImpl|errors=[]
+RUNTIME|5fcfe193-f4e4-4723-baa5-f5c987392ccc|TERMINATED|SUCCESS|2
+CONTROL|maven|finished

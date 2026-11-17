@@ -66,8 +66,8 @@ jobs:
           validate-wrappers: false
       - name: Install isolated X11 test dependencies
         run: sudo apt-get update && sudo apt-get install -y xvfb openbox
-      - name: Run pinned IDEA settings matrix and SDK workflow
-        run: tools/run-ui-tests.sh integrationTest --tests '*Settings*UiTest' -PplatformVersion=263.7307.200 --console=plain
+      - name: Run pinned IDEA native UI and build pipelines
+        run: tools/run-ui-tests.sh integrationTest -PplatformVersion=263.7307.200 --console=plain
       - name: Upload actual UI evidence
         if: always()
         uses: actions/upload-artifact@v4

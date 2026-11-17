@@ -31,13 +31,22 @@ import org.jetbrains.idea.maven.project.MavenWorkspaceSettingsComponent
 import java.nio.file.Files
 import java.nio.file.Path
 import java.util.concurrent.CopyOnWriteArrayList
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.launch
 
 /** Test-only plugin: native SDK observations, isolated fixture setup, no lighting commands. */
-class BuildProbe(private val project: Project) : Disposable {
+class BuildProbe(private val project: Project, private val scope: CoroutineScope) : Disposable {
     private val rows = CopyOnWriteArrayList<String>()
     private val ids = mutableMapOf<Any, Int>()
     private val runtimeRows = java.util.concurrent.ConcurrentHashMap.newKeySet<String>()
     private var subscription: Cancellation? = null
+
+    @Volatile
+    private var secondary: Project? = null
+
+    @Volatile
+    private var secondaryError: String? = null
+
     @Synchronized
     private fun identity(id: Any?) = if (id == null) 0 else ids.getOrPut(id) { ids.size + 1 }
     fun prepare(jdkHome: String) {
@@ -122,9 +131,9 @@ class BuildProbe(private val project: Project) : Disposable {
                 }
             }, this)
         subscription = LightingRuntimeService.getInstance().subscribe { state ->
-            state.projects.values.flatMap{it.capabilities.values}.forEach { capability ->
-                val row="CAPABILITY|${capability.id}|${capability.status}|${capability.reasonKey}"
-                if(runtimeRows.add(row))rows.add(row)
+            state.projects.values.flatMap { it.capabilities.values }.forEach { capability ->
+                val row = "CAPABILITY|${capability.id}|${capability.status}|${capability.reasonKey}"
+                if (runtimeRows.add(row)) rows.add(row)
             }
             state.projects.values.flatMap { it.operations.values }.filter { it.kind == OperationKind.BUILD }
                 .forEach { operation ->
@@ -249,6 +258,117 @@ class BuildProbe(private val project: Project) : Disposable {
         val parameters =
             MavenRunnerParameters(true, base.toString(), "fixture-pom.xml", listOf("validate"), emptyList<String>())
         runner.run(parameters, runner.settings, Runnable { rows.add("CONTROL|maven|finished") })
+    }
+
+    fun openTextFixture() = WriteIntentReadAction.run {
+        val path = Path.of(project.basePath!!, "native-editor.txt")
+        Files.writeString(path, "Native editor fixture\n")
+        val file = LocalFileSystem.getInstance().refreshAndFindFileByNioFile(path) ?: error("Text fixture missing")
+        com.intellij.openapi.fileEditor.FileEditorManager.getInstance(project).openFile(file, true)
+    }
+
+    fun openImageFixture() = WriteIntentReadAction.run {
+        val path = Path.of(project.basePath!!, "native-editor.png")
+        javax.imageio.ImageIO.write(
+            java.awt.image.BufferedImage(2, 2, java.awt.image.BufferedImage.TYPE_INT_RGB),
+            "png",
+            path.toFile()
+        )
+        val file = LocalFileSystem.getInstance().refreshAndFindFileByNioFile(path) ?: error("Image fixture missing")
+        com.intellij.openapi.fileEditor.FileEditorManager.getInstance(project).openFile(file, true)
+    }
+
+    fun closeEditors() = WriteIntentReadAction.run {
+        val manager = com.intellij.openapi.fileEditor.FileEditorManager.getInstance(project)
+        manager.openFiles.forEach(manager::closeFile)
+    }
+
+    fun deleteTextFixture() = WriteIntentReadAction.run {
+        closeEditors()
+        openTextFixture()
+        val file = LocalFileSystem.getInstance().findFileByPath(project.basePath + "/native-editor.txt")
+            ?: error("Text fixture missing")
+        WriteAction.run<RuntimeException> { file.delete(this) }
+    }
+
+    fun getEditorStatus(): String = com.intellij.openapi.application.ReadAction.compute<String, RuntimeException> {
+        val manager = com.intellij.openapi.fileEditor.FileEditorManager.getInstance(project)
+        val view = when (manager.selectedEditor) {
+            null -> "none"; is com.intellij.openapi.fileEditor.TextEditor -> "text"; else -> "nontext"
+        }
+        val id = com.kgboard.rgb.bridge.ProjectRuntimeService.getInstance(project).binding.id
+        val editor = LightingRuntimeService.getInstance().snapshot().projects[id]?.editor ?: return@compute "missing"
+        "$view|${editor.applicable}|${editor.revision != null}|${editor.analysis.javaClass.simpleName}"
+    }
+
+    fun getFocusStatus(): String {
+        val state = LightingRuntimeService.getInstance().snapshot()
+        val id = com.kgboard.rgb.bridge.ProjectRuntimeService.getInstance(project).binding.id
+        return "${state.focused}|${state.activeProject == id}"
+    }
+
+    fun openSecondaryProject() {
+        val path = Files.createTempDirectory("kgboard-secondary-project-")
+        Files.createDirectories(path.resolve(".idea"))
+        Files.writeString(
+            path.resolve(".idea/modules.xml"),
+            """<project version="4"><component name="ProjectModuleManager"><modules/></component></project>"""
+        )
+        scope.launch {
+            try {
+                secondary = com.intellij.ide.impl.ProjectUtil.openOrImportAsync(
+                    path,
+                    com.intellij.ide.impl.OpenProjectTask.build().withForceOpenInNewFrame(true)
+                        .withProjectName("KGBoard secondary fixture")
+                )
+                if (secondary == null) secondaryError = "notOpened"
+            } catch (error: Exception) {
+                secondaryError = error.javaClass.simpleName; throw error
+            }
+        }
+    }
+
+    fun arrangeProjectWindows() {
+        val windows = com.intellij.openapi.wm.WindowManager.getInstance()
+        val first = windows.getFrame(project) ?: error("Primary frame missing")
+        val second = secondary?.let(windows::getFrame) ?: error("Secondary frame missing")
+        check(first !== second) { "Force-new-frame must create two actual windows" }
+        first.setBounds(50, 250, 1000, 700); second.setBounds(1300, 250, 1000, 700)
+    }
+
+    fun getProjectWindowStatus(): String {
+        secondaryError?.let { return "error|$it" }
+        val state = LightingRuntimeService.getInstance().snapshot()
+        if (secondary == null && state.projects.size > 1) return "openingOrClosing"
+        secondary?.takeUnless { it.isDisposed }?.let {
+            if (com.intellij.openapi.wm.WindowManager.getInstance().getFrame(it) == null) return "opening"
+        }
+        val first = com.kgboard.rgb.bridge.ProjectRuntimeService.getInstance(project).binding.id
+        val second = secondary?.takeUnless { it.isDisposed }
+            ?.let { com.kgboard.rgb.bridge.ProjectRuntimeService.getInstance(it).binding.id }
+        val owner = when (state.activeProject) {
+            first -> "primary"; second -> if (second == null) "none" else "secondary"; else -> "other"
+        }
+        return "${state.projects.size}|${state.focused}|$owner"
+    }
+
+    fun closeSecondaryProject() = WriteIntentReadAction.run {
+        secondary?.takeUnless { it.isDisposed }?.let {
+            check(com.intellij.openapi.project.ProjectManager.getInstance().closeAndDispose(it))
+        }
+        secondary = null
+    }
+
+    fun getVisibleColorMetrics(): String {
+        check(java.awt.EventQueue.isDispatchThread())
+        fun descendants(component: java.awt.Component): List<java.awt.Component> =
+            listOf(component) + (component as? java.awt.Container)?.components.orEmpty().flatMap(::descendants)
+
+        val field = java.awt.Window.getWindows().flatMap(::descendants)
+            .filterIsInstance<javax.swing.JTextField>().single { it.name == "color.value" && it.isShowing }
+        val available = field.width - field.insets.left - field.insets.right
+        val needed = field.getFontMetrics(field.font).stringWidth(field.text) + com.intellij.util.ui.JBUI.scale(2)
+        return "$available|$needed"
     }
 
     override fun dispose() {

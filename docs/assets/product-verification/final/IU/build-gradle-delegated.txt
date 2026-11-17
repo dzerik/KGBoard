@@ -1,0 +1,8 @@
+TASK|start|3|auto=false
+EXTERNAL|start|4|GRADLE|EXECUTE_TASK
+BVM|start|4|parent=0|build=4|none|errors=[]
+RUNTIME|375bbf84-74f7-4cc1-bb18-21a04d657394|RUNNING|null|1
+EXTERNAL|finish|4|GRADLE|EXECUTE_TASK
+BVM|finish|4|parent=0|build=4|SuccessResultImpl|errors=[]
+TASK|finish|3|auto=false|aborted=false|errors=false
+RUNTIME|375bbf84-74f7-4cc1-bb18-21a04d657394|TERMINATED|SUCCESS|2

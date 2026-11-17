@@ -1,11 +1,44 @@
 # Проверка KGBoard
 
-Контрольная точка C3, версия **3.9.0**, 17 ноября 2026. Текущий этап —
-[надёжная индикация IDE](superpowers/plans/2026-11-17-ide-focus-scope.md).
-Это промежуточная проверка; A/B/C/E2 выполнены, финальная E3 продолжается.
-D1–D3 отложены. Таблица A5 ниже сохранена как история проверки версии 3.3.0.
+Программная контрольная точка **3.9.1**, 17 ноября 2026. Реализован сохранённый
+объём A/B/C/E: [надёжная индикация IDE](superpowers/plans/2026-11-17-ide-focus-scope.md).
+D1–D3 и ProfileUiTest отложены. Результат заключительного обзора ветки сообщается
+отдельно при завершении работы; этот документ фиксирует выполненные проверки.
+[Журнал принятых решений и цены ошибки](implementation-decisions.md).
 
-## Выполненные проверки
+## Итоговая программная проверка
+
+| Проверка | Результат | Доказательство |
+|---|---|---|
+| Unit/platform и инструменты отчёта | 388 JUnit + 6 Python, без failures/errors/skips | [Software](assets/product-verification/final/software.txt) |
+| Plugin Verifier | Compatible: IU263.7307.200, WS263.7307.202, PY263.7307.206 | [Software](assets/product-verification/final/software.txt) |
+| Полный native прогон IDEA | 20 сценариев: темы/масштабы, Preview/Apply/Cancel, диагностика, JPS/Gradle/Maven, Git, редактор, фокус | [Результаты](assets/product-verification/final/IU/native-results.txt) |
+| Два окна и читаемость HEX на 200% | Ещё 3 native сценария | [Дополнительные проверки](assets/product-verification/final/IU/supplemental-results.txt) |
+| WebStorm без Java | 5 native сценариев core и optional providers | [WS](assets/product-verification/final/WS/native-results.txt) |
+| PyCharm без Java | 5 native сценариев core и optional providers | [PY](assets/product-verification/final/PY/native-results.txt) |
+| Чистая сборка без build cache | Passed; ZIP побайтово совпал с инкрементальной сборкой | [Cold build](assets/product-verification/final/cold-build.txt) |
+
+Во всех **33 native запусках** устанавливался один main ZIP с SHA256, указанным
+в разделе пакета. Рядом сохранены все 33 launch properties. Test-only observer
+развивался между дополнительными проверками и в main ZIP не входит.
+Проверки выполнялись на Linux/X11, в изолированных config/system, временных проектах
+и с тестовым SDK на случайном loopback-порту. Рабочая IDEA и OpenRGB не менялись.
+
+Нативные снимки новой версии: [Dark100%,900×700](assets/product-verification/final/IU/settings-dark-100-en-900x700.png),
+[Light200%,1200×900](assets/product-verification/final/IU/settings-light-200-en-1200x900.png).
+Оба размера проверены для каждой пары Light/Dark ×100/150/200%. Видимость Preview,
+реальный scale и геометрия проверяются assertions. Геометрия HEX дополнительно
+проверена по текущему шрифту/insets: доступно63px, требуется46px в обеих темах на200%.
+
+Read-only runtime наблюдения подтверждают text→image→close→delete без старых
+текстовых фактов, фактическую деактивацию/возврат фокуса X11, сохранение владельца
+в modal Settings и primary→secondary→primary между двумя настоящими окнами.
+Закрытие фонового проекта сохраняет активный. Эти тесты не доказывают видимый
+аппаратный цвет: SDK writes=0; renderer и доставка отдельно проверены suite.
+
+Исторические контрольные точки ниже сохранены со своими версиями и доказательствами.
+
+## История A5: интерфейс3.3.0
 
 Среда: Linux, IntelliJ IDEA `IU263.7307.200`, JBR `25.0.4.1+1-b635.79`.
 
@@ -102,11 +135,11 @@ Public BuildProgressObservable помечен Experimental; диапазон о�
 
 ## Пакет контрольной точки
 
-`build/distributions/KGBoard-3.9.0.zip`, 1027583 байт.
+`build/distributions/KGBoard-3.9.1.zip`, 1027282 байт.
 
-SHA256: `c5dc4dee16277eb7a17f6aa46a3745b19d480a17b1336c213bba1d8154f93217`.
+SHA256: `601e7609b9d4c8646d78fe25fb8de0c4de8ce2e869ce295e4c684f710629b12a`.
 
-Descriptor и встроенные метаданные содержат версию 3.9.0 и диапазон `263.*`.
+Descriptor и встроенные метаданные содержат версию 3.9.1 и диапазон `263.*`.
 Starter, Driver, JUnit, MockK, Kodein и SDK simulator не входят в runtime.
 Рекомендация Gradle убрать `until-build` не применена: совместимость намеренно
 ограничена проверяемой веткой. Исторический SHA версии 3.3.0 сохранён в доказательствах A5;
@@ -118,8 +151,8 @@ Starter, Driver, JUnit, MockK, Kodein и SDK simulator не входят в runt
 
 - Русская native UI локализация — NotRun; проверены только парность ключей и
   наличие переводов. Совместимый языковой пакет в тестовую IDEA не установлен.
-- Полная финальная UI/workflow матрица после C3 — E3; текущая cross-IDE проверка
-  покрывает core, загрузку интеграций, Settings и диагностику, без build pipeline claims.
+- Реальный native overlap Run/Debug/SM процессов — NotRun; независимые операции,
+  отмена и SDK producers проверены unit/platform fixtures, а build pipelines — native.
 - Windows/macOS — NotRun. Фокус native Wayland также NotRun: автоматизация
   выполнялась в изолированном Xvfb/X11, а не на рабочем Wayland-сеансе пользователя.
 - Физический вывод нового плагина на EVision `0C45:5004` — NotRun. Выполнены

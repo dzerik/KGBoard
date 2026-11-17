@@ -1,0 +1,2 @@
+LIGHT 900x700 available=63 needed=46
+LIGHT 1200x900 available=63 needed=46

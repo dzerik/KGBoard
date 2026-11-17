@@ -1,0 +1,6 @@
+CONFIG|auto=true|whileRunning=true
+MANAGER|start|4|auto=true
+RUNTIME|c14bf4bb-b30e-47bd-80af-f79314450d79|RUNNING|null|1
+MANAGER|finish|4|auto=true
+COMPILER|auto|errors=0
+RUNTIME|c14bf4bb-b30e-47bd-80af-f79314450d79|TERMINATED|NOT_EXECUTED|2

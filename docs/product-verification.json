@@ -43,7 +43,7 @@
     "build": "263.7307.200",
     "jbr": "25.0.4.1+1-b635.79",
     "os": "Linux",
-    "plugin": "3.3.0",
+    "plugin": "3.9.1",
     "feature": "Russian native settings layout",
     "command": "",
     "status": "NotRun",
@@ -80,20 +80,8 @@
     "product": "IDEA",
     "build": "263.7307.200",
     "jbr": "25.0.4.1+1-b635.79",
-    "os": "Linux",
-    "plugin": "3.3.0",
-    "feature": "B/C/E reliability and final distribution",
-    "command": "",
-    "status": "NotRun",
-    "evidence": [],
-    "reason": "Retained tasks continue under the narrowed IDE scope."
-  },
-  {
-    "product": "IDEA",
-    "build": "263.7307.200",
-    "jbr": "25.0.4.1+1-b635.79",
     "os": "Windows",
-    "plugin": "3.3.0",
+    "plugin": "3.9.1",
     "feature": "Native platform verification",
     "command": "",
     "status": "NotRun",
@@ -105,7 +93,7 @@
     "build": "263.7307.200",
     "jbr": "25.0.4.1+1-b635.79",
     "os": "macOS",
-    "plugin": "3.3.0",
+    "plugin": "3.9.1",
     "feature": "Native platform verification",
     "command": "",
     "status": "NotRun",
@@ -117,7 +105,7 @@
     "build": "263.7307.200",
     "jbr": "25.0.4.1+1-b635.79",
     "os": "Linux",
-    "plugin": "3.3.0",
+    "plugin": "3.9.1",
     "kind": "hardware",
     "feature": "EVision physical output with current plugin",
     "command": "",
@@ -134,7 +122,7 @@
     "build": "263.7307.200",
     "jbr": "25.0.4.1+1-b635.79",
     "os": "Linux/Wayland",
-    "plugin": "3.3.0",
+    "plugin": "3.9.1",
     "feature": "Native Wayland focus lifecycle",
     "command": "",
     "status": "NotRun",
@@ -172,7 +160,7 @@
     "build": "263.7307.200",
     "jbr": "25.0.4.1+1-b635.79",
     "os": "Linux",
-    "plugin": "3.6.0",
+    "plugin": "3.9.1",
     "feature": "Physical OS sleep/resume and native signal",
     "command": "",
     "status": "NotRun",
@@ -210,7 +198,7 @@
     "build": "263.7307.200",
     "jbr": "25.0.4.1+1-b635.79",
     "os": "Linux",
-    "plugin": "3.7.0",
+    "plugin": "3.9.1",
     "feature": "Core boot with Java disabled",
     "command": "",
     "status": "Blocked",
@@ -222,7 +210,7 @@
     "build": "263.7307.202",
     "jbr": "25.0.4.1+1-b635.79",
     "os": "Linux",
-    "plugin": "3.7.0",
+    "plugin": "3.9.1",
     "feature": "Core boot with SM absent",
     "command": "",
     "status": "Blocked",
@@ -234,7 +222,7 @@
     "build": "263.7307.206",
     "jbr": "25.0.4.1+1-b635.79",
     "os": "Linux",
-    "plugin": "3.7.0",
+    "plugin": "3.9.1",
     "feature": "Core boot with SM absent",
     "command": "",
     "status": "Blocked",
@@ -292,5 +280,95 @@
     "evidence": [
       "docs/assets/product-verification/builds-core-IU-native.txt"
     ]
+  },
+  {
+    "product": "IDEA",
+    "build": "263.7307.200",
+    "jbr": "25.0.4.1+1-b635.79",
+    "os": "Linux",
+    "plugin": "3.9.1",
+    "feature": "Final unit and three-IDE binary compatibility",
+    "command": "./gradlew test buildPlugin verifyPlugin compileIntegrationTestKotlin --offline",
+    "status": "Passed",
+    "evidence": [
+      "docs/assets/product-verification/final/software.txt"
+    ]
+  },
+  {
+    "product": "IDEA",
+    "build": "263.7307.200",
+    "jbr": "25.0.4.1+1-b635.79",
+    "os": "Linux",
+    "plugin": "3.9.1",
+    "feature": "Final native IDEA20 cases with themes scales settings workflows diagnostics builds Git editor focus",
+    "command": "tools/run-ui-tests.sh integrationTest -PlocalPlatformPath=<IU> --offline",
+    "status": "Passed",
+    "evidence": [
+      "docs/assets/product-verification/final/IU/native-results.txt"
+    ]
+  },
+  {
+    "product": "IDEA",
+    "build": "263.7307.200",
+    "jbr": "25.0.4.1+1-b635.79",
+    "os": "Linux",
+    "plugin": "3.9.1",
+    "feature": "Native two project windows and HiDPI color geometry",
+    "command": "tools/run-ui-tests.sh integrationTest --tests *ProjectWindowsUiTest --tests *ColorGeometryUiTest --offline",
+    "status": "Passed",
+    "evidence": [
+      "docs/assets/product-verification/final/IU/supplemental-results.txt"
+    ]
+  },
+  {
+    "product": "WebStorm",
+    "build": "263.7307.202",
+    "jbr": "25.0.4.1+1-b635.79",
+    "os": "Linux",
+    "plugin": "3.9.1",
+    "feature": "Final native core without Java and removable providers",
+    "command": "tools/run-ui-tests.sh integrationTest --tests *CoreOnlyUiTest -PuiIdePath=<WS> --offline",
+    "status": "Passed",
+    "evidence": [
+      "docs/assets/product-verification/final/WS/native-results.txt"
+    ]
+  },
+  {
+    "product": "PyCharm",
+    "build": "263.7307.206",
+    "jbr": "25.0.4.1+1-b635.79",
+    "os": "Linux",
+    "plugin": "3.9.1",
+    "feature": "Final native core without Java and removable providers",
+    "command": "tools/run-ui-tests.sh integrationTest --tests *CoreOnlyUiTest -PuiIdePath=<PY> --offline",
+    "status": "Passed",
+    "evidence": [
+      "docs/assets/product-verification/final/PY/native-results.txt"
+    ]
+  },
+  {
+    "product": "IDEA",
+    "build": "263.7307.200",
+    "jbr": "25.0.4.1+1-b635.79",
+    "os": "Linux",
+    "plugin": "3.9.1",
+    "feature": "Clean checkout build and byte-identical packaging",
+    "command": "./gradlew buildPlugin --offline --no-build-cache",
+    "status": "Passed",
+    "evidence": [
+      "docs/assets/product-verification/final/cold-build.txt"
+    ]
+  },
+  {
+    "product": "IDEA",
+    "build": "263.7307.200",
+    "jbr": "25.0.4.1+1-b635.79",
+    "os": "Linux",
+    "plugin": "3.9.1",
+    "feature": "Actual parallel Run Debug and SM processes",
+    "command": "",
+    "status": "NotRun",
+    "evidence": [],
+    "reason": "Parallel lifecycle and SDK producer behavior are covered by deterministic unit/platform fixtures; an actual native multi-process overlap was not executed."
   }
 ]

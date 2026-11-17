@@ -1,0 +1,6 @@
+Exact working E3 source built in a fresh isolated git archive plus owned overlay; user .gitignore excluded.
+Command: ./gradlew buildPlugin -PlocalPlatformPath=<IU263.7307.200> --offline --no-build-cache --console=plain
+Clean build Passed; no generated searchable-options directory workaround.
+Clean and incremental ZIP bytes IDENTICAL.
+Version=3.9.1 bytes=1027282 SHA256=601e7609b9d4c8646d78fe25fb8de0c4de8ce2e869ce295e4c684f710629b12a
+Fresh committed-HEAD archive will also be checked after the E3 commit.

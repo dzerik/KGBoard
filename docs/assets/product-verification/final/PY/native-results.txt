@@ -1,0 +1,10 @@
+Actual Linux/X11 PY263.7307.206; KGBoard3.9.1; main ZIP SHA256=601e7609b9d4c8646d78fe25fb8de0c4de8ce2e869ce295e4c684f710629b12a.
+Command: tools/run-ui-tests.sh integrationTest --tests *CoreOnlyUiTest -PlocalPlatformPath=<IU> -PuiIdePath=<PY> -PuiExpectedBuild=263.7307.206 --offline --console=plain
+JUnit tests=5 failures=0 errors=0 skipped=0.
+Java actually absent; core Build roots Available; automatic JPS Unavailable. Git disabled alone/together; mandatory SM preservation checked (SM absence is platform-Blocked).
+SDK writes=0 in every case.
+all-enabled PASSED
+no-java PASSED
+no-git PASSED
+sm-required-by-product PASSED
+no-removable-integrations PASSED

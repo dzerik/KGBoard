@@ -1,0 +1,9 @@
+TASK|start|1|auto=false
+BVM|start|2|parent=0|build=2|none|errors=[]
+RUNTIME|c3c85497-19ae-4835-893e-6cdc912e433a|RUNNING|null|1
+MANAGER|start|3|auto=false
+MANAGER|finish|3|auto=false
+COMPILER|manual|aborted=false|errors=0
+BVM|finish|2|parent=0|build=2|SuccessResultImpl|errors=[]
+RUNTIME|c3c85497-19ae-4835-893e-6cdc912e433a|TERMINATED|SUCCESS|2
+TASK|finish|1|auto=false|aborted=false|errors=false

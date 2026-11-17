@@ -16,7 +16,8 @@ import java.util.Properties
 object IdeTestContext {
     fun create(
         testName: String, endpoint: com.kgboard.rgb.runtime.Endpoint, scale: Float = 1f,
-        templateName: String = "jps", lightingEnabled: Boolean = false
+        templateName: String = "jps", lightingEnabled: Boolean = false,
+        prepareProject: (Path) -> Unit = {}
     ): IDETestContext {
         val ide = Path.of(requireNotNull(System.getProperty("kgboard.ui.idePath")))
         val info = Files.readString(ide.resolve("product-info.json"))
@@ -37,6 +38,7 @@ object IdeTestContext {
             )
             }
         }
+        prepareProject(project)
         val context = Starter.newContext(testName, TestCase(product, LocalProjectInfo(project)))
         val options = context.paths.configDir.resolve("options")
         Files.createDirectories(options)
@@ -77,4 +79,22 @@ object IdeTestContext {
             .use { metadata.store(it, "Actual launch inputs; UI assertions verify scale and geometry") }
         return context
     }
+
+    fun installProbe(context: com.intellij.ide.starter.ide.IDETestContext) {
+        val probeZip = Path.of(System.getProperty("kgboard.ui.probeZip"))
+        java.util.zip.ZipFile(probeZip.toFile()).use { zip ->
+            val jar = zip.entries().asSequence().single { it.name.endsWith(".jar") }
+            val xml = java.util.jar.JarInputStream(zip.getInputStream(jar)).use { input ->
+                var descriptor = ""
+                while (true) {
+                    val entry = input.nextJarEntry ?: break; if (entry.name == "META-INF/plugin.xml") descriptor =
+                        input.readBytes().toString(Charsets.UTF_8)
+                }
+                descriptor
+            }
+            require(xml.contains("<id>com.kgboard.rgb.ui-probe</id>")) { "Test observer descriptor was replaced during packaging" }
+        }
+        PluginConfigurator(context).installPluginFromPath(probeZip)
+    }
+
 }

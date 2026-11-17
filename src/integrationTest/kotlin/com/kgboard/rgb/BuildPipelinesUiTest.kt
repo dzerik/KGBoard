@@ -7,7 +7,6 @@ import com.intellij.driver.sdk.*
 import com.intellij.driver.sdk.ui.*
 import com.intellij.driver.sdk.ui.components.common.ideFrame
 import com.intellij.ide.starter.driver.engine.runIdeWithDriver
-import com.intellij.ide.starter.plugins.PluginConfigurator
 import com.kgboard.rgb.testing.ControllerFixtureSpec
 import com.kgboard.rgb.testing.OpenRgbSdkSimulator
 import org.junit.jupiter.api.Assertions.*
@@ -34,7 +33,7 @@ class BuildPipelinesUiTest {
     fun `observe actual manual and automatic JPS build root coverage`() {
         OpenRgbSdkSimulator(5, listOf(ControllerFixtureSpec())).use { sdk ->
             val context = IdeTestContext.create("kgboard-build-jps", sdk.endpoint, lightingEnabled = true)
-            installProbe(context)
+            IdeTestContext.installProbe(context)
             context.runIdeWithDriver().useDriverAndCloseIde {
                 waitForIndicators(2.minutes)
                 val probe =
@@ -98,7 +97,7 @@ class BuildPipelinesUiTest {
                 templateName = "gradle",
                 lightingEnabled = true
             )
-            installProbe(context)
+            IdeTestContext.installProbe(context)
             context.runIdeWithDriver().useDriverAndCloseIde {
                 waitForIndicators(2.minutes)
                 val probe =
@@ -154,7 +153,7 @@ class BuildPipelinesUiTest {
                 templateName = "maven",
                 lightingEnabled = true
             )
-            installProbe(context)
+            IdeTestContext.installProbe(context)
             context.runIdeWithDriver().useDriverAndCloseIde {
                 waitForIndicators(2.minutes)
                 val probe =
@@ -184,28 +183,14 @@ class BuildPipelinesUiTest {
     }
 
     private fun assertRuntimePair(rows: List<String>, outcome: String) {
-        val operations=rows.filter{it.startsWith("RUNTIME|")}.map{it.split('|')}
-        assertEquals(2,operations.size,rows.joinToString("\n"))
-        assertEquals(1,operations.map{it[1]}.toSet().size,rows.joinToString("\n"))
-        assertTrue(operations.any{it[2]=="RUNNING"&&it[4]=="1"},rows.joinToString("\n"))
-        assertTrue(operations.any{it[2]=="TERMINATED"&&it[3]==outcome&&it[4]=="2"},rows.joinToString("\n"))
-    }
-
-    private fun installProbe(context: com.intellij.ide.starter.ide.IDETestContext) {
-        val probeZip = Path.of(System.getProperty("kgboard.ui.probeZip"))
-        java.util.zip.ZipFile(probeZip.toFile()).use { zip ->
-            val jar = zip.entries().asSequence().single { it.name.endsWith(".jar") }
-            val xml = java.util.jar.JarInputStream(zip.getInputStream(jar)).use { input ->
-                var descriptor = ""
-                while (true) {
-                    val entry = input.nextJarEntry ?: break; if (entry.name == "META-INF/plugin.xml") descriptor =
-                        input.readBytes().toString(Charsets.UTF_8)
-                }
-                descriptor
-            }
-            require(xml.contains("<id>com.kgboard.rgb.ui-probe</id>")) { "Test observer descriptor was replaced during packaging" }
-        }
-        PluginConfigurator(context).installPluginFromPath(probeZip)
+        val operations = rows.filter { it.startsWith("RUNTIME|") }.map { it.split('|') }
+        assertEquals(2, operations.size, rows.joinToString("\n"))
+        assertEquals(1, operations.map { it[1] }.toSet().size, rows.joinToString("\n"))
+        assertTrue(operations.any { it[2] == "RUNNING" && it[4] == "1" }, rows.joinToString("\n"))
+        assertTrue(
+            operations.any { it[2] == "TERMINATED" && it[3] == outcome && it[4] == "2" },
+            rows.joinToString("\n")
+        )
     }
 
     private fun await(

@@ -1,0 +1,7 @@
+none|false|false|NotApplicable
+text|true|true|Unknown
+nontext|false|false|NotApplicable
+none|false|false|NotApplicable
+text|true|true|Unknown
+none|false|false|NotApplicable
+SDK writes=0

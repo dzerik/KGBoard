@@ -1,0 +1,5 @@
+true|true
+true|true
+false|true
+true|true
+SDK writes=0; actual X11 window focus only

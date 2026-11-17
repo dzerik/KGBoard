@@ -1,0 +1,6 @@
+Actual Linux/X11 IU263.7307.200; KGBoard3.9.1 main ZIP SHA256=601e7609b9d4c8646d78fe25fb8de0c4de8ce2e869ce295e4c684f710629b12a
+ProjectWindowsUiTest:1 PASSED, E3-project-windows-third.log BUILD SUCCESSFUL in55s.
+Two actual project frames; primary→secondary→primary; close background retains primary.
+ColorGeometryUiTest:2 PASSED, E3-color-geometry-first.log BUILD SUCCESSFUL in1m52s.
+Light/Dark200% actual font/insets at both viewports: available63px needed46px. No confirmed clipping; no production UI change.
+Both test-only probes use SDK actions and read-only snapshots;0SDKwrites.

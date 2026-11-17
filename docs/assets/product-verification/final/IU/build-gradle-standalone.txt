@@ -1,0 +1,7 @@
+EXTERNAL|start|2|GRADLE|EXECUTE_TASK
+RUNVIEW|start|2|parent=0|build=2|none|errors=[]
+RUNTIME|bf734eb0-544c-4b8a-a461-fccd6531e4f6|RUNNING|null|1
+EXTERNAL|finish|2|GRADLE|EXECUTE_TASK
+CONTROL|gradle-task|success
+RUNVIEW|finish|2|parent=0|build=2|SuccessResultImpl|errors=[]
+RUNTIME|bf734eb0-544c-4b8a-a461-fccd6531e4f6|TERMINATED|SUCCESS|2

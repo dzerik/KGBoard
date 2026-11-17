@@ -17,6 +17,9 @@ repositories {
 val uiProbeSourceSet=sourceSets.create("uiProbe") {
     compileClasspath += sourceSets.main.get().compileClasspath + sourceSets.main.get().output
 }
+allprojects {
+    tasks.withType<Jar>().configureEach { includeEmptyDirs = false }
+}
 val uiProbeJar=tasks.register<Jar>("uiProbeJar") {
     from(uiProbeSourceSet.output){exclude("META-INF/plugin.xml")}
     // The platform plugin patches ProcessResources descriptors globally; keep the observer independent.
@@ -73,6 +76,7 @@ dependencies {
 }
 
 intellijPlatform {
+    buildSearchableOptions = false
     pluginConfiguration {
         id = "com.kgboard.rgb"
         name = "KGBoard"
@@ -118,10 +122,6 @@ tasks {
         distributionSha256Sum = "84fbba45c7f4c64abc77460e1c00f541e9f960e3c7ed2538f1ede19eacd873ae"
     }
 
-    buildSearchableOptions {
-        enabled = false
-    }
-
     test {
         useJUnitPlatform()
     }
@@ -132,6 +132,7 @@ val integrationTest = intellijPlatformTesting.testIdeUi.register("integrationTes
         testClassesDirs = integrationTestSourceSet.output.classesDirs
         classpath = integrationTestSourceSet.runtimeClasspath
         useJUnitPlatform()
+        testLogging { events("passed", "failed", "skipped") }
         systemProperty("java.awt.headless", "false")
         dependsOn(tasks.buildPlugin, tasks.testClasses, uiProbePlugin)
         systemProperty("kgboard.ui.probeZip",uiProbePlugin.get().archiveFile.get().asFile.absolutePath)

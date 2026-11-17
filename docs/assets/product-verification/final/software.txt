@@ -1,0 +1,8 @@
+E3 runtime checkpoint3.9.1; Linux; compileSDK IU263.7307.200.
+./gradlew test buildPlugin verifyPlugin compileIntegrationTestKotlin -PlocalPlatformPath=<IU> -PverificationIdePaths=<IU263.7307.200>|<WS263.7307.202>|<PY263.7307.206> --offline --console=plain
+BUILD SUCCESSFUL in42s. JUnit tests=388 failures=0 errors=0 skipped=0.
+Verifier IU/WS/PY Compatible:3 usages of public Experimental BuildProgressObservable per product; no Internal API usage.
+python3 -m unittest discover -s tools/tests:6 tests OK.
+Package=build/distributions/KGBoard-3.9.1.zip bytes=1027282 SHA256=601e7609b9d4c8646d78fe25fb8de0c4de8ce2e869ce295e4c684f710629b12a
+Descriptor and embedded pluginVersion=3.9.1; range263.*.
+Starter/Driver/JUnit/MockK/Kodein/simulator/test-only probe classes absent from all runtime JARs.

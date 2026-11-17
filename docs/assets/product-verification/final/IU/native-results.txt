@@ -1,0 +1,26 @@
+Actual Linux/X11 IU263.7307.200 native suite; JBR25.0.4.1+1-b635.79; KGBoard3.9.1.
+Command: tools/run-ui-tests.sh integrationTest -PlocalPlatformPath=<IU> --offline --console=plain
+20 tests, failures=0 errors=0 skipped=0; BUILD SUCCESSFUL in 21m19s.
+Main ZIP SHA256=601e7609b9d4c8646d78fe25fb8de0c4de8ce2e869ce295e4c684f710629b12a
+Each of 20 adjacent launch properties matches this SHA. Test-only observer ZIP archived privately; it is excluded from product.
+
+com.kgboard.rgb.SettingsWorkflowUiTest :: Apply commits binding and Disconnect and Disable revoke preview() PASSED
+com.kgboard.rgb.SettingsWorkflowUiTest :: identify and keyboard preview preserve the idle baseline and Cancel discards binding() PASSED
+com.kgboard.rgb.FocusLifecycleUiTest :: native modal retains project and external window loses IDE focus() PASSED
+com.kgboard.rgb.EditorLifecycleUiTest :: native text image close and delete invalidate prior editor facts() PASSED
+com.kgboard.rgb.DiagnosticsUiTest :: DARK PASSED
+com.kgboard.rgb.DiagnosticsUiTest :: LIGHT PASSED
+com.kgboard.rgb.CoreOnlyUiTest :: all-enabled PASSED
+com.kgboard.rgb.CoreOnlyUiTest :: no-git PASSED
+com.kgboard.rgb.CoreOnlyUiTest :: no-sm PASSED
+com.kgboard.rgb.CoreOnlyUiTest :: no-optional PASSED
+com.kgboard.rgb.GitDiagnosticsUiTest :: native Git rows show actual ahead and dirty facts and Copy omits branch and path() PASSED
+com.kgboard.rgb.SettingsUiTest :: dark-100-en PASSED
+com.kgboard.rgb.SettingsUiTest :: dark-150-en PASSED
+com.kgboard.rgb.SettingsUiTest :: dark-200-en PASSED
+com.kgboard.rgb.SettingsUiTest :: light-100-en PASSED
+com.kgboard.rgb.SettingsUiTest :: light-150-en PASSED
+com.kgboard.rgb.SettingsUiTest :: light-200-en PASSED
+com.kgboard.rgb.BuildPipelinesUiTest :: observe actual manual and automatic JPS build root coverage() PASSED
+com.kgboard.rgb.BuildPipelinesUiTest :: observe actual Gradle standalone delegated and import pipelines() PASSED
+com.kgboard.rgb.BuildPipelinesUiTest :: observe actual offline Maven goal build roots() PASSED
