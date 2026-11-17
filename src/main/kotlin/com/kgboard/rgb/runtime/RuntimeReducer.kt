@@ -1,9 +1,23 @@
 package com.kgboard.rgb.runtime
 
 import com.kgboard.rgb.effect.*
+import com.kgboard.rgb.diagnostics.*
 
 /** Pure state transitions. Only LightingRuntime owns the resulting state. */
 class RuntimeReducer {
+    fun reduceDelivery(state: RuntimeState, receipt: DeliveryReceipt): RuntimeState {
+        if (state.shuttingDown || receipt.frame.token != state.inventory()?.token) return state
+        val key = receipt.frame.deliveryKey()
+        val previous = state.diagnostics.delivery[key] ?: return state
+        if (receipt.frame.revision.value > (previous.offered?.value ?: return state)) return state
+        val next = previous.report(receipt)
+        return if (next == previous) state else state.copy(
+            diagnostics = state.diagnostics.copy(
+                delivery = frozenMap(state.diagnostics.delivery + (key to next))
+            )
+        )
+    }
+
     fun reduce(original: RuntimeState, event: RuntimeEvent, nowMs: Long): Transition {
         if (original.shuttingDown) return Transition(original)
         val connection = settingsTransition(original, event, nowMs)

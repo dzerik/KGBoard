@@ -37,7 +37,7 @@ class LightingRuntimeService : Disposable {
             settings = RuntimeSettings.capture(com.kgboard.rgb.settings.SettingsMigration.app(KgBoardSettings.getInstance().state)),
             groups = KeyGroupService.getInstance().definitions()
         )
-        val writer = CoalescingFrameWriter(transport, network, RuntimeEvents { events.dispatch(it) })
+        val writer = CoalescingFrameWriter(transport, network, RuntimeEvents { events.dispatch(it) }, clock)
         val scheduler = object : RuntimeScheduler {
             override fun scheduleAt(timeMs: Long, action: () -> Unit): Cancellation {
                 val future = timer.schedule(action, (timeMs - clock.nowMs()).coerceAtLeast(0), TimeUnit.MILLISECONDS)

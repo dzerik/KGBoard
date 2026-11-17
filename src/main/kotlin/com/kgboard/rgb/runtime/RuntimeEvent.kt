@@ -1,6 +1,8 @@
 package com.kgboard.rgb.runtime
 
 sealed interface RuntimeEvent {
+    data class DeliveryReported(val receipt: com.kgboard.rgb.diagnostics.DeliveryReceipt) : RuntimeEvent
+    data object ClearHistory : RuntimeEvent
     data class ProjectOpened(val id: ProjectId, val settings: ProjectSettingsSnapshot = ProjectSettingsSnapshot()) :
         RuntimeEvent
 

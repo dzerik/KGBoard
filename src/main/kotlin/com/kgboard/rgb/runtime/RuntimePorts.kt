@@ -1,6 +1,6 @@
 package com.kgboard.rgb.runtime
 
-import java.awt.Color
+import com.kgboard.rgb.diagnostics.FrameEnvelope
 
 /** Monotonic milliseconds; never the adjustable wall clock. */
 fun interface RuntimeClock {
@@ -21,12 +21,10 @@ fun interface RuntimeEvents {
 
 /** Enqueues work; implementations perform network I/O on a separate worker. */
 interface FrameWriter : AutoCloseable {
-    fun offer(envelope: com.kgboard.rgb.diagnostics.FrameEnvelope) =
-        offer(envelope.token.session, envelope.deviceIndex, envelope.colors)
-
-    fun offer(session: SessionId, device: Int, colors: List<Color>)
+    /** Returns true only when this inventory's frame was accepted for asynchronous delivery. */
+    fun offer(envelope: FrameEnvelope): Boolean
     fun probe(session: SessionId) {}
-    fun connect(endpoint: Endpoint, session: SessionId, finalFrames: Map<Int, List<Color>> = emptyMap())
-    fun disconnect(session: SessionId, finalFrames: Map<Int, List<Color>> = emptyMap())
+    fun connect(endpoint: Endpoint, session: SessionId, finalFrames: Map<Int, FrameEnvelope> = emptyMap())
+    fun disconnect(session: SessionId, finalFrames: Map<Int, FrameEnvelope> = emptyMap())
     override fun close()
 }

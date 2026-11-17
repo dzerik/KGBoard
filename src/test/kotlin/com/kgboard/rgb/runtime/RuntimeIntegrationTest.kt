@@ -8,6 +8,52 @@ import org.junit.jupiter.api.Test
 
 class RuntimeIntegrationTest {
     @Test
+    fun `delivery stays pending until actual blocked transport write returns`() {
+        val actor = java.util.concurrent.Executors.newSingleThreadExecutor()
+        val network = java.util.concurrent.Executors.newSingleThreadExecutor()
+        val started = java.util.concurrent.CountDownLatch(1)
+        val release = java.util.concurrent.CountDownLatch(1)
+        val sent = java.util.concurrent.CountDownLatch(1)
+        val transport = object : com.kgboard.rgb.client.RgbTransport {
+            override fun connect(endpoint: Endpoint) = testDevices()
+            override fun write(device: Int, colors: List<Color>) {
+                started.countDown()
+                check(release.await(3, java.util.concurrent.TimeUnit.SECONDS))
+            }
+
+            override fun close() {}
+        }
+        lateinit var runtime: LightingRuntime
+        val writer =
+            CoalescingFrameWriter(transport, network, RuntimeEvents { runtime.dispatch(it) }, RuntimeClock { 42 })
+        runtime = LightingRuntime(actor, RuntimeClock { 0 }, object : RuntimeScheduler {
+            override fun scheduleAt(timeMs: Long, action: () -> Unit) = Cancellation {}
+        }, RuntimeReducer(), LightingPolicy(), writer, RuntimeState(settings = RuntimeSettings().withTestBindings()))
+        runtime.subscribe { if (it.diagnostics.delivery.values.any { d -> d.lastSent != null }) sent.countDown() }
+        try {
+            runtime.dispatch(RuntimeEvent.ConnectRequested())
+            assertTrue(started.await(3, java.util.concurrent.TimeUnit.SECONDS))
+            actor.submit {}.get(3, java.util.concurrent.TimeUnit.SECONDS)
+            val pending = runtime.snapshot().diagnostics.delivery.values.single()
+            assertNotNull(pending.pending)
+            assertNull(pending.lastSent)
+            assertNull(pending.sentAtMs)
+            release.countDown()
+            assertTrue(sent.await(3, java.util.concurrent.TimeUnit.SECONDS))
+            actor.submit {}.get(3, java.util.concurrent.TimeUnit.SECONDS)
+            val success = runtime.snapshot().diagnostics.delivery.values.single()
+            assertNull(success.pending)
+            assertEquals(pending.pending, success.lastSent)
+            assertEquals(42L, success.sentAtMs)
+        } finally {
+            release.countDown(); runtime.close(); actor.submit {}.get(3, java.util.concurrent.TimeUnit.SECONDS)
+            actor.shutdown(); network.shutdown()
+            assertTrue(actor.awaitTermination(3, java.util.concurrent.TimeUnit.SECONDS))
+            assertTrue(network.awaitTermination(3, java.util.concurrent.TimeUnit.SECONDS))
+        }
+    }
+
+    @Test
     fun `preview cleanup follows an in flight write on cancel apply disable device and endpoint changes`() {
         for (action in listOf("cancel", "apply", "disable", "device", "endpoint")) {
             val actor = java.util.concurrent.Executors.newSingleThreadExecutor()

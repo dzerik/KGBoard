@@ -94,7 +94,8 @@ data class RuntimeState(
     val nowMs: Long = 0,
     val lowMemoryAtMs: Long? = null,
     val shuttingDown: Boolean = false,
-    val lastDecision: com.kgboard.rgb.diagnostics.LightingDecision? = null
+    val lastDecision: com.kgboard.rgb.diagnostics.LightingDecision? = null,
+    val diagnostics: com.kgboard.rgb.diagnostics.DiagnosticsSnapshot = com.kgboard.rgb.diagnostics.DiagnosticsSnapshot()
 )
 
 internal fun <T> frozenList(values: Collection<T>): List<T> = Collections.unmodifiableList(ArrayList(values))

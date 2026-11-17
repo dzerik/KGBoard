@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.5.0] - 2026-11-17
+
+### Added
+- Revision-tagged delivery diagnostics distinguish queued frames, completed transport writes, cached successes and failures.
+- Bounded in-memory history of significant lighting transitions and repeated errors.
+
+### Fixed
+- Process delivery acknowledgements without rendering, changing animation deadlines or sending another frame.
+- Fence delivery and retirement by inventory token, retain the original session during cleanup and reject stale callbacks.
+- Keep coalesced and in-flight frames out of the successful-send cache.
+
 ## [3.4.0] - 2026-11-17
 
 ### Added

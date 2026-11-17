@@ -33,6 +33,9 @@ class LightingRuntime(
     private var wakeGeneration = 0L
     private var outputToken: InventoryToken? = null
     private var renderRevision = initial.lastDecision?.revision?.value ?: 0L
+    private val history = DiagnosticsHistory()
+    private var significantState: List<Any?>? = null
+    private var historySequence = 0L
 
     private data class OwnedOutput(val binding: DeviceBinding, val token: InventoryToken)
 
@@ -64,6 +67,37 @@ class LightingRuntime(
     }
 
     private fun process(event: RuntimeEvent) {
+        if (event is RuntimeEvent.DeliveryReported) {
+            val frame = event.receipt.frame
+            val delivery = state.diagnostics.delivery[frame.deliveryKey()]
+            if (event.receipt is DeliveryReceipt.Failed && frame.token == state.inventory()?.token &&
+                frame.revision == delivery?.offered
+            ) {
+                history.record(
+                    HistoryEntry(
+                        "delivery:${frame.deliveryKey()}",
+                        event.receipt.reason,
+                        clock.nowMs(),
+                        clock.nowMs(),
+                        1
+                    )
+                )
+            }
+            state = reducer.reduceDelivery(state, event.receipt)
+                .let { it.copy(diagnostics = it.diagnostics.copy(history = history.entries())) }
+            subscriptions.forEach { notify(it) }
+            return
+        }
+        if (event == RuntimeEvent.ClearHistory) {
+            history.clear()
+            state = state.copy(diagnostics = state.diagnostics.copy(history = emptyList()))
+            subscriptions.forEach { notify(it) }
+            return
+        }
+        processAndRender(event)
+    }
+
+    private fun processAndRender(event: RuntimeEvent) {
         if (event is RuntimeEvent.Wake && event.generation != wakeGeneration) return
         val now = clock.nowMs()
         val previous = state
@@ -75,12 +109,19 @@ class LightingRuntime(
         val finalFrames = if (previous.connection is ConnectionState.Ready && event !is RuntimeEvent.InventoryChanged &&
             event !is RuntimeEvent.TransportFailed && event !is RuntimeEvent.ConnectFailed && transition.commands.any { it is RuntimeCommand.Connect || it is RuntimeCommand.Disconnect }
         ) {
-            val normal = policy.frames(previous.copy(preview = null), now).toMutableMap()
+            val previousDecision = policy.decide(previous.copy(preview = null), now, RenderRevision(renderRevision + 1))
+            val normal = previousDecision.devices.mapNotNull { it.frame }.associateBy { it.deviceIndex }.toMutableMap()
             previous.preview?.binding?.let { binding ->
                 previous.inventory()?.takeIf { it.token == previous.preview?.token }?.let { inventory ->
                     val resolved = DeviceResolver.resolve(binding, inventory, previous.settings.untrustedSerials)
                     if (resolved is DeviceResolution.Resolved && resolved.index !in normal)
-                        normal[resolved.index] = policy.retiredFrame(previous, inventory.devices[resolved.index])
+                        normal[resolved.index] = FrameEnvelope(
+                            inventory.token,
+                            binding.id,
+                            resolved.index,
+                            previousDecision.revision,
+                            frozenList(policy.retiredFrame(previous, inventory.devices[resolved.index]))
+                        )
                 }
             }
             normal.toMap()
@@ -93,6 +134,7 @@ class LightingRuntime(
             }
         }
         render(now)
+        recordSignificantState(now)
         subscriptions.forEach { notify(it) }
         if (state.shuttingDown) {
             accepting.set(false)
@@ -116,7 +158,10 @@ class LightingRuntime(
         var decision = policy.decide(state, now, RenderRevision(++renderRevision))
         val currentFrames = decision.devices.mapNotNull { it.frame }
         if (inventory == null) {
-            state = state.copy(lastDecision = decision)
+            state = state.copy(
+                lastDecision = decision,
+                diagnostics = state.diagnostics.copy(decision = decision, delivery = emptyMap())
+            )
             return
         }
         val indices = currentFrames.map { it.deviceIndex }.toSet()
@@ -152,14 +197,51 @@ class LightingRuntime(
             )
         }
         if (retired.isNotEmpty()) decision = decision.copy(devices = frozenList(retired + remaining))
+        val frames = decision.devices.mapNotNull { it.frame }
+        val keys = frames.map { it.deliveryKey() }.toSet()
+        val delivery = if (state.diagnostics.decision?.token == decision.token)
+            state.diagnostics.delivery.filterKeys { it in keys }.toMutableMap() else mutableMapOf()
         state = state.copy(lastDecision = decision)
-        decision.devices.mapNotNull { it.frame }.forEach(writer::offer)
+        for (frame in frames) if (writer.offer(frame))
+            delivery[frame.deliveryKey()] = (delivery[frame.deliveryKey()] ?: DeliveryState()).accept(frame.revision)
+        state = state.copy(diagnostics = state.diagnostics.copy(decision = decision, delivery = frozenMap(delivery)))
         ownedDevices = currentFrames.mapNotNull { frame ->
             val binding =
                 state.settings.bindings.firstOrNull { it.enabled && it.binding.id == frame.bindingId }?.binding
                     ?: state.preview?.binding?.takeIf { it.id == frame.bindingId }
             binding?.let { frame.deviceIndex to OwnedOutput(it, frame.token) }
         }.toMap()
+    }
+
+    private fun recordSignificantState(now: Long) {
+        val decision = state.lastDecision
+        val summary = listOf(
+            state.connection::class.simpleName, state.connectionError, state.focused,
+            state.settings.enabled, state.activeProject, state.preview?.owner,
+            decision?.devices?.map { device ->
+                listOf(
+                    device.bindingId, device.deviceIndex, device.idleReasonKey,
+                    device.rules.map {
+                        listOf(
+                            it.ruleId,
+                            it.owner,
+                            it.source,
+                            it.requested.size,
+                            it.visible.size,
+                            it.reasons
+                        )
+                    })
+            })
+        if (summary != significantState) {
+            significantState = summary
+            val reason = when {
+                state.connectionError != null -> "transport.failed"
+                state.manuallyDisconnected -> "diagnostics.disconnected"
+                else -> "diagnostics.lightingChanged"
+            }
+            history.record(HistoryEntry("transition:${++historySequence}", reason, now, now, 1))
+        }
+        state = state.copy(diagnostics = state.diagnostics.copy(history = history.entries()))
     }
 
     private fun notify(subscription: Subscription) {

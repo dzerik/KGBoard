@@ -67,10 +67,13 @@ internal class ManualScheduler(private val clock: ManualClock, private val execu
 
     private val tasks = PriorityQueue(compareBy<Task>({ it.at }, { it.order }))
     private var sequence = 0L
+    var scheduledCount = 0; private set
+    var cancelledCount = 0; private set
     override fun scheduleAt(timeMs: Long, action: () -> Unit): Cancellation {
+        scheduledCount++
         val task = Task(timeMs, sequence++, action)
         tasks.add(task)
-        return Cancellation { task.cancelled = true }
+        return Cancellation { cancelledCount++; task.cancelled = true }
     }
 
     fun advanceBy(ms: Long) {
@@ -97,22 +100,24 @@ internal class RecordingFrameWriter : FrameWriter {
     val connects = mutableListOf<Pair<Endpoint, SessionId>>()
     val disconnects = mutableListOf<SessionId>()
     var closed = false
-    override fun offer(envelope: com.kgboard.rgb.diagnostics.FrameEnvelope) {
-        envelopes.add(envelope)
-        offer(envelope.token.session, envelope.deviceIndex, envelope.colors)
-    }
-
-    override fun offer(session: SessionId, device: Int, colors: List<Color>) {
+    val offers: Int get() = envelopes.size
+    override fun offer(envelope: com.kgboard.rgb.diagnostics.FrameEnvelope): Boolean {
         check(!closed)
-        history.add(device to colors.toList())
+        envelopes.add(envelope)
+        history.add(envelope.deviceIndex to envelope.colors.toList())
+        return true
     }
 
-    override fun connect(endpoint: Endpoint, session: SessionId, finalFrames: Map<Int, List<Color>>) {
-        finalFrames.forEach { (index, frame) -> offer(session, index, frame) }; connects.add(endpoint to session)
+    override fun connect(
+        endpoint: Endpoint,
+        session: SessionId,
+        finalFrames: Map<Int, com.kgboard.rgb.diagnostics.FrameEnvelope>
+    ) {
+        finalFrames.values.forEach { offer(it) }; connects.add(endpoint to session)
     }
 
-    override fun disconnect(session: SessionId, finalFrames: Map<Int, List<Color>>) {
-        finalFrames.forEach { (index, frame) -> offer(session, index, frame) }; disconnects.add(session)
+    override fun disconnect(session: SessionId, finalFrames: Map<Int, com.kgboard.rgb.diagnostics.FrameEnvelope>) {
+        finalFrames.values.forEach { offer(it) }; disconnects.add(session)
     }
 
     override fun close() {
