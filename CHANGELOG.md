@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.9.0] - 2026-11-17
+
+### Added
+- Canonical public BuildView root tracking for manual JPS, delegated/standalone Gradle and Maven goals, with one lifecycle per SDK root identity.
+- Java-optional automatic JPS activity tracking by public session UUID; diagnostics explicitly state that its outcome is unavailable.
+
+### Fixed
+- Ignore child events, unknown finishes and duplicate terminals; skipped/unknown outcomes never become success.
+- Preserve confirmed cancellation and independent parallel roots; retire live roots when their provider unloads.
+- Remove the legacy ProjectTask visual producer after actual IDE coverage of all explicit build paths.
+
 ## [3.8.0] - 2026-11-17
 
 ### Added

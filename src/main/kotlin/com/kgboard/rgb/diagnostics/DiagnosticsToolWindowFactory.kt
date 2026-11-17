@@ -46,6 +46,7 @@ internal class DiagnosticsPanel(project: Project?, showSettings: Boolean = true)
         val root = JPanel(BorderLayout()).identified("diagnostics.panel", message("diagnostics.open"))
         val connection = JBLabel().identified("diagnostics.connection", message("diagnostics.connection"))
         val tabs = JBTabbedPane().identified("diagnostics.sections", message("diagnostics.open"))
+        tabs.tabLayoutPolicy = javax.swing.JTabbedPane.SCROLL_TAB_LAYOUT
         fun area(id: String, key: String): JBTextArea {
             val text = JBTextArea().identified(id, message(key))
             text.isEditable = false; text.lineWrap = true; text.wrapStyleWord = true

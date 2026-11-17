@@ -14,7 +14,10 @@ import java.util.Properties
 
 /** Launches only an explicitly pinned local distribution, always with isolated Starter paths. */
 object IdeTestContext {
-    fun create(testName: String, endpoint: com.kgboard.rgb.runtime.Endpoint, scale: Float = 1f): IDETestContext {
+    fun create(
+        testName: String, endpoint: com.kgboard.rgb.runtime.Endpoint, scale: Float = 1f,
+        templateName: String = "jps", lightingEnabled: Boolean = false
+    ): IDETestContext {
         val ide = Path.of(requireNotNull(System.getProperty("kgboard.ui.idePath")))
         val info = Files.readString(ide.resolve("product-info.json"))
         fun field(name: String) = Regex("\"$name\"\\s*:\\s*\"([^\"]+)\"").findAll(info).single().groupValues[1]
@@ -23,17 +26,16 @@ object IdeTestContext {
         val product = IdeInfo.fromProductCode(field("productCode")).copy(
             buildNumber = expected, getInstaller = { ExistingIdeInstaller(ide) })
         val project = Files.createTempDirectory("kgboard-ui-project-")
-        val template = Path.of("src/integrationTest/resources/projects/jps")
-        for (relative in listOf(
-            "src/Main.java",
-            "jps.iml",
-            ".idea/misc.xml",
-            ".idea/modules.xml",
-            ".idea/kgboard-project.xml"
-        )) {
-            val target = project.resolve(relative)
-            Files.createDirectories(target.parent)
-            Files.copy(template.resolve(relative), target)
+        require(templateName in setOf("jps", "gradle", "maven"))
+        val template = Path.of("src/integrationTest/resources/projects", templateName)
+        Files.walk(template).use { files ->
+            files.filter { Files.isRegularFile(it) }.forEach { source ->
+                val target =
+                    project.resolve(template.relativize(source)); Files.createDirectories(target.parent); Files.copy(
+                source,
+                target
+            )
+            }
         }
         val context = Starter.newContext(testName, TestCase(product, LocalProjectInfo(project)))
         val options = context.paths.configDir.resolve("options")
@@ -44,7 +46,7 @@ object IdeTestContext {
               <option name="host" value="${endpoint.host}" />
               <option name="port" value="${endpoint.port}" />
               <option name="autoConnect" value="false" />
-              <option name="enabled" value="false" />
+              <option name="enabled" value="$lightingEnabled" />
             </component></application>
         """.trimIndent()
         )

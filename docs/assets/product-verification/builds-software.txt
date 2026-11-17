@@ -1,0 +1,9 @@
+C3 final software checkpoint 3.9.0, 2026-11-17
+./gradlew test buildPlugin verifyPlugin compileIntegrationTestKotlin -PlocalPlatformPath=<IU263.7307.200> -PverificationIdePaths=<IU>|<WS263.7307.202>|<PY263.7307.206> --offline --console=plain
+BUILD SUCCESSFUL in 43s
+JUnit tests=388 failures=0 errors=0 skipped=0.
+Verifier: IU/WS/PY Compatible; 3 usages of public Experimental BuildProgressObservable per product; no Internal API usage.
+Optional Java/compiler module unavailable in WS/PY as expected; native absence matrix repeated in E3.
+ZIP build/distributions/KGBoard-3.9.0.zip bytes=1027583 SHA256=c5dc4dee16277eb7a17f6aa46a3745b19d480a17b1336c213bba1d8154f93217
+Descriptor and embedded metadata=3.9.0, until-build=263.*; test tools/probe/simulator excluded.
+Native launch artifacts have separate hashes, listed in builds-*-launch.properties.

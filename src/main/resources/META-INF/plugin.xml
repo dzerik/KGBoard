@@ -38,6 +38,7 @@
     <depends optional="true" config-file="kgboard-tests.xml">com.intellij.platform.testRunner</depends>
     <content>
         <module name="KGBoard.integrations.git" loading="optional"/>
+        <module name="KGBoard.integrations.jps" loading="optional"/>
     </content>
 
     <extensionPoints>
@@ -45,6 +46,7 @@
     </extensionPoints>
     <extensions defaultExtensionNs="com.kgboard.rgb">
         <integrationProvider implementation="com.kgboard.rgb.bridge.DebugIntegrationProvider"/>
+        <integrationProvider implementation="com.kgboard.rgb.bridge.build.BuildIntegrationProvider"/>
     </extensions>
     <extensions defaultExtensionNs="com.intellij">
         <!-- Settings page (application-level) -->

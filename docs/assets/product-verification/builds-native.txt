@@ -1,0 +1,58 @@
+C3 native SDK263 observations, Linux/X11, 2026-11-17.
+Each launch uses its own recorded ZIP SHA, see adjacent builds-*-launch.properties.
+Manual JPS, Gradle standalone/delegated and Maven: one domain UUID, RUNNING rev1 -> TERMINATED SUCCESS rev2.
+Auto JPS: public SDK session lifecycle only, TERMINATED NOT_EXECUTED, never inferred Success.
+Gradle import: RESOLVE_PROJECT, no BuildView root.
+
+jps-manual
+TASK|start|1|auto=false
+BVM|start|2|parent=0|build=2|none|errors=[]
+RUNTIME|1d389b2a-a39a-4500-bce9-26a15f360b4e|RUNNING|null|1
+MANAGER|start|3|auto=false
+MANAGER|finish|3|auto=false
+BVM|finish|2|parent=0|build=2|SuccessResultImpl|errors=[]
+COMPILER|manual|aborted=false|errors=0
+RUNTIME|1d389b2a-a39a-4500-bce9-26a15f360b4e|TERMINATED|SUCCESS|2
+TASK|finish|1|auto=false|aborted=false|errors=false
+
+jps-auto
+CONFIG|auto=true|whileRunning=true
+MANAGER|start|4|auto=true
+RUNTIME|2ffd8da0-018a-4dba-ba37-346d9f94e3ed|RUNNING|null|1
+MANAGER|finish|4|auto=true
+COMPILER|auto|errors=0
+RUNTIME|2ffd8da0-018a-4dba-ba37-346d9f94e3ed|TERMINATED|NOT_EXECUTED|2
+
+gradle-import
+EXTERNAL|start|1|GRADLE|RESOLVE_PROJECT
+EXTERNAL|finish|1|GRADLE|RESOLVE_PROJECT
+CONTROL|gradle-import|true
+
+gradle-standalone
+EXTERNAL|start|2|GRADLE|EXECUTE_TASK
+RUNVIEW|start|2|parent=0|build=2|none|errors=[]
+RUNTIME|c27038a7-0d83-4743-b7b4-a941afee1b42|RUNNING|null|1
+EXTERNAL|finish|2|GRADLE|EXECUTE_TASK
+CONTROL|gradle-task|success
+RUNVIEW|finish|2|parent=0|build=2|SuccessResultImpl|errors=[]
+RUNTIME|c27038a7-0d83-4743-b7b4-a941afee1b42|TERMINATED|SUCCESS|2
+
+gradle-delegated
+TASK|start|3|auto=false
+EXTERNAL|start|4|GRADLE|EXECUTE_TASK
+BVM|start|4|parent=0|build=4|none|errors=[]
+RUNTIME|f1c54afa-7787-421d-9781-1df533611766|RUNNING|null|1
+EXTERNAL|finish|4|GRADLE|EXECUTE_TASK
+BVM|finish|4|parent=0|build=4|SuccessResultImpl|errors=[]
+RUNTIME|f1c54afa-7787-421d-9781-1df533611766|TERMINATED|SUCCESS|2
+TASK|finish|3|auto=false|aborted=false|errors=false
+
+maven-validate
+RUNVIEW|start|1|parent=0|build=1|none|errors=[]
+RUNTIME|d82c51c2-6dc8-4024-b851-2fa93ceaa8b8|RUNNING|null|1
+RUNTIME|d82c51c2-6dc8-4024-b851-2fa93ceaa8b8|TERMINATED|SUCCESS|2
+RUNVIEW|finish|1|parent=0|build=1|SuccessResultImpl|errors=[]
+CONTROL|maven|finished
+
+JPS explicit compiler-module regression: C3-JPS-exact-module.log BUILD SUCCESSFUL in 1m38s.
+Earlier combined run retained a failing auto assertion before that dependency fix; all explicit pipeline cases passed.

@@ -17,3 +17,5 @@ pluginManagement {
 rootProject.name = "KGBoard"
 
 include(":integrations:git")
+
+include(":integrations:jps")

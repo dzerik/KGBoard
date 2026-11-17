@@ -1,8 +1,8 @@
 # Проверка KGBoard
 
-Контрольная точка C2, версия **3.8.0**, 17 ноября 2026. Текущий этап —
+Контрольная точка C3, версия **3.9.0**, 17 ноября 2026. Текущий этап —
 [надёжная индикация IDE](superpowers/plans/2026-11-17-ide-focus-scope.md).
-Это промежуточная проверка; A/B/C1–C2/E2 выполнены, C3 и финальная E3 продолжаются.
+Это промежуточная проверка; A/B/C/E2 выполнены, финальная E3 продолжается.
 D1–D3 отложены. Таблица A5 ниже сохранена как история проверки версии 3.3.0.
 
 ## Выполненные проверки
@@ -77,13 +77,36 @@ SDK fixture проверяет выбранный в IDE Git, NUL-байты, о
 диагностики и Copy проверены на уровне модели; нативная проверка входит в E3.
 Native проверки C1 остаются доказательствами версии3.7.0.
 
+## Источники сборки, 3.9.0
+
+[388 тестов и три Verifier](assets/product-verification/builds-software.txt) прошли.
+
+[Нативные наблюдения](assets/product-verification/builds-native.txt) подтверждают
+ручную JPS, отдельную и делегированную Gradle, Maven `validate`: по одному
+runtime UUID со стартом и завершением. Gradle import не создаёт build root.
+Публичные BuildViewManager и Run-view manager используют один tracker;
+старый ProjectTask producer удалён после проверки всех явных путей.
+
+Автоматическая JPS проверена отдельно: точный UUID/start/finish из публичного
+`intellij.java.compiler.impl`, результат недоступен. Она завершается как
+NOT_EXECUTED и не выдаёт выдуманный Success/Failure. Ограничение видно в UI.
+Разные тестовые ZIP версии3.9.0 имеют [отдельные SHA запуска JPS](assets/product-verification/builds-jps-launch.properties),
+[Gradle](assets/product-verification/builds-gradle-launch.properties) и
+[Maven](assets/product-verification/builds-maven-launch.properties).
+
+[Четыре нативных сценария IDEA](assets/product-verification/builds-core-IU-native.txt)
+прошли после исправления переноса вкладок диагностики: клавиатурный порядок
+сохранён, Build roots Available, SDK writes=0. Новая cross-IDE матрица входит в E3.
+Public BuildProgressObservable помечен Experimental; диапазон остаётся263.*,
+а обновление SDK требует повторения verifier и native matrix.
+
 ## Пакет контрольной точки
 
-`build/distributions/KGBoard-3.8.0.zip`, 1011728 байт.
+`build/distributions/KGBoard-3.9.0.zip`, 1027583 байт.
 
-SHA256: `64c7cc24d8d2cab736f3573963b56ca3a9f28485e95cb32403ff7fd6943fc10f`.
+SHA256: `c5dc4dee16277eb7a17f6aa46a3745b19d480a17b1336c213bba1d8154f93217`.
 
-Descriptor и встроенные метаданные содержат версию 3.8.0 и диапазон `263.*`.
+Descriptor и встроенные метаданные содержат версию 3.9.0 и диапазон `263.*`.
 Starter, Driver, JUnit, MockK, Kodein и SDK simulator не входят в runtime.
 Рекомендация Gradle убрать `until-build` не применена: совместимость намеренно
 ограничена проверяемой веткой. Исторический SHA версии 3.3.0 сохранён в доказательствах A5;

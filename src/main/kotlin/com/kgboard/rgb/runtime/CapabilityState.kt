@@ -5,7 +5,7 @@ data class ProviderLease(val project: ProjectId, val capability: String, val gen
 data class CapabilitySnapshot(val id: String, val status: CapabilityStatus, val reasonKey: String?)
 
 internal fun defaultCapabilities(): Map<String, CapabilitySnapshot> = frozenMap(
-    listOf("git", "tests.sm", "build.roots", "debug").associateWith {
+    listOf("git", "tests.sm", "build.roots", "build.automake", "debug").associateWith {
         CapabilitySnapshot(it, CapabilityStatus.UNAVAILABLE, "capability.notInstalled")
     })
 
@@ -21,7 +21,7 @@ internal fun CapabilitySnapshot.exportCode(): String =
     if (id in setOf(
             "git",
             "tests.sm",
-            "build.roots",
+            "build.roots", "build.automake",
             "debug"
         )
     ) "capability.$id.${status.name.lowercase(java.util.Locale.ROOT)}"

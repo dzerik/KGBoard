@@ -1,0 +1,6 @@
+C3 Linux/X11 IU263.7307.200: four actual native CoreOnly cases.
+All enabled, Git disabled, SM disabled, both disabled.
+Build roots Available in every case; automatic JPS activity Available with precise compiler module dependency.
+Keyboard four Right keys reach Integrations after changing diagnostics tabs to SCROLL_TAB_LAYOUT.
+SDK writes=0 in every case; actual plugin loaded/disabled states asserted.
+BUILD SUCCESSFUL in 3m52s; JUnit tests=4 failures=0 errors=0 skipped=0.

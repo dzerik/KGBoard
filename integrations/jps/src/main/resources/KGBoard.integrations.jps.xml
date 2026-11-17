@@ -1,0 +1,10 @@
+<idea-plugin>
+    <dependencies>
+        <plugin id="com.kgboard.rgb"/>
+        <plugin id="com.intellij.java"/>
+        <module name="intellij.java.compiler.impl"/>
+    </dependencies>
+    <extensions defaultExtensionNs="com.kgboard.rgb">
+        <integrationProvider implementation="com.kgboard.rgb.bridge.jps.AutoJpsIntegrationProvider"/>
+    </extensions>
+</idea-plugin>

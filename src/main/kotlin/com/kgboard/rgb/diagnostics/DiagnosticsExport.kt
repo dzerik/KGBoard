@@ -55,7 +55,7 @@ object DiagnosticsExport {
                 versions[key]?.takeIf { it.length <= 80 && Regex(pattern).matches(it) }?.let { appendLine("$key=$it") }
             }
             // C1 supplies these fixed codes; unknown descriptions are deliberately excluded.
-            val capabilityCodes = listOf("git", "tests.sm", "build.roots", "debug").flatMap { id ->
+            val capabilityCodes = listOf("git", "tests.sm", "build.roots", "build.automake", "debug").flatMap { id ->
                 listOf("available", "unavailable", "error").map { "capability.$id.$it" }
             }.toSet()
             capabilityLabels.filter { it in capabilityCodes }.distinct().forEach { appendLine(it) }

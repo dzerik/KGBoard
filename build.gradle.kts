@@ -14,6 +14,22 @@ repositories {
     }
 }
 
+val uiProbeSourceSet=sourceSets.create("uiProbe") {
+    compileClasspath += sourceSets.main.get().compileClasspath + sourceSets.main.get().output
+}
+val uiProbeJar=tasks.register<Jar>("uiProbeJar") {
+    from(uiProbeSourceSet.output){exclude("META-INF/plugin.xml")}
+    // The platform plugin patches ProcessResources descriptors globally; keep the observer independent.
+    from("src/uiProbe/resources/META-INF/plugin.xml"){into("META-INF")}
+    archiveFileName.set("kgboard-ui-probe.jar")
+    destinationDirectory.set(layout.buildDirectory.dir("ui-probe"))
+}
+val uiProbePlugin=tasks.register<Zip>("uiProbePlugin") {
+    from(uiProbeJar){into("KGBoardUiProbe/lib")}
+    archiveFileName.set("kgboard-ui-probe.zip")
+    destinationDirectory.set(layout.buildDirectory.dir("ui-probe"))
+}
+
 val integrationTestSourceSet = sourceSets.create("integrationTest") {
     compileClasspath += sourceSets.main.get().output + sourceSets.test.get().output
     runtimeClasspath += sourceSets.main.get().output + sourceSets.test.get().output
@@ -29,6 +45,7 @@ configurations.named("integrationTestRuntimeOnly") {
 dependencies {
     intellijPlatform {
         pluginModule(runtimeOnly(project(":integrations:git")))
+        pluginModule(runtimeOnly(project(":integrations:jps")))
         val localPlatformPath = providers.gradleProperty("localPlatformPath")
         if (localPlatformPath.isPresent) {
             local(localPlatformPath.get())
@@ -38,11 +55,15 @@ dependencies {
         bundledPlugin("com.intellij.java")
         bundledPlugin("com.intellij.platform.testRunner")
         bundledPlugin("Git4Idea")
+        // Compile-time SDK APIs for the isolated native pipeline observer only.
+        bundledPlugin("org.jetbrains.plugins.gradle")
+        bundledPlugin("org.jetbrains.idea.maven")
         testFramework(org.jetbrains.intellij.platform.gradle.TestFrameworkType.Platform)
         testFramework(org.jetbrains.intellij.platform.gradle.TestFrameworkType.Starter,
             configurationName = "integrationTestImplementation")
     }
     testImplementation(project(":integrations:git"))
+    testImplementation(project(":integrations:jps"))
     testImplementation(platform("org.junit:junit-bom:${providers.gradleProperty("junitVersion").get()}"))
     testImplementation("org.junit.jupiter:junit-jupiter")
     testImplementation("io.mockk:mockk:1.13.13")
@@ -112,7 +133,9 @@ val integrationTest = intellijPlatformTesting.testIdeUi.register("integrationTes
         classpath = integrationTestSourceSet.runtimeClasspath
         useJUnitPlatform()
         systemProperty("java.awt.headless", "false")
-        dependsOn(tasks.buildPlugin, tasks.testClasses)
+        dependsOn(tasks.buildPlugin, tasks.testClasses, uiProbePlugin)
+        systemProperty("kgboard.ui.probeZip",uiProbePlugin.get().archiveFile.get().asFile.absolutePath)
+        systemProperty("kgboard.ui.gradleHome",gradle.gradleHomeDir!!.absolutePath)
         systemProperty("kgboard.ui.idePath", providers.gradleProperty("uiIdePath")
             .orElse(providers.gradleProperty("localPlatformPath"))
             .orElse(providers.provider { platformPath.toString() }).get())

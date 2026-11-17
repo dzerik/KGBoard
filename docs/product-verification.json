@@ -253,5 +253,44 @@
     "evidence": [
       "docs/assets/product-verification/git-software.txt"
     ]
+  },
+  {
+    "product": "IDEA",
+    "build": "263.7307.200",
+    "jbr": "25.0.4.1+1-b635.79",
+    "os": "Linux",
+    "plugin": "3.9.0",
+    "feature": "C3 software and three-IDE verifier",
+    "command": "./gradlew test buildPlugin verifyPlugin compileIntegrationTestKotlin --offline",
+    "status": "Passed",
+    "evidence": [
+      "docs/assets/product-verification/builds-software.txt"
+    ]
+  },
+  {
+    "product": "IDEA",
+    "build": "263.7307.200",
+    "jbr": "25.0.4.1+1-b635.79",
+    "os": "Linux",
+    "plugin": "3.9.0",
+    "feature": "C3 native exact build roots and automatic JPS activity",
+    "command": "tools/run-ui-tests.sh integrationTest --tests *BuildPipelinesUiTest --offline",
+    "status": "Passed",
+    "evidence": [
+      "docs/assets/product-verification/builds-native.txt"
+    ]
+  },
+  {
+    "product": "IDEA",
+    "build": "263.7307.200",
+    "jbr": "25.0.4.1+1-b635.79",
+    "os": "Linux",
+    "plugin": "3.9.0",
+    "feature": "C3 native IDEA core and diagnostics keyboard navigation",
+    "command": "tools/run-ui-tests.sh integrationTest --tests *CoreOnlyUiTest --offline",
+    "status": "Passed",
+    "evidence": [
+      "docs/assets/product-verification/builds-core-IU-native.txt"
+    ]
   }
 ]

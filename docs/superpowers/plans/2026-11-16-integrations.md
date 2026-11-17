@@ -336,3 +336,10 @@ source for a design amendment; never run two uncoupled visual producers.
 Assert actual envelopes/decisions for success/failure/cancel/parallel roots; no green
 for imports or discovered-but-not-launched tests. Preserve RUN-parent suppression.
 - [ ] **Step 5: Commit.** Version/CHANGELOG/diff check; commit `feat: unify observed build roots across IDE build pipelines`.
+
+## Уточнение C3 по фактическому SDK
+
+См. [build source amendment](../specs/2026-11-17-build-source-amendment.md):
+автоматический JPS наблюдается по публичному UUID lifecycle отдельно, без
+выдуманного результата. Явные четыре пути по-прежнему требуют native coverage
+перед удалением legacy ProjectTask producer.

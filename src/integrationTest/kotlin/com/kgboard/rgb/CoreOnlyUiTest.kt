@@ -125,6 +125,11 @@ class CoreOnlyUiTest {
                             assertEquals("Integrations", sections.selectedTabName)
                             val capabilities = x { byAttribute("name", "diagnostics.capabilities") }
                             capabilities.waitContainsText("Debugger: Available")
+                            capabilities.waitContainsText("Build roots: Available")
+                            capabilities.waitContainsText(
+                                "Automatic JPS activity (outcome unavailable): " +
+                                    if (productCode() in setOf("IU", "IC")) "Available" else "Unavailable"
+                            )
                             case.unavailable.forEach { capabilities.waitContainsText("$it: Unavailable") }
                             listOf("Git", "Tests (SM)").filterNot { it in case.unavailable }
                                 .forEach { capabilities.waitContainsText("$it: Available") }

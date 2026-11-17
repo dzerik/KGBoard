@@ -93,8 +93,11 @@ data class DiagnosticsView(
             val capabilities = state.projects.flatMap { (id, project) ->
                 project.capabilities.values.map { capability ->
                     val label = when (capability.id) {
-                        "git" -> message("capability.git"); "tests.sm" -> message("capability.tests")
-                        "build.roots" -> message("capability.builds"); "debug" -> message("capability.debug")
+                        "git" -> message("capability.git")
+                        "tests.sm" -> message("capability.tests")
+                        "build.roots" -> message("capability.builds")
+                        "build.automake" -> message("capability.automake")
+                        "debug" -> message("capability.debug")
                         else -> message("capability.custom")
                     }
                     message(
