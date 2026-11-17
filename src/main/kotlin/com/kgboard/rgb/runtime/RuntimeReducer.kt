@@ -234,7 +234,10 @@ class RuntimeReducer {
             }
 
             is RuntimeEvent.GitChanged -> updateProject(state, event.project) { p ->
-                if (event.revision <= p.gitRevision) p else p.copy(git = event.facts, gitRevision = event.revision)
+                if (event.revision <= p.gitRevision) p else p.copy(
+                    git = event.facts.reconciled(p.git),
+                    gitRevision = event.revision
+                )
             }
 
             is RuntimeEvent.ShortcutsChanged -> updateProject(state, event.project) { p ->

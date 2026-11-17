@@ -82,7 +82,7 @@ class IntegrationHostTest {
             h.send(
                 RuntimeEvent.ProviderFact(
                     old,
-                    RuntimeEvent.GitChanged(p, 100, GitFacts(available = true, branch = "old"))
+                    RuntimeEvent.GitChanged(p, 100, gitTestFacts("old"))
                 )
             )
             h.send(RuntimeEvent.ProviderStopped(old, "capability.unloaded"))
@@ -91,7 +91,7 @@ class IntegrationHostTest {
             h.send(
                 RuntimeEvent.ProviderFact(
                     fresh,
-                    RuntimeEvent.GitChanged(p, 1, GitFacts(available = true, branch = "new"))
+                    RuntimeEvent.GitChanged(p, 1, gitTestFacts("new"))
                 )
             )
             assertEquals("new", h.snapshotForTest().projects.getValue(p).git.branch)

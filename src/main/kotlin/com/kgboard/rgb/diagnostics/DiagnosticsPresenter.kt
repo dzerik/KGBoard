@@ -6,8 +6,13 @@ import com.kgboard.rgb.scenario.ScenarioCatalog
 
 /** Content equality keeps animation-only or duplicate snapshots off the EDT. */
 data class DiagnosticsView(
-    val connectionLabel: String, val deviceRows: List<String>, val ruleRows: List<String>,
-    val analysisRows: List<String>, val errorRows: List<String>, val capabilityRows: List<String>
+    val connectionLabel: String,
+    val deviceRows: List<String>,
+    val ruleRows: List<String>,
+    val analysisRows: List<String>,
+    val errorRows: List<String>,
+    val capabilityRows: List<String>,
+    val gitRows: List<String>
 ) {
     companion object {
         fun from(state: RuntimeState): DiagnosticsView {
@@ -98,9 +103,22 @@ data class DiagnosticsView(
                         capability.reasonKey?.let { message(DiagnosticsReasons.safe(it)) } ?: "")
                 }
             }
+            val git = state.projects.flatMap { (id, project) ->
+                project.git.repositories.mapIndexed { index, sample ->
+                    val facts = sample.facts
+                    val indicator = GitIndicatorPolicy.classify(facts).name.lowercase(java.util.Locale.ROOT)
+                    message(
+                        "git.repositoryRow", project.displayName ?: id.value.take(8), index + 1,
+                        facts.branch ?: message("git.noBranch"), message("git.state.$indicator"),
+                        facts.ahead?.toString() ?: "?", facts.behind?.toString() ?: "?",
+                        message("git.operation.${facts.operation.name.lowercase(java.util.Locale.ROOT)}"),
+                        sample.errorKey?.let { message(DiagnosticsReasons.safe(it)) } ?: ""
+                    )
+                }
+            }.ifEmpty { listOf(message("git.noRepositories")) }
             return DiagnosticsView(
                 connection, frozenList(deviceRows), frozenList(rules), frozenList(analysis),
-                frozenList(errors), frozenList(capabilities)
+                frozenList(errors), frozenList(capabilities), frozenList(git)
             )
         }
     }

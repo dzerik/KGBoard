@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.8.0] - 2026-11-17
+
+### Added
+- Local NUL-safe Git porcelain snapshots per repository, including directional ahead/behind/diverged status and repository operation diagnostics.
+- One active request and one coalesced refresh per repository, with 10-second deadlines and cancellation-safe process handoff.
+
+### Fixed
+- No-upstream, detached/unborn branches and failed status queries no longer imply Synced.
+- Reject queued old-head completions and preserve independent counts across multiple repositories.
+- Read actual unmerged records instead of treating every merge/rebase as a conflict.
+
 ## [3.7.0] - 2026-11-17
 
 ### Added

@@ -1,0 +1,12 @@
+C2 checkpoint:3.8.0,2026-11-17,Linux/JBR25.0.4.1+1-b635.79/Git2.53.0.
+./gradlew test buildPlugin verifyPlugin compileIntegrationTestKotlin --offline -PlocalPlatformPath=<IU> -PverificationIdePaths=<IU>|<WS>|<PY>
+381 tests,0failures/errors/skips. Verifier Compatible:IU263.7307.200,WS263.7307.202,PY263.7307.206;no production Internal/deprecated API usage reported.
+Actual local bare/clone repos:synced,ahead,behind,diverged,conflict,unborn,detached,no-upstream,untracked,newline rename.
+Fixture setup fetch/push targets only local directories. Production SDK runner only invokes status.
+Actual SDK fixture selects executable via IDE settings,checks status/-z/porcelain arguments,preserves NUL,and cancels a sleeping process.
+Valid stdout+exit1+empty stderr is rejected explicitly; SDK alone returned those bytes without exception.
+Scheduling:1active/1pending,head invalidation,10s timeout,dispose/startup race;actor rejects old-head completion and removes repos.
+Per-repo direction/counts remain separate. Safe export contains only enums,numbers,fixed errors;no branch/path/raw throwable.
+Preview and lighting select same worst-severity repo;ties retain ordering.
+ZIP:KGBoard-3.8.0.zip,1011728bytes,SHA25664c7cc24d8d2cab736f3573963b56ca3a9f28485e95cb32403ff7fd6943fc10f. Descriptor263..263.*,metadata3.8.0;test tooling absent.
+Native new repository-tab content awaits E3;C1 native14cases are historical3.7.0. No physical RGB/user-IDE installation claim.

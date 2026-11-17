@@ -35,16 +35,18 @@ class IndicatorPolicy {
         )
         if (project.editor.hasTodos == true) add("todo")
         if (project.indexing) add("indexing")
-        if (project.git.available) {
-            add(
-                "git.${
-                    when {
-                        project.git.conflict -> "conflict"; project.git.uncommitted -> "dirty"; project.git.unpushed -> "ahead"; else -> "synced"
-                    }
-                }"
-            )
-            project.git.branch?.let { branch -> project.settings.gitBranchColorRules.firstOrNull { it.matches(branch) } }
-                ?.let { add("git.branch", color = LightingPolicy.color(it.color)) }
+        val selectedGit = project.git.selected
+        selectedGit?.facts?.let { facts ->
+            val indicator = GitIndicatorPolicy.classify(facts)
+            val rule = when (indicator) {
+                GitIndicator.CONFLICT -> "conflict"; GitIndicator.DIRTY -> "dirty"; GitIndicator.DIVERGED -> "diverged"
+                GitIndicator.AHEAD -> "ahead"; GitIndicator.BEHIND -> "behind"; GitIndicator.SYNCED -> "synced"
+                else -> null
+            }
+            rule?.let { add("git.$it") }
+            if (facts.freshness == Freshness.FRESH) facts.branch?.let { branch ->
+                project.settings.gitBranchColorRules.firstOrNull { it.matches(branch) }
+            }?.let { add("git.branch", color = LightingPolicy.color(it.color)) }
         }
         for (context in project.shortcutContexts) {
             val codes = project.shortcutKeyCodes[context]

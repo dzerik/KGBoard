@@ -7,7 +7,7 @@ import com.kgboard.rgb.bridge.ProjectRuntimeService
 import com.kgboard.rgb.bridge.integration.*
 import com.kgboard.rgb.runtime.*
 
-/** Loaded exclusively through the Git4Idea optional descriptor. */
+/** Loaded exclusively through the optional Git content module. */
 class GitIntegrationProvider : IntegrationProvider {
     override val capabilityId = "git"
     override fun create(context: IntegrationContext): Disposable {

@@ -59,6 +59,7 @@ internal class DiagnosticsPanel(project: Project?, showSettings: Boolean = true)
         val analysis = area("diagnostics.analysis", "diagnostics.analysis")
         val history = area("diagnostics.history", "diagnostics.history")
         val capabilities = area("diagnostics.capabilities", "diagnostics.capabilities")
+        val git = area("diagnostics.git", "diagnostics.git")
         val actions = JPanel(GridLayout(0, 2, JBUI.scale(4), JBUI.scale(4)))
         fun button(id: String, key: String, action: () -> Unit) =
             JButton(message(key)).identified(id, message(key)).also {
@@ -78,7 +79,8 @@ internal class DiagnosticsPanel(project: Project?, showSettings: Boolean = true)
                     DiagnosticsExport.copyText(
                         snapshot.diagnostics,
                         versions,
-                        snapshot.projects.values.flatMap { it.capabilities.values }.map { it.exportCode() }
+                        snapshot.projects.values.flatMap { it.capabilities.values }.map { it.exportCode() },
+                        snapshot.projects.values.flatMap { it.git.repositories }
                     )
                 )
             )
@@ -93,6 +95,7 @@ internal class DiagnosticsPanel(project: Project?, showSettings: Boolean = true)
             rules.text = view.ruleRows.joinToString("\n\n")
             analysis.text = view.analysisRows.joinToString("\n")
             history.text = view.errorRows.joinToString("\n")
+            git.text = view.gitRows.joinToString("\n\n")
             capabilities.text = (view.capabilityRows + message(
                 if (service.nativeResumeAvailable)
                     "diagnostics.resume.native" else "diagnostics.resume.fallback"

@@ -240,5 +240,18 @@
     "status": "Blocked",
     "evidence": [],
     "reason": "Essential Python backend requires smRunner; actual SM remains loaded despite disabled flag."
+  },
+  {
+    "product": "IDEA/WebStorm/PyCharm",
+    "build": "263.7307.200/202/206",
+    "jbr": "25.0.4.1+1-b635.79",
+    "os": "Linux",
+    "plugin": "3.8.0",
+    "feature": "C2 directional Git,local repos,SDK runner,cancellation and safe export",
+    "command": "./gradlew test buildPlugin verifyPlugin compileIntegrationTestKotlin -PverificationIdePaths=<IU>|<WS>|<PY> --offline",
+    "status": "Passed",
+    "evidence": [
+      "docs/assets/product-verification/git-software.txt"
+    ]
   }
 ]

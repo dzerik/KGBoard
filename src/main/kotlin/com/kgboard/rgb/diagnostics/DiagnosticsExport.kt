@@ -1,11 +1,13 @@
 package com.kgboard.rgb.diagnostics
 
 import com.kgboard.rgb.scenario.ScenarioCatalog
+import com.kgboard.rgb.runtime.*
 import java.util.Locale
 
 /** Only fixed reason codes and numeric counters cross this boundary. */
 object DiagnosticsReasons {
     val keys: Set<String> = setOf(
+        "git.timeout", "git.cancelled", "git.commandFailed", "git.invalidStatus",
         "capability.failed", "capability.unloaded", "capability.notInstalled",
         "transport.failed",
         "diagnostics.unknown",
@@ -40,7 +42,10 @@ object DiagnosticsReasons {
 }
 
 object DiagnosticsExport {
-    fun copyText(snapshot: DiagnosticsSnapshot, versions: Map<String, String>, capabilityLabels: List<String>): String =
+    fun copyText(
+        snapshot: DiagnosticsSnapshot, versions: Map<String, String>, capabilityLabels: List<String>,
+        gitSamples: List<GitSample> = emptyList()
+    ): String =
         buildString {
             appendLine("KGBoard diagnostics")
             for ((key, pattern) in mapOf(
@@ -54,6 +59,20 @@ object DiagnosticsExport {
                 listOf("available", "unavailable", "error").map { "capability.$id.$it" }
             }.toSet()
             capabilityLabels.filter { it in capabilityCodes }.distinct().forEach { appendLine(it) }
+            gitSamples.forEachIndexed { index, sample ->
+                val prefix = "git[${index + 1}]"
+                val facts = sample.facts
+                appendLine("$prefix.state=${GitIndicatorPolicy.classify(facts).name.lowercase(Locale.ROOT)}")
+                appendLine(
+                    "$prefix.ahead=${facts.ahead?.takeIf { it >= 0 } ?: "unknown"} behind=${facts.behind?.takeIf { it >= 0 } ?: "unknown"} conflicts=${
+                        facts.conflicts.coerceAtLeast(
+                            0
+                        )
+                    }"
+                )
+                appendLine("$prefix.operation=${facts.operation.name.lowercase(Locale.ROOT)}")
+                sample.errorKey?.let { appendLine("$prefix.error=${DiagnosticsReasons.safe(it)}") }
+            }
             val decision = snapshot.decision
             appendLine("session=${decision?.token?.session?.value ?: 0} inventory=${decision?.token?.revision ?: 0} revision=${decision?.revision?.value ?: 0}")
             appendLine("devices=${decision?.devices?.size ?: 0}")

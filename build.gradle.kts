@@ -42,6 +42,7 @@ dependencies {
         testFramework(org.jetbrains.intellij.platform.gradle.TestFrameworkType.Starter,
             configurationName = "integrationTestImplementation")
     }
+    testImplementation(project(":integrations:git"))
     testImplementation(platform("org.junit:junit-bom:${providers.gradleProperty("junitVersion").get()}"))
     testImplementation("org.junit.jupiter:junit-jupiter")
     testImplementation("io.mockk:mockk:1.13.13")

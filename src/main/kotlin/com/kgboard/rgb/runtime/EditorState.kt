@@ -5,7 +5,8 @@ sealed interface AnalysisResult {
     data object NotApplicable : AnalysisResult
     data class Ready(val hasErrors: Boolean, val hasWarnings: Boolean) : AnalysisResult
 }
-data class EditorState(val revision: EditorRevision? = null, val applicable: Boolean = false,
-    val analysis: AnalysisResult = AnalysisResult.NotApplicable, val hasTodos: Boolean? = null)
-data class GitFacts(val available: Boolean = false, val conflict: Boolean = false,
-    val uncommitted: Boolean = false, val unpushed: Boolean = false, val branch: String? = null)
+
+data class EditorState(
+    val revision: EditorRevision? = null, val applicable: Boolean = false,
+    val analysis: AnalysisResult = AnalysisResult.NotApplicable, val hasTodos: Boolean? = null
+)
