@@ -1,0 +1,10 @@
+B3 / E2 checkpoint, 2026-11-17, plugin 3.6.0
+IDE: IU263.7307.200; JBR 25.0.4.1+1-b635.79; Linux.
+./gradlew test buildPlugin verifyPlugin --offline -PlocalPlatformPath=<pinned IDEA>
+352 tests: 0 failures, 0 errors, 0 skips. Plugin Verifier: Compatible; no Internal API usage.
+B1 pixels/provenance, B2 pending/sent/cache/coalescing/old-token/no-feedback, E2 dual clocks/resume fencing covered by automated tests.
+Simulated sleep and transport writes are software evidence; physical sleep and EVision output were not exercised.
+ZIP: KGBoard-3.6.0.zip, 915210 bytes
+SHA256: 2bbcbdde359f0b6e130c6c98e995cfa52e5a1a7f79f42f8eb254f14fa1698d19
+Descriptor version 3.6.0; since-build 263; until-build 263.*.
+Generated build metadata matches the descriptor. JUnit/MockK/Starter/Driver/Kodein/simulator are absent from runtime packaging.

@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.6.0] - 2026-11-17
+
+### Added
+- Native lighting diagnostics show per-device delivery, visible and covered IDE signals, analysis states and recent transitions.
+- Explicit connection popup, shared Connect/Disconnect actions and diagnostics access from Settings.
+- Privacy-filtered Copy Diagnostics and Clear History actions with English/Russian text and keyboard access.
+
+### Changed
+- Coalesce diagnostic and status updates to at most four per second; release subscriptions whenever the panel hides or closes.
+
 ## [3.5.1] - 2026-11-17
 
 ### Fixed

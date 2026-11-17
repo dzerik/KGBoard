@@ -37,12 +37,19 @@ class ConnectionHeader(
                 button(message("connection.connect")) {
                     try {
                         flush()
-                        preview.connect(draft?.state?.let { Endpoint(it.host, it.port) } ?: state.endpoint)
+                        com.kgboard.rgb.diagnostics.DiagnosticsActions.connect(
+                            events,
+                            preview,
+                            draft?.state?.let { Endpoint(it.host, it.port) } ?: state.endpoint)
                     } catch (error: IllegalArgumentException) {
                         status!!.text = error.message
                     }
                 }.applyToComponent { identified("connection.connect", message("connection.connect")) }
-                button(message("connection.disconnect")) { events.dispatch(RuntimeEvent.DisconnectRequested) }
+                button(message("connection.disconnect")) {
+                    com.kgboard.rgb.diagnostics.DiagnosticsActions.disconnect(
+                        events
+                    )
+                }
                     .applyToComponent { identified("connection.disconnect", message("connection.disconnect")) }
             }
             row {
@@ -51,10 +58,9 @@ class ConnectionHeader(
                         .identified("app.enabled", message("integration.enabled"))
                     cell(enabled!!)
                 }
-                button(message("diagnostics.open")) {}.applyToComponent {
-                    identified("connection.diagnostics", message("diagnostics.open"))
-                    isEnabled = false; toolTipText = message("diagnostics.pending")
-                }
+                button(message("diagnostics.open")) {
+                    status?.let { com.kgboard.rgb.diagnostics.DiagnosticsActions.openFrom(it) }
+                }.applyToComponent { identified("connection.diagnostics", message("diagnostics.open")) }
             }
             previewRow = row { cell(previewStatus!!); button(message("preview.stop")) { preview.clear() } }
                 .layout(RowLayout.INDEPENDENT)

@@ -69,7 +69,7 @@ data class ProjectState(
     val shortcutKeyCodes: Map<String, List<Int>> = emptyMap(),
     val savedAtMs: Long? = null, val saveDeadline: RuntimeDeadline? = null,
     val saveRevision: Long = -1,
-    val pomodoro: PomodoroState = PomodoroState()
+    val pomodoro: PomodoroState = PomodoroState(), val displayName: String? = null
 )
 
 data class RuntimeState(

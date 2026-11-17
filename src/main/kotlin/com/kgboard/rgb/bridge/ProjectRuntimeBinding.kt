@@ -9,7 +9,11 @@ import java.util.UUID
 import java.util.concurrent.atomic.AtomicBoolean
 
 /** Identity and cancellation boundary for exactly one open-project lifetime. */
-class ProjectRuntimeBinding(private val events: RuntimeEvents, private val initial: ProjectSettingsSnapshot) :
+class ProjectRuntimeBinding(
+    private val events: RuntimeEvents,
+    private val initial: ProjectSettingsSnapshot,
+    private val displayName: String? = null
+) :
     Disposable {
     constructor(project: Project, events: RuntimeEvents) : this(
         events,
@@ -17,7 +21,7 @@ class ProjectRuntimeBinding(private val events: RuntimeEvents, private val initi
             com.kgboard.rgb.settings.SettingsMigration.project(
                 KgBoardProjectSettings.getInstance(project).state
             )
-        )
+        ), project.name
     )
 
     val id = ProjectId(UUID.randomUUID().toString())
@@ -27,7 +31,7 @@ class ProjectRuntimeBinding(private val events: RuntimeEvents, private val initi
         if (!disposed.get() && started.compareAndSet(false, true)) events.dispatch(
             RuntimeEvent.ProjectOpened(
                 id,
-                initial
+                initial, displayName
             )
         )
     }

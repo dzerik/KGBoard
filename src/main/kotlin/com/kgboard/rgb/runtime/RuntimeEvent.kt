@@ -4,7 +4,11 @@ sealed interface RuntimeEvent {
     data class DeliveryReported(val receipt: com.kgboard.rgb.diagnostics.DeliveryReceipt) : RuntimeEvent
     data object ClearHistory : RuntimeEvent
     data object ResumeDetected : RuntimeEvent
-    data class ProjectOpened(val id: ProjectId, val settings: ProjectSettingsSnapshot = ProjectSettingsSnapshot()) :
+    data class ProjectOpened(
+        val id: ProjectId,
+        val settings: ProjectSettingsSnapshot = ProjectSettingsSnapshot(),
+        val displayName: String? = null
+    ) :
         RuntimeEvent
 
     data class ProjectClosed(val id: ProjectId) : RuntimeEvent

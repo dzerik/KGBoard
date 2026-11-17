@@ -1,0 +1,14 @@
+B3 native verification, 2026-11-17, plugin 3.6.0
+IDE: IU263.7307.200; JBR 25.0.4.1+1-b635.79; Linux Xvfb/X11 + twm; Light and Dark, 100% scale.
+tools/run-ui-tests.sh integrationTest --tests *DiagnosticsUiTest --offline -PlocalPlatformPath=<pinned IDEA>
+Passed 2/2, 0 failures/errors/skips, 2m21s.
+User keyboard actions: Enable+Apply, Connect, select actual fake SDK controller, Apply serial binding.
+Settings Diagnostics opens the shared panel inside a native child DialogWrapper, preserving the Settings draft.
+No-active-signals text is awaited on screen; screenshots assert rendered pixel variation and were visually inspected.
+Connection popup opens through the public keyboard action and closes with Escape.
+20 show/hide Tool Window cycles per theme, focus assertions, Copy/Clear: 0 additional SDK writes.
+Isolated X11 clipboard contains exact installed artifact version, excludes fixture serial and project name.
+No physical RGB writes or OS sleep were performed. Project and IDE config/system are isolated.
+Installed ZIP SHA256: 2bbcbdde359f0b6e130c6c98e995cfa52e5a1a7f79f42f8eb254f14fa1698d19
+Per-launch properties alongside this file record actual build/JBR/OS/ZIP inputs.
+Screenshots show the shared panel in the native Settings child dialog. Main IDE frame screenshots were blank in this fixture and are excluded; functional Tool Window checks passed, separate Tool Window pixel layout is not claimed.

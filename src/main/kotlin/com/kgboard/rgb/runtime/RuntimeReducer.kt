@@ -62,7 +62,14 @@ class RuntimeReducer {
         )
         val next = when (event) {
             is RuntimeEvent.ProjectOpened -> if (event.id in state.closedProjects || event.id in state.projects) state
-            else state.copy(projects = frozenMap(state.projects + (event.id to ProjectState(event.settings))))
+            else state.copy(
+                projects = frozenMap(
+                    state.projects + (event.id to ProjectState(
+                        settings = event.settings,
+                        displayName = event.displayName
+                    ))
+                )
+            )
 
             is RuntimeEvent.ProjectClosed -> if (event.id !in state.projects) state else state.copy(
                 projects = frozenMap(state.projects - event.id),

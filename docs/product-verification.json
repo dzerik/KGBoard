@@ -138,5 +138,43 @@
     "status": "NotRun",
     "evidence": [],
     "reason": "Actual UI automation ran in isolated Xvfb/X11; the user desktop Wayland focus path was not exercised."
+  },
+  {
+    "product": "IDEA",
+    "build": "263.7307.200",
+    "jbr": "25.0.4.1+1-b635.79",
+    "os": "Linux",
+    "plugin": "3.6.0",
+    "feature": "B1/B2/B3/E2 software reliability and package",
+    "command": "./gradlew test buildPlugin verifyPlugin --offline",
+    "status": "Passed",
+    "evidence": [
+      "docs/assets/product-verification/diagnostics-software.txt"
+    ]
+  },
+  {
+    "product": "IDEA",
+    "build": "263.7307.200",
+    "jbr": "25.0.4.1+1-b635.79",
+    "os": "Linux X11",
+    "plugin": "3.6.0",
+    "feature": "B3 native diagnostics Light/Dark, popup, clipboard and 20 Tool Window lifetimes per theme",
+    "command": "tools/run-ui-tests.sh integrationTest --tests *DiagnosticsUiTest --offline",
+    "status": "Passed",
+    "evidence": [
+      "docs/assets/product-verification/diagnostics-native.txt"
+    ]
+  },
+  {
+    "product": "IDEA",
+    "build": "263.7307.200",
+    "jbr": "25.0.4.1+1-b635.79",
+    "os": "Linux",
+    "plugin": "3.6.0",
+    "feature": "Physical OS sleep/resume and native signal",
+    "command": "",
+    "status": "NotRun",
+    "evidence": [],
+    "reason": "Automated dual-clock tests do not prove physical OS resume behavior."
   }
 ]
