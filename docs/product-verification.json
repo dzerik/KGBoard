@@ -414,5 +414,19 @@
       "docs/assets/product-verification/review-fixes/kgboard-settings-cancel.properties",
       "docs/assets/product-verification/review-fixes/kgboard-settings-apply.properties"
     ]
+  },
+  {
+    "product": "IDEA/WebStorm/PyCharm",
+    "build": "IU263.7307.200 / WS263.7307.202 / PY263.7307.206",
+    "jbr": "25 / 25.0.4.1+1-b635.79",
+    "os": "Linux/X11",
+    "plugin": "3.9.3",
+    "feature": "Restore device selection after Settings reopen with a missing older port: 395 JUnit, 6 Python, 3 verifier, 1 native case",
+    "command": "./gradlew test buildPlugin verifyPlugin compileIntegrationTestKotlin --offline; tools/run-ui-tests.sh integrationTest --tests com.kgboard.rgb.DeviceSelectionUiTest -PlocalPlatformPath=<IU> --offline --console=plain",
+    "status": "Passed",
+    "evidence": [
+      "docs/assets/product-verification/device-selection-3.9.3.txt",
+      "docs/assets/product-verification/device-selection-3.9.3.properties"
+    ]
   }
 ]

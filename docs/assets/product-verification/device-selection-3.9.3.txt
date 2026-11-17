@@ -1,0 +1,13 @@
+KGBoard3.9.3 — saved device selection regression, 2026-11-17.
+Read-only user XML/API comparison: legacy unconfirmed record, old missing primary port, then current matching primary port. No user configuration or physical RGB writes performed.
+Root cause: Settings resolved only the first enabled primary, without considering later resolvable primary assignments.
+Fix: select the first successfully resolved enabled primary; preserve all records and strict identity checks.
+TDD RED: SettingsPersistencePlatformTest reopening regression expected0/actualnull after XML roundtrip and panel recreation (14tests,1failed).
+GREEN: SettingsPersistencePlatformTest14passed; full395JUnit unit/platform0fail/error/skip;6Python tools tests passed.
+PluginVerifier: Compatible IU263.7307.200,WS263.7307.202,PY263.7307.206; only3existingExperimentalBVMusages per IDE, noInternal/DeprecatedAPI.
+Commands: ./gradlew test buildPlugin verifyPlugin compileIntegrationTestKotlin -PlocalPlatformPath=<IU> '-PverificationIdePaths=<IU>|<WS>|<PY>' --offline --console=plain; python3 -m unittest discover -s tools/tests -v.
+Native final: tools/run-ui-tests.sh integrationTest --tests com.kgboard.rgb.DeviceSelectionUiTest -PlocalPlatformPath=<IU> --offline --console=plain, BUILD SUCCESSFUL1m13s,1case0fail/error/skip.
+Native case: Board selected; closeOK; reopen with manual SDK connection and verifyselection; closeCancel; reopen and verifyselection; closeOK. Missing/current XML bindings retained. Loopback simulator with no serial and two saved port records, Linux/X11/JBR25.0.4.1+1-b635.79. Background/retirement frames to fake SDK are permitted; no real hardware output.
+Preliminary native fixture failures: mouse connection interaction timed out; after using existing keyboard-activation pattern all selection assertions passed but an invalid0-write expectation failed (actual4baseline/retirement writes). Final fixture checks selection and persisted records, not that unrelated false assumption.
+Focused code review: no findings. Production change remained unchanged after review.
+ZIP build/distributions/KGBoard-3.9.3.zip bytes1030542 SHA2563d33edb8bb837b80170ad1501596a2eadc70f53eb11b3e355e4574e3635bafcc.

@@ -175,9 +175,10 @@ class DeviceSettingsPanel(
                 }.orEmpty()
                 combo.model = DefaultComboBoxModel(values.toTypedArray())
                 val saved = inventory?.let { current ->
-                    draft.bindings.firstOrNull { it.enabled && it.role == "primary" }?.let {
-                        (DeviceResolver.resolve(
-                            it.binding,
+                    draft.bindings.firstNotNullOfOrNull { configured ->
+                        if (!configured.enabled || configured.role != "primary") null
+                        else (DeviceResolver.resolve(
+                            configured.binding,
                             current,
                             state.settings.untrustedSerials
                         ) as? DeviceResolution.Resolved)?.index

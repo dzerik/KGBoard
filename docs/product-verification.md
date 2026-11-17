@@ -1,5 +1,11 @@
 # Проверка KGBoard
 
+Последний патч **3.9.3** исправляет восстановление выбранного устройства при наличии
+старого недоступного назначения перед текущим. Проверено 395 unit/platform тестов,
+6 Python тестов, Verifier трёх IDE и один native сценарий с тремя открытиями Settings
+через OK/Cancel. [Подробности](assets/product-verification/device-selection-3.9.3.txt),
+[точный SHA запуска](assets/product-verification/device-selection-3.9.3.properties).
+
 Программная контрольная точка **3.9.2**, 17 ноября 2026. Реализован сохранённый
 объём A/B/C/E: [надёжная индикация IDE](superpowers/plans/2026-11-17-ide-focus-scope.md).
 D1–D3 и ProfileUiTest отложены. Заключительный обзор всей ветки выявил два

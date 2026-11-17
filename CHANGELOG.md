@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.9.3] - 2026-11-17
+
+### Fixed
+- Restore the selected device when reopening settings even if an earlier saved primary assignment refers to a missing USB port.
+- Preserve inactive and unavailable assignments while searching for the first resolvable primary device.
+
 ## [3.9.2] - 2026-11-17
 
 ### Fixed

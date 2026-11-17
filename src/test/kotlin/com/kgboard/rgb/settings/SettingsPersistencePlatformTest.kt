@@ -88,6 +88,61 @@ class SettingsPersistencePlatformTest {
     }
 
     @Test
+    fun `reopening device settings restores a resolved primary after a missing saved port`() {
+        EdtTestUtil.runInEdtAndWait<Throwable> {
+            val keyboard = testDevice().copy(serial = "", location = "usb/current")
+            val saved = KgBoardSettings.State(
+                autoConnect = false, schemaVersion = SettingsSchema.VERSION,
+                bindingRecords = mutableListOf(
+                    BindingRecord(id = "00000000-0000-4000-8000-000000000001"),
+                    BindingRecord(
+                        id = "00000000-0000-4000-8000-000000000002", kind = "port",
+                        type = keyboard.type, vendor = keyboard.vendor, name = keyboard.name, location = "usb/old"
+                    ),
+                    BindingRecord(
+                        id = "00000000-0000-4000-8000-000000000003", kind = "port",
+                        type = keyboard.type, vendor = keyboard.vendor, name = keyboard.name, location = "usb/current"
+                    )
+                )
+            )
+            RuntimeHarness(RuntimeSettings.capture(saved)).use { h ->
+                val inventory =
+                    h.snapshotForTest().copy(connection = ConnectionState.Ready(SessionId(1), listOf(keyboard)))
+                val draft = AppDraft.capture(saved)
+                SettingsPreviewSession(RuntimeEvents { h.send(it) }).use { preview ->
+                    val editor = com.kgboard.rgb.settings.ui.DeviceSettingsPanel(draft, preview) {}
+                    val panel = editor.createPanel()
+                    editor.update(inventory)
+                    controlsOfType<javax.swing.JComboBox<*>>(panel).single { it.name == "device.selection" }.selectedIndex =
+                        0
+                    assertEquals(0, editor.choice()?.index)
+                }
+                // Persist and reconstruct the detached settings just as Apply and a new dialog do.
+                val stored = XmlSerializer.deserialize(
+                    XmlSerializer.serialize(draft.toState()),
+                    KgBoardSettings.State::class.java
+                )
+                val reopenedDraft = AppDraft.capture(stored)
+                SettingsPreviewSession(RuntimeEvents { h.send(it) }).use { preview ->
+                    val reopened = com.kgboard.rgb.settings.ui.DeviceSettingsPanel(reopenedDraft, preview) {}
+                    reopened.createPanel()
+                    reopened.update(inventory)
+                    assertEquals(
+                        0,
+                        reopened.choice()?.index,
+                        "An unavailable old assignment must not hide the live primary"
+                    )
+                    assertEquals(
+                        saved.bindingRecords,
+                        reopenedDraft.toState().bindingRecords,
+                        "Opening the dialog must preserve all saved records"
+                    )
+                }
+            }
+        }
+    }
+
+    @Test
     fun `application settings expose four sections and a public settings action`() {
         EdtTestUtil.runInEdtAndWait<Throwable> {
             val configurable = KgBoardConfigurable()
