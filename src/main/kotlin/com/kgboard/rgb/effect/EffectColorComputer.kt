@@ -1,6 +1,8 @@
 package com.kgboard.rgb.effect
 
 import java.awt.Color
+import com.kgboard.rgb.diagnostics.CompositionLayer
+import com.kgboard.rgb.diagnostics.DecisionComposer
 
 /**
  * Pure computation of effect colors — shared by the runtime and deterministic tests.
@@ -91,7 +93,7 @@ object EffectColorComputer {
      * 3. Sort by priority ascending (higher overwrites lower)
      * 4. Composite each effect onto the frame
      *
-     * @return Pair of (frame, remaining active effects after expiration)
+     * @return Composed frame; equal priorities preserve caller order
      */
     fun composeFrame(
         idleColor: Color,
@@ -100,27 +102,16 @@ object EffectColorComputer {
         now: Long,
         zoneResolver: ((EffectTarget.Zone) -> List<Int>)? = null
     ): Array<Color> {
-        val frame = Array(numLeds) { idleColor }
-
-        val active = effects.filter { ae ->
-            ae.timeoutMs <= 0 || now - ae.startTime < ae.timeoutMs
+        val layers = effects.mapIndexedNotNull { index, active ->
+            if (active.timeoutMs > 0 && now - active.startTime >= active.timeoutMs) return@mapIndexedNotNull null
+            val indices = resolveIndices(active.effect.target, numLeds, zoneResolver)
+            // This legacy helper has caller-order ties; policy supplies actual owner/source/time instead.
+            CompositionLayer(
+                active.effect.name, null, active.effect.priority, 0, index.toString().padStart(10, '0'),
+                indices, computeColors(active.effect, now - active.startTime, indices.size, numLeds, idleColor)
+            )
         }
-
-        val sorted = active.sortedBy { it.effect.priority }
-
-        for (ae in sorted) {
-            val elapsed = now - ae.startTime
-            val indices = resolveIndices(ae.effect.target, numLeds, zoneResolver)
-            val colors = computeColors(ae.effect, elapsed, indices.size, numLeds, idleColor)
-
-            for ((i, ledIdx) in indices.withIndex()) {
-                if (ledIdx in frame.indices && i < colors.size) {
-                    frame[ledIdx] = colors[i]
-                }
-            }
-        }
-
-        return frame
+        return DecisionComposer.compose(idleColor, numLeds, layers).colors.toTypedArray()
     }
 
     /**

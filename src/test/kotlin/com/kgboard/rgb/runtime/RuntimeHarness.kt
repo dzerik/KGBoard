@@ -92,10 +92,16 @@ internal class ManualScheduler(private val clock: ManualClock, private val execu
 }
 
 internal class RecordingFrameWriter : FrameWriter {
+    val envelopes = mutableListOf<com.kgboard.rgb.diagnostics.FrameEnvelope>()
     val history = mutableListOf<Pair<Int, List<Color>>>()
     val connects = mutableListOf<Pair<Endpoint, SessionId>>()
     val disconnects = mutableListOf<SessionId>()
     var closed = false
+    override fun offer(envelope: com.kgboard.rgb.diagnostics.FrameEnvelope) {
+        envelopes.add(envelope)
+        offer(envelope.token.session, envelope.deviceIndex, envelope.colors)
+    }
+
     override fun offer(session: SessionId, device: Int, colors: List<Color>) {
         check(!closed)
         history.add(device to colors.toList())

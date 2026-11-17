@@ -93,7 +93,8 @@ data class RuntimeState(
     val previewFeedback: Map<Long, com.kgboard.rgb.settings.PreviewAvailability> = emptyMap(),
     val nowMs: Long = 0,
     val lowMemoryAtMs: Long? = null,
-    val shuttingDown: Boolean = false
+    val shuttingDown: Boolean = false,
+    val lastDecision: com.kgboard.rgb.diagnostics.LightingDecision? = null
 )
 
 internal fun <T> frozenList(values: Collection<T>): List<T> = Collections.unmodifiableList(ArrayList(values))

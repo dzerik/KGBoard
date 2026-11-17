@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.4.0] - 2026-11-17
+
+### Added
+- Immutable per-device lighting decisions with frame revisions, visible LEDs and explicit suppression reasons.
+- Explanations for device roles, background projects, missing assignments, partial targets, Preview and global policy overrides.
+
+### Changed
+- Use one compositor for actual pixels and their provenance; schedule animation only while animated pixels remain visible.
+- Publish and offer the same frame envelopes, including one-time cleanup of preview-only or removed device assignments.
+
 ## [3.3.0] - 2026-11-17
 
 ### Added

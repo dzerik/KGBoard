@@ -1,6 +1,7 @@
 package com.kgboard.rgb.runtime
 
 import com.kgboard.rgb.device.*
+import com.kgboard.rgb.diagnostics.*
 
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.Executor
@@ -31,6 +32,7 @@ class LightingRuntime(
     private var scheduled: Cancellation? = null
     private var wakeGeneration = 0L
     private var outputToken: InventoryToken? = null
+    private var renderRevision = initial.lastDecision?.revision?.value ?: 0L
 
     private data class OwnedOutput(val binding: DeviceBinding, val token: InventoryToken)
 
@@ -97,7 +99,7 @@ class LightingRuntime(
             subscriptions.clear()
             writer.close()
         } else listOfNotNull(
-            policy.nextWakeAt(state, now),
+            state.lastDecision?.nextWakeAtMs,
             (state.connection as? ConnectionState.Backoff)?.retryAtMs,
             state.probeAtMs
         ).minOrNull()?.let { due ->
@@ -111,22 +113,53 @@ class LightingRuntime(
             outputToken = inventory?.token
             ownedDevices = emptyMap()
         }
-        if (inventory == null) return
-        val frames = policy.frames(state, now)
-        for ((oldIndex, owned) in ownedDevices.filterKeys { it !in frames }) {
+        var decision = policy.decide(state, now, RenderRevision(++renderRevision))
+        val currentFrames = decision.devices.mapNotNull { it.frame }
+        if (inventory == null) {
+            state = state.copy(lastDecision = decision)
+            return
+        }
+        val indices = currentFrames.map { it.deviceIndex }.toSet()
+        val remaining = decision.devices.toMutableList()
+        val retired = mutableListOf<DeviceDecision>()
+        for ((oldIndex, owned) in ownedDevices.filterKeys { it !in indices }) {
             if (owned.token != inventory.token) continue
             val resolution = DeviceResolver.resolve(owned.binding, inventory, state.settings.untrustedSerials)
-            if (resolution is DeviceResolution.Resolved && resolution.index == oldIndex)
-                writer.offer(
-                    inventory.token.session,
-                    resolution.index,
-                    policy.retiredFrame(state, inventory.devices[resolution.index])
+            if (resolution !is DeviceResolution.Resolved || resolution.index != oldIndex) continue
+            val device = inventory.devices[oldIndex]
+            if (device.numLeds <= 0) continue
+            val existing = remaining.indexOfFirst { it.bindingId == owned.binding.id && it.frame == null }
+            val explanation = if (existing >= 0) remaining.removeAt(existing) else DeviceDecision(
+                owned.binding.id, oldIndex, null,
+                frozenList(
+                    state.lastDecision?.devices?.firstOrNull {
+                        it.bindingId == owned.binding.id && it.deviceIndex == oldIndex
+                    }?.rules.orEmpty().map {
+                        it.copy(
+                            visible = emptyList(),
+                            reasons = frozenSet(it.reasons + SuppressionReason.UNASSIGNED)
+                        )
+                    }),
+                "diagnostics.retired"
+            )
+            retired.add(
+                explanation.copy(
+                    deviceIndex = oldIndex, frame = FrameEnvelope(
+                        inventory.token,
+                        owned.binding.id, oldIndex, decision.revision, frozenList(policy.retiredFrame(state, device))
+                    )
                 )
+            )
         }
-        frames.forEach { (device, frame) -> writer.offer(inventory.token.session, device, frame) }
-        ownedDevices = policy.outputs(state, now).filter { it.index in frames }.associate {
-            it.index to OwnedOutput(it.configured.binding, it.token)
-        }
+        if (retired.isNotEmpty()) decision = decision.copy(devices = frozenList(retired + remaining))
+        state = state.copy(lastDecision = decision)
+        decision.devices.mapNotNull { it.frame }.forEach(writer::offer)
+        ownedDevices = currentFrames.mapNotNull { frame ->
+            val binding =
+                state.settings.bindings.firstOrNull { it.enabled && it.binding.id == frame.bindingId }?.binding
+                    ?: state.preview?.binding?.takeIf { it.id == frame.bindingId }
+            binding?.let { frame.deviceIndex to OwnedOutput(it, frame.token) }
+        }.toMap()
     }
 
     private fun notify(subscription: Subscription) {
