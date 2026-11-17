@@ -1,0 +1,9 @@
+<idea-plugin>
+    <dependencies>
+        <plugin id="com.kgboard.rgb"/>
+        <plugin id="Git4Idea"/>
+    </dependencies>
+    <extensions defaultExtensionNs="com.kgboard.rgb">
+        <integrationProvider implementation="com.kgboard.rgb.bridge.git.GitIntegrationProvider"/>
+    </extensions>
+</idea-plugin>

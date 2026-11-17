@@ -45,14 +45,14 @@ internal fun ProjectSettingsSnapshot.withTestTargets(): ProjectSettingsSnapshot 
 )
 
 internal class ManualExecutor : Executor {
-    private val tasks = ArrayDeque<Runnable>()
+    private val tasks = java.util.concurrent.ConcurrentLinkedQueue<Runnable>()
     override fun execute(command: Runnable) {
-        tasks.addLast(command)
+        tasks.add(command)
     }
 
     val hasPending: Boolean get() = tasks.isNotEmpty()
     fun drain() {
-        while (tasks.isNotEmpty()) tasks.removeFirst().run()
+        while (true) (tasks.poll() ?: break).run()
     }
 }
 

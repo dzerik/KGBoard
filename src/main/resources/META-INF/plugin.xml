@@ -33,10 +33,19 @@
     ]]></description>
 
     <depends>com.intellij.modules.platform</depends>
-    <depends>com.intellij.modules.java</depends>
-    <depends>com.intellij.platform.testRunner</depends>
-    <depends optional="true" config-file="kgboard-git.xml">Git4Idea</depends>
+    <depends>com.intellij.modules.lang</depends>
+    <depends>com.intellij.modules.xdebugger</depends>
+    <depends optional="true" config-file="kgboard-tests.xml">com.intellij.platform.testRunner</depends>
+    <content>
+        <module name="KGBoard.integrations.git" loading="optional"/>
+    </content>
 
+    <extensionPoints>
+        <extensionPoint name="integrationProvider" interface="com.kgboard.rgb.bridge.integration.IntegrationProvider" dynamic="true"/>
+    </extensionPoints>
+    <extensions defaultExtensionNs="com.kgboard.rgb">
+        <integrationProvider implementation="com.kgboard.rgb.bridge.DebugIntegrationProvider"/>
+    </extensions>
     <extensions defaultExtensionNs="com.intellij">
         <!-- Settings page (application-level) -->
         <applicationConfigurable

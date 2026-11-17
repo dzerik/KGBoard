@@ -1,0 +1,14 @@
+C1 checkpoint, 2026-11-17, plugin 3.7.0
+JBR 25.0.4.1+1-b635.79, Linux.
+./gradlew test verifyPlugin --offline -PlocalPlatformPath=<IU> -PverificationIdePaths=<IU>|<WS>|<PY>
+364 tests, 0 failures, 0 errors, 0 skips.
+Verifier Compatible: IU263.7307.200, WS263.7307.202, PY263.7307.206.
+No production Internal/deprecated API usage reported.
+Core denied-package loader test, actual dynamic EP lifecycle, constructor failure staging,
+dispose/callback lock ordering, stale actor lease/generation gates, SM root lifecycle and diagnostics/export covered.
+ZIP KGBoard-3.7.0.zip: 965478 bytes.
+SHA256 3c98571eb9a1e9e54f59e1170b871a4643fb2a1ca8347b9cef1d30aa6172484d
+Range 263..263.*; generated metadata and descriptor version 3.7.0.
+Git isolated in lib/modules/KGBoard.integrations.git.jar, optional content descriptor.
+JUnit/MockK/Starter/Driver/Kodein/simulator not packaged.
+No physical RGB, user IDE installation, OS sleep or native optional-plugin unload exercised.

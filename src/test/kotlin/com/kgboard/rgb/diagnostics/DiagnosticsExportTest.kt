@@ -8,6 +8,21 @@ import java.awt.Color
 
 class DiagnosticsExportTest {
     @Test
+    fun `capability export accepts fixed identity and status codes only`() {
+        val text = DiagnosticsExport.copyText(
+            DiagnosticsSnapshot(), emptyMap(),
+            listOf(
+                "capability.git.available",
+                "capability.tests.sm.unavailable",
+                "capability.git.available /private/project"
+            )
+        )
+        assertTrue(text.contains("capability.git.available"))
+        assertTrue(text.contains("capability.tests.sm.unavailable"))
+        assertFalse(text.contains("/private"))
+    }
+
+    @Test
     fun `export includes safe counters and reasons but rejects arbitrary text at every seam`() {
         val secret = "/home/private/branch-secret serial-secret location-secret file-content"
         val frame =

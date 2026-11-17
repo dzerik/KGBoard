@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.7.0] - 2026-11-17
+
+### Added
+- Project-owned optional integration providers with generation leases and Available/Unavailable/Error diagnostics.
+- Independent platform Execution/Debug adapters and optional Git/SM test-runner providers.
+
+### Fixed
+- Reject stale or cross-project provider callbacks and command injection; unload clears only the provider's own facts.
+- Reset provider request generations on reattach and release test-root identities without reviving completed roots.
+- Isolate missing optional SDK classes and clean up adapters when construction fails.
+
+### Changed
+- Package Git separately as an optional content module to keep core available when Git is disabled in SDK 263.
+- Remove mandatory Java and SM test-runner dependencies from the core descriptor while retaining platform/language/debugger dependencies.
+
 ## [3.6.0] - 2026-11-17
 
 ### Added

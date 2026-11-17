@@ -27,6 +27,21 @@ class DiagnosticsPresenterTest {
     }
 
     @Test
+    fun `capability rows distinguish available from unloaded providers`() {
+        RuntimeHarness().use { h ->
+            val p = ProjectId("p"); h.project(p)
+            val lease = ProviderLease(p, "git", 1)
+            h.send(RuntimeEvent.ProviderStarted(lease))
+            val available = DiagnosticsView.from(h.snapshotForTest()).capabilityRows.single { it.contains("Git:") }
+            assertTrue(available.contains("Available"), available)
+            h.send(RuntimeEvent.ProviderStopped(lease, "capability.unloaded"))
+            val stopped = DiagnosticsView.from(h.snapshotForTest()).capabilityRows.single { it.contains("Git:") }
+            assertTrue(stopped.contains("Unavailable"), stopped)
+            assertTrue(stopped.contains("unloaded"), stopped)
+        }
+    }
+
+    @Test
     fun `idle device explicitly says no active signals while retaining analysis reason`() {
         RuntimeHarness().use { h ->
             h.project()

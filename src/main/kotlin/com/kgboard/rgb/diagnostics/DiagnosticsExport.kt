@@ -6,6 +6,7 @@ import java.util.Locale
 /** Only fixed reason codes and numeric counters cross this boundary. */
 object DiagnosticsReasons {
     val keys: Set<String> = setOf(
+        "capability.failed", "capability.unloaded", "capability.notInstalled",
         "transport.failed",
         "diagnostics.unknown",
         "diagnostics.disconnected",
@@ -49,14 +50,10 @@ object DiagnosticsExport {
                 versions[key]?.takeIf { it.length <= 80 && Regex(pattern).matches(it) }?.let { appendLine("$key=$it") }
             }
             // C1 supplies these fixed codes; unknown descriptions are deliberately excluded.
-            capabilityLabels.filter {
-                it in setOf(
-                    "capability.available",
-                    "capability.unavailable",
-                    "capability.degraded"
-                )
-            }
-                .forEach { appendLine(it) }
+            val capabilityCodes = listOf("git", "tests.sm", "build.roots", "debug").flatMap { id ->
+                listOf("available", "unavailable", "error").map { "capability.$id.$it" }
+            }.toSet()
+            capabilityLabels.filter { it in capabilityCodes }.distinct().forEach { appendLine(it) }
             val decision = snapshot.decision
             appendLine("session=${decision?.token?.session?.value ?: 0} inventory=${decision?.token?.revision ?: 0} revision=${decision?.revision?.value ?: 0}")
             appendLine("devices=${decision?.devices?.size ?: 0}")

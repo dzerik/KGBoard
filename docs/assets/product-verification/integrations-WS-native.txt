@@ -1,0 +1,10 @@
+Pinned WebStorm WS263.7307.202, JBR25.0.4.1+1-b635.79, Linux/Xvfb/X11.
+Command: tools/run-ui-tests.sh integrationTest --tests '*CoreOnlyUiTest' -PlocalPlatformPath=<IU> -PuiIdePath=<WS> -PuiExpectedBuild=263.7307.202 --offline
+5 tests, 0 failures/errors/skips. Duration147.956s. Plugin3.7.0; hash in per-launch metadata.
+Cases: all-enabled, no-java, no-git, sm-required-by-product, no-removable-integrations.
+Checks actual PluginManagerCore.isLoaded in addition to saved disabled flags and actual Java absence.
+Native Settings action/navigation and Diagnostics integration statuses match actual loading;0 SDK writes.
+No-SM product mode Blocked: essential JavaScript -> javascript.backend(required-if-available backend)
+-> platform.smRunner -> owner Test Runner plugin. Loader essential closure retains SM despite disabled flag.
+The required-SM case asserts loaded+Available, and must not be read as an absent-SM launch.
+No override of essential constraints; no physical device or screenshot/pixel-layout claim.

@@ -69,7 +69,11 @@ data class ProjectState(
     val shortcutKeyCodes: Map<String, List<Int>> = emptyMap(),
     val savedAtMs: Long? = null, val saveDeadline: RuntimeDeadline? = null,
     val saveRevision: Long = -1,
-    val pomodoro: PomodoroState = PomodoroState(), val displayName: String? = null
+    val pomodoro: PomodoroState = PomodoroState(), val displayName: String? = null,
+    val capabilities: Map<String, CapabilitySnapshot> = defaultCapabilities(),
+    val providerLeases: Map<String, ProviderLease> = emptyMap(),
+    val providerGenerations: Map<String, Long> = emptyMap(),
+    val operationOwners: Map<OperationId, ProviderLease> = emptyMap()
 )
 
 data class RuntimeState(

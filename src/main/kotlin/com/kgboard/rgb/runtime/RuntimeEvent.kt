@@ -1,6 +1,9 @@
 package com.kgboard.rgb.runtime
 
 sealed interface RuntimeEvent {
+    data class ProviderStarted(val lease: ProviderLease) : RuntimeEvent
+    data class ProviderStopped(val lease: ProviderLease, val reasonKey: String) : RuntimeEvent
+    data class ProviderFact(val lease: ProviderLease, val fact: RuntimeEvent) : RuntimeEvent
     data class DeliveryReported(val receipt: com.kgboard.rgb.diagnostics.DeliveryReceipt) : RuntimeEvent
     data object ClearHistory : RuntimeEvent
     data object ResumeDetected : RuntimeEvent

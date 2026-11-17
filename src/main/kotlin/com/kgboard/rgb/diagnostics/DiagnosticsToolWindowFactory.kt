@@ -68,6 +68,7 @@ internal class DiagnosticsPanel(project: Project?, showSettings: Boolean = true)
         button("diagnostics.disconnect", "connection.disconnect") { DiagnosticsActions.disconnect(service.events) }
         if (showSettings) button("diagnostics.settings", "action.open") { DiagnosticsActions.settings(project) }
         button("diagnostics.copy", "diagnostics.copy") {
+            val snapshot = service.snapshot()
             val versions = mapOf(
                 "plugin" to com.kgboard.rgb.BuildInfo.version,
                 "ide" to ApplicationInfo.getInstance().build.asString()
@@ -75,9 +76,9 @@ internal class DiagnosticsPanel(project: Project?, showSettings: Boolean = true)
             CopyPasteManager.getInstance().setContents(
                 StringSelection(
                     DiagnosticsExport.copyText(
-                        service.snapshot().diagnostics,
+                        snapshot.diagnostics,
                         versions,
-                        emptyList()
+                        snapshot.projects.values.flatMap { it.capabilities.values }.map { it.exportCode() }
                     )
                 )
             )

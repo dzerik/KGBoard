@@ -1,8 +1,8 @@
 # Проверка KGBoard
 
-Контрольная точка B3, версия **3.6.0**, 17 ноября 2026. Текущий этап —
+Контрольная точка C1, версия **3.7.0**, 17 ноября 2026. Текущий этап —
 [надёжная индикация IDE](superpowers/plans/2026-11-17-ide-focus-scope.md).
-Это промежуточная проверка; A/B/E2 выполнены, C1–C3 и финальная E3 продолжаются.
+Это промежуточная проверка; A/B/C1/E2 выполнены, C2–C3 и финальная E3 продолжаются.
 D1–D3 отложены. Таблица A5 ниже сохранена как история проверки версии 3.3.0.
 
 ## Выполненные проверки
@@ -24,8 +24,8 @@ D1–D3 отложены. Таблица A5 ниже сохранена как �
 [Light 200%](assets/product-verification/settings-light-200-en-1200x900.png).
 
 У каждого запуска сохранены build/JBR/OS и SHA256 установленного ZIP в соседних
-`.properties`. Матрица фиксирует более раннюю сборку 3.3.0; workflow выполнен на
-текущем ZIP. После B/C/E финальная матрица будет повторена. Во всех UI-запусках
+`.properties`. Матрица фиксирует более раннюю сборку 3.3.0; workflow также относится к
+исторической сборке A5. После B/C/E финальная матрица будет повторена. Во всех UI-запусках
 используются изолированные config/system, временный проект и тестовый SDK на
 случайном loopback-порту. Настройки рабочего OpenRGB не менялись.
 
@@ -45,13 +45,32 @@ Copy сверяет версию установленного ZIP и исклю�
 [Dark](assets/product-verification/diagnostics-child-dark.png),
 [Light](assets/product-verification/diagnostics-child-light.png).
 
+## Необязательные интеграции, 3.7.0
+
+[364 теста и Verifier трёх IDE](assets/product-verification/integrations-software.txt)
+прошли без failures/errors/skips. Git упакован отдельным optional content module:
+загрузчик 263 добавлял legacy optional Git alias в строгие зависимости core.
+
+Нативные проверки core, Settings, диагностики и статусов интеграций:
+[IDEA: 4 сценария](assets/product-verification/integrations-IU-native.txt),
+[WebStorm: 5](assets/product-verification/integrations-WS-native.txt),
+[PyCharm: 5](assets/product-verification/integrations-PY-native.txt).
+Во всех сценариях SDK-записей нет; используется тестовый loopback server.
+Проверяются реальные загруженные plugins, а не только сохранённые флаги.
+
+Ограничения продуктов: IDEA требует Java; WebStorm и PyCharm требуют SM через
+обязательный языковой backend. Эти режимы отсутствия отмечены **Blocked**,
+а сохранение обязательного SM проверено отдельно. Настоящее отсутствие SM
+проверено в IDEA, отсутствие Java — в WebStorm/PyCharm. Dynamic EP removal
+проверен платформенным fixture; нативный unload всего SDK plugin не заявляется.
+
 ## Пакет контрольной точки
 
-`build/distributions/KGBoard-3.6.0.zip`, 915210 байт.
+`build/distributions/KGBoard-3.7.0.zip`, 965478 байт.
 
-SHA256: `2bbcbdde359f0b6e130c6c98e995cfa52e5a1a7f79f42f8eb254f14fa1698d19`.
+SHA256: `3c98571eb9a1e9e54f59e1170b871a4643fb2a1ca8347b9cef1d30aa6172484d`.
 
-Descriptor и встроенные метаданные содержат версию 3.6.0 и диапазон `263.*`.
+Descriptor и встроенные метаданные содержат версию 3.7.0 и диапазон `263.*`.
 Starter, Driver, JUnit, MockK, Kodein и SDK simulator не входят в runtime.
 Рекомендация Gradle убрать `until-build` не применена: совместимость намеренно
 ограничена проверяемой веткой. Исторический SHA версии 3.3.0 сохранён в доказательствах A5;
@@ -63,8 +82,8 @@ Starter, Driver, JUnit, MockK, Kodein и SDK simulator не входят в runt
 
 - Русская native UI локализация — NotRun; проверены только парность ключей и
   наличие переводов. Совместимый языковой пакет в тестовую IDEA не установлен.
-- WebStorm `263.7307.202` и PyCharm `263.7307.206` — дистрибутивы загружены,
-  checksum и фактические product codes проверены; исполнение C1/E3 ещё требуется.
+- Полная финальная UI/workflow матрица после C2/C3 — E3; текущая cross-IDE проверка
+  покрывает core, загрузку интеграций, Settings и диагностику, без build pipeline claims.
 - Windows/macOS — NotRun. Фокус native Wayland также NotRun: автоматизация
   выполнялась в изолированном Xvfb/X11, а не на рабочем Wayland-сеансе пользователя.
 - Физический вывод нового плагина на EVision `0C45:5004` — NotRun. Выполнены

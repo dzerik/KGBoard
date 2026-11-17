@@ -5,6 +5,7 @@ pluginManagement {
     plugins {
         id("org.jetbrains.kotlin.jvm") version kotlinVersion
         id("org.jetbrains.intellij.platform") version intellijPlatformVersion
+        id("org.jetbrains.intellij.platform.module") version intellijPlatformVersion
     }
 
     repositories {
@@ -14,3 +15,5 @@ pluginManagement {
 }
 
 rootProject.name = "KGBoard"
+
+include(":integrations:git")

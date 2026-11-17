@@ -85,9 +85,22 @@ data class DiagnosticsView(
             (state.connection as? ConnectionState.Backoff)?.let {
                 errors.add(0, message("diagnostics.retry", safeDifference(it.retryAtMs, state.nowMs).coerceAtLeast(0)))
             }
+            val capabilities = state.projects.flatMap { (id, project) ->
+                project.capabilities.values.map { capability ->
+                    val label = when (capability.id) {
+                        "git" -> message("capability.git"); "tests.sm" -> message("capability.tests")
+                        "build.roots" -> message("capability.builds"); "debug" -> message("capability.debug")
+                        else -> message("capability.custom")
+                    }
+                    message(
+                        "capability.row", project.displayName ?: id.value.take(8), label,
+                        message("capability.status.${capability.status.name.lowercase(java.util.Locale.ROOT)}"),
+                        capability.reasonKey?.let { message(DiagnosticsReasons.safe(it)) } ?: "")
+                }
+            }
             return DiagnosticsView(
                 connection, frozenList(deviceRows), frozenList(rules), frozenList(analysis),
-                frozenList(errors), emptyList()
+                frozenList(errors), frozenList(capabilities)
             )
         }
     }

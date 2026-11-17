@@ -1,0 +1,5 @@
+<idea-plugin>
+    <extensions defaultExtensionNs="com.kgboard.rgb">
+        <integrationProvider implementation="com.kgboard.rgb.bridge.tests.SmTestIntegrationProvider"/>
+    </extensions>
+</idea-plugin>

@@ -1,0 +1,16 @@
+Pinned IntelliJ IDEA IU263.7307.200, JBR25.0.4.1+1-b635.79, Linux/Xvfb/X11.
+Command: tools/run-ui-tests.sh integrationTest --tests '*CoreOnlyUiTest' -PlocalPlatformPath=<IU> --offline
+4 tests, 0 failures/errors/skips. Duration235.788s. Plugin3.7.0; hash in per-launch metadata.
+Cases: all-enabled, no-git, no-sm, no-optional.
+Assertions: actual disabled-plugin flags, public Settings action, native settings navigation,
+child Diagnostics integration labels, DebuggerAvailable, Git/SM Available or Unavailable matching each case,
+0 SDK writes to isolated loopback simulator, close dialogs/IDE.
+IDEA no-Java mode is inapplicable: Java is essential in pinned ApplicationInfo.xml;
+DisabledPluginsState removes essential IDs from disabled list. No override attempted.
+No screenshot/pixel-layout or physical device claim.
+
+Product constraints found during WS/PY probes (not evidence of an SM-absent launch):
+WebStorm essential JavaScript -> javascript.backend (required in backend) -> smRunner -> Test Runner plugin.
+PyCharm essential PythonCore -> python.community.impl -> smRunner -> Test Runner plugin.
+Pinned PluginSetConstraintsResolver excludes disabled plugins only outside the essential transitive closure.
+A saved disabled flag does not prove actual absence; strengthened tests query actual isLoaded and assert mandatory SM preservation.

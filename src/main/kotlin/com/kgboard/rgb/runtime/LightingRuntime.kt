@@ -236,6 +236,7 @@ class LightingRuntime(
         val summary = listOf(
             state.connection::class.simpleName, state.connectionError, state.focused,
             state.settings.enabled, state.activeProject, state.preview?.owner,
+            state.projects.mapValues { it.value.capabilities },
             decision?.devices?.map { device ->
                 listOf(
                     device.bindingId, device.deviceIndex, device.idleReasonKey,
@@ -254,6 +255,7 @@ class LightingRuntime(
             significantState = summary
             val reason = when {
                 state.connectionError != null -> "transport.failed"
+                state.projects.values.any { p -> p.capabilities.values.any { it.status == CapabilityStatus.ERROR } } -> "capability.failed"
                 state.manuallyDisconnected -> "diagnostics.disconnected"
                 else -> "diagnostics.lightingChanged"
             }

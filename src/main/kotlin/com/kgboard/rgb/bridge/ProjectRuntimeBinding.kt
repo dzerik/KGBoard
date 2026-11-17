@@ -24,6 +24,7 @@ class ProjectRuntimeBinding(
         ), project.name
     )
 
+    val operations = OperationIdentityRegistry()
     val id = ProjectId(UUID.randomUUID().toString())
     private val started = AtomicBoolean()
     private val disposed = AtomicBoolean()
@@ -45,6 +46,9 @@ class ProjectRuntimeBinding(
     }
 
     override fun dispose() {
-        if (disposed.compareAndSet(false, true) && started.get()) events.dispatch(RuntimeEvent.ProjectClosed(id))
+        if (disposed.compareAndSet(false, true)) {
+            operations.clear()
+            if (started.get()) events.dispatch(RuntimeEvent.ProjectClosed(id))
+        }
     }
 }

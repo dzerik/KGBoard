@@ -55,24 +55,26 @@
     "build": "263.7307.202",
     "jbr": "25.0.4.1+1-b635.79",
     "os": "Linux",
-    "plugin": "3.3.0",
+    "plugin": "3.7.0",
     "feature": "Optional providers and native UI",
-    "command": "",
-    "status": "NotRun",
-    "evidence": [],
-    "reason": "Pinned distribution cached and checksum verified; C1/E3 execution remains."
+    "command": "tools/run-ui-tests.sh integrationTest --tests *CoreOnlyUiTest -PuiIdePath=<WS> --offline",
+    "status": "Passed",
+    "evidence": [
+      "docs/assets/product-verification/integrations-WS-native.txt"
+    ]
   },
   {
     "product": "PyCharm",
     "build": "263.7307.206",
     "jbr": "25.0.4.1+1-b635.79",
     "os": "Linux",
-    "plugin": "3.3.0",
+    "plugin": "3.7.0",
     "feature": "Optional providers and native UI",
-    "command": "",
-    "status": "NotRun",
-    "evidence": [],
-    "reason": "Actual product code PY observed; distribution cached; C1/E3 execution remains."
+    "command": "tools/run-ui-tests.sh integrationTest --tests *CoreOnlyUiTest -PuiIdePath=<PY> --offline",
+    "status": "Passed",
+    "evidence": [
+      "docs/assets/product-verification/integrations-PY-native.txt"
+    ]
   },
   {
     "product": "IDEA",
@@ -176,5 +178,67 @@
     "status": "NotRun",
     "evidence": [],
     "reason": "Automated dual-clock tests do not prove physical OS resume behavior."
+  },
+  {
+    "product": "IDEA",
+    "build": "263.7307.200",
+    "jbr": "25.0.4.1+1-b635.79",
+    "os": "Linux X11",
+    "plugin": "3.7.0",
+    "feature": "C1 optional-provider core boot, settings and capability matrix",
+    "command": "tools/run-ui-tests.sh integrationTest --tests *CoreOnlyUiTest --offline",
+    "status": "Passed",
+    "evidence": [
+      "docs/assets/product-verification/integrations-IU-native.txt"
+    ]
+  },
+  {
+    "product": "IDEA/WebStorm/PyCharm",
+    "build": "263.7307.200/202/206",
+    "jbr": "25.0.4.1+1-b635.79",
+    "os": "Linux",
+    "plugin": "3.7.0",
+    "feature": "C1 unit/platform suite and three-product Plugin Verifier",
+    "command": "./gradlew test verifyPlugin -PverificationIdePaths=<IU>|<WS>|<PY> --offline",
+    "status": "Passed",
+    "evidence": [
+      "docs/assets/product-verification/integrations-software.txt"
+    ]
+  },
+  {
+    "product": "IDEA",
+    "build": "263.7307.200",
+    "jbr": "25.0.4.1+1-b635.79",
+    "os": "Linux",
+    "plugin": "3.7.0",
+    "feature": "Core boot with Java disabled",
+    "command": "",
+    "status": "Blocked",
+    "evidence": [],
+    "reason": "Pinned IDEA declares Java essential and removes its disabled flag."
+  },
+  {
+    "product": "WebStorm",
+    "build": "263.7307.202",
+    "jbr": "25.0.4.1+1-b635.79",
+    "os": "Linux",
+    "plugin": "3.7.0",
+    "feature": "Core boot with SM absent",
+    "command": "",
+    "status": "Blocked",
+    "evidence": [],
+    "reason": "Essential JavaScript backend requires smRunner; actual SM remains loaded despite disabled flag."
+  },
+  {
+    "product": "PyCharm",
+    "build": "263.7307.206",
+    "jbr": "25.0.4.1+1-b635.79",
+    "os": "Linux",
+    "plugin": "3.7.0",
+    "feature": "Core boot with SM absent",
+    "command": "",
+    "status": "Blocked",
+    "evidence": [],
+    "reason": "Essential Python backend requires smRunner; actual SM remains loaded despite disabled flag."
   }
 ]

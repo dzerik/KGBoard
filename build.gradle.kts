@@ -28,6 +28,7 @@ configurations.named("integrationTestRuntimeOnly") {
 
 dependencies {
     intellijPlatform {
+        pluginModule(runtimeOnly(project(":integrations:git")))
         val localPlatformPath = providers.gradleProperty("localPlatformPath")
         if (localPlatformPath.isPresent) {
             local(localPlatformPath.get())
@@ -73,7 +74,8 @@ intellijPlatform {
 
     pluginVerification {
         ides {
-            current()
+            val paths = providers.gradleProperty("verificationIdePaths").orNull?.split('|')?.filter { it.isNotBlank() }
+            if (paths.isNullOrEmpty()) current() else paths.forEach { local(it) }
         }
     }
 }
@@ -110,9 +112,10 @@ val integrationTest = intellijPlatformTesting.testIdeUi.register("integrationTes
         useJUnitPlatform()
         systemProperty("java.awt.headless", "false")
         dependsOn(tasks.buildPlugin, tasks.testClasses)
-        systemProperty("kgboard.ui.idePath", providers.gradleProperty("localPlatformPath")
+        systemProperty("kgboard.ui.idePath", providers.gradleProperty("uiIdePath")
+            .orElse(providers.gradleProperty("localPlatformPath"))
             .orElse(providers.provider { platformPath.toString() }).get())
-        systemProperty("kgboard.ui.expectedBuild", "263.7307.200")
+        systemProperty("kgboard.ui.expectedBuild", providers.gradleProperty("uiExpectedBuild").orElse("263.7307.200").get())
         systemProperty("kgboard.ui.pluginZip", tasks.buildPlugin.get().archiveFile.get().asFile.absolutePath)
         maxParallelForks = 1
     }

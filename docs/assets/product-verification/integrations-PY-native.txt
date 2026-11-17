@@ -1,0 +1,9 @@
+Pinned PyCharm PY263.7307.206, JBR25.0.4.1+1-b635.79, Linux/Xvfb/X11.
+Command: tools/run-ui-tests.sh integrationTest --tests '*CoreOnlyUiTest' -PlocalPlatformPath=<IU> -PuiIdePath=<PY> -PuiExpectedBuild=263.7307.206 --offline
+5 tests, 0 failures/errors/skips. Plugin3.7.0; hash in per-launch metadata.
+Cases: all-enabled, no-java, no-git, sm-required-by-product, no-removable-integrations.
+Actual isLoaded assertions in addition to saved disabled flags; Java is not loaded.
+Native Settings action/navigation and Diagnostics statuses match actual loading;0 SDK writes.
+No-SM product mode Blocked: essential PythonCore -> python.community.impl -> platform.smRunner -> Test Runner plugin.
+Required-SM case asserts loaded+Available despite saved disabled flag; no absent-SM or essential-override claim.
+No physical RGB or screenshot/pixel-layout claim.

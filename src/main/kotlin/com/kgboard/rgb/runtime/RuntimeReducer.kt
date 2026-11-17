@@ -25,6 +25,19 @@ class RuntimeReducer {
         val nowMs = now.monotonicMs
         val original = previous.copy(lastTime = now)
         if (original.shuttingDown) return Transition(original)
+        if (event is RuntimeEvent.ProviderFact) {
+            val lease = event.lease
+            val project = original.projects[lease.project] ?: return Transition(original)
+            if (project.providerLeases[lease.capability] != lease || !providerFactAllowed(lease, event.fact))
+                return Transition(original)
+            val operation = event.fact as? RuntimeEvent.OperationChanged
+            val previousOwner = operation?.operation?.id?.let { project.operationOwners[it] }
+            if (previousOwner != null && previousOwner != lease) return Transition(original)
+            val next = reduce(original, event.fact, now)
+            return if (operation == null) next else next.copy(state = updateProject(next.state, lease.project) { p ->
+                if (operation.operation.id !in p.operations) p else p.copy(operationOwners = frozenMap(p.operationOwners + (operation.operation.id to lease)))
+            })
+        }
         val connection = settingsTransition(original, event, nowMs)
         val state = connection.state.copy(
             preview = connection.state.preview?.takeIf {
@@ -49,7 +62,11 @@ class RuntimeReducer {
                         )
 
                         else -> project.pomodoro
-                    }, operations = frozenMap(project.operations.filterValues {
+                    }, operationOwners = frozenMap(project.operationOwners.filterKeys { id ->
+                        project.operations[id]?.let {
+                            (OperationPolicy().deadlineAt(it, original.settings, now) ?: Long.MAX_VALUE) > nowMs
+                        } == true
+                    }), operations = frozenMap(project.operations.filterValues {
                         (OperationPolicy().deadlineAt(it, original.settings, now) ?: Long.MAX_VALUE) > nowMs
                     })
                 )
@@ -61,6 +78,47 @@ class RuntimeReducer {
             })
         )
         val next = when (event) {
+            is RuntimeEvent.ProviderStarted -> updateProject(state, event.lease.project) { p ->
+                val lease = event.lease
+                if (lease.generation <= (p.providerGenerations[lease.capability] ?: 0)) p
+                else p.copy(
+                    operations = frozenMap(p.operations.filterKeys { id -> p.operationOwners[id]?.capability != lease.capability }),
+                    operationOwners = frozenMap(p.operationOwners.filterValues { it.capability != lease.capability }),
+                    git = if (lease.capability == "git") GitFacts() else p.git,
+                    gitRevision = if (lease.capability == "git") -1 else p.gitRevision,
+                    providerLeases = frozenMap(p.providerLeases + (lease.capability to lease)),
+                    providerGenerations = frozenMap(p.providerGenerations + (lease.capability to lease.generation)),
+                    capabilities = frozenMap(
+                        p.capabilities + (lease.capability to CapabilitySnapshot(
+                            lease.capability,
+                            CapabilityStatus.AVAILABLE,
+                            null
+                        ))
+                    )
+                )
+            }
+
+            is RuntimeEvent.ProviderStopped -> updateProject(state, event.lease.project) { p ->
+                val lease = event.lease
+                if (p.providerLeases[lease.capability] != lease && lease.generation <= (p.providerGenerations[lease.capability]
+                        ?: 0)
+                ) p else p.copy(
+                    providerGenerations = frozenMap(p.providerGenerations + (lease.capability to lease.generation)),
+                    providerLeases = frozenMap(p.providerLeases - lease.capability),
+                    capabilities = frozenMap(
+                        p.capabilities + (lease.capability to CapabilitySnapshot(
+                            lease.capability,
+                            if (event.reasonKey == "capability.failed") CapabilityStatus.ERROR else CapabilityStatus.UNAVAILABLE,
+                            if (event.reasonKey == "capability.failed") "capability.failed" else "capability.unloaded"
+                        ))
+                    ),
+                    operations = frozenMap(p.operations.filterKeys { p.operationOwners[it]?.capability != lease.capability }),
+                    operationOwners = frozenMap(p.operationOwners.filterValues { it.capability != lease.capability }),
+                    git = if (lease.capability == "git") GitFacts() else p.git,
+                    gitRevision = if (lease.capability == "git") -1 else p.gitRevision
+                )
+            }
+
             is RuntimeEvent.ProjectOpened -> if (event.id in state.closedProjects || event.id in state.projects) state
             else state.copy(
                 projects = frozenMap(

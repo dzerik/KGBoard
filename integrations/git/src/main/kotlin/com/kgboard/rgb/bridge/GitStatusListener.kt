@@ -18,11 +18,16 @@ class GitStatusListener(private val project: Project, private val scope: Corouti
         val service = ProjectRuntimeService.getInstance(project)
         service.start()
         val adapter = GitFactsAdapter(project, service.binding, scope) {
-            LightingRuntimeService.getInstance().snapshot().projects[service.binding.id]?.settings ?: ProjectSettingsSnapshot()
+            LightingRuntimeService.getInstance().snapshot().projects[service.binding.id]?.settings
+                ?: ProjectSettingsSnapshot()
         }
         Disposer.register(this, adapter)
         adapter.start()
     }
+
     override fun dispose() {}
-    companion object { fun getInstance(project: Project): GitStatusListener = project.getService(GitStatusListener::class.java) }
+
+    companion object {
+        fun getInstance(project: Project): GitStatusListener = project.getService(GitStatusListener::class.java)
+    }
 }
