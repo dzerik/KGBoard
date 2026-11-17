@@ -29,6 +29,7 @@ data class StoredBinding(
 
     fun configuration(): ConfiguredBinding? {
         if (runCatching { UUID.fromString(id) }.isFailure) return null
+        if (role !in setOf("primary", "mirror", "indicator", "ambient")) return null
         val selector = when (kind) {
             "serial" -> DeviceSelector.Serial(type, vendor, serial)
             "port" -> DeviceSelector.Port(type, vendor, name, location)

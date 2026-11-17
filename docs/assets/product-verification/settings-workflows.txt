@@ -1,0 +1,13 @@
+Actual IDEA workflow verification, 2026-11-17
+Plugin3.3.0; IU263.7307.200; JBR25.0.4.1+1-b635.79; Linux
+Tests=2, failures=0, errors=0, skipped=0
+Command: tools/run-ui-tests.sh integrationTest --tests *SettingsWorkflowUiTest -PlocalPlatformPath=<pinned-IU263.7307.200> --offline --console=plain
+Each case uses a fresh isolated IDE config and temporary local JPS project outside the repository.
+All RGB writes address the test-only OpenRgbSdkSimulator on a loopback ephemeral port.
+Read-only Driver stubs observe managed settings; public buttons/actions perform all mutations.
+Passed: Apply commits binding and Disconnect and Disable revoke preview()
+Passed: identify and keyboard preview preserve the idle baseline and Cancel discards binding()
+Observed SDK frames: Identify=3xRGB(77,77,77); Named Esc preview=[#FFD600,#263238,#263238]; applied ordinary frame=3x#263238.
+Cancel leaves no confirmed binding; Apply commits serial fixture identity; Disconnect and Disable make Preview unavailable.
+Public SaveAll action flushes applied binding/enabled=false into isolated application XML.
+This verifies software flow and SDK bytes, not physical device output.

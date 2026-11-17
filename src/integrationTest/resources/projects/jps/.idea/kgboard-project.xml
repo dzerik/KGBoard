@@ -1,0 +1,8 @@
+<?xml version='1.0' encoding='utf-8'?>
+<project version="4">
+    <component name="KgBoardProjectSettings">
+        <option name="gitEnabled" value="false" />
+        <option name="analysisEnabled" value="false" />
+        <option name="shortcutHighlightEnabled" value="false" />
+    </component>
+</project>

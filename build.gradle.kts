@@ -14,6 +14,18 @@ repositories {
     }
 }
 
+val integrationTestSourceSet = sourceSets.create("integrationTest") {
+    compileClasspath += sourceSets.main.get().output + sourceSets.test.get().output
+    runtimeClasspath += sourceSets.main.get().output + sourceSets.test.get().output
+}
+configurations.named("integrationTestImplementation") {
+    extendsFrom(configurations.testImplementation.get())
+    exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-coroutines-core-jvm")
+}
+configurations.named("integrationTestRuntimeOnly") {
+    extendsFrom(configurations.testRuntimeOnly.get())
+}
+
 dependencies {
     intellijPlatform {
         val localPlatformPath = providers.gradleProperty("localPlatformPath")
@@ -26,11 +38,15 @@ dependencies {
         bundledPlugin("com.intellij.platform.testRunner")
         bundledPlugin("Git4Idea")
         testFramework(org.jetbrains.intellij.platform.gradle.TestFrameworkType.Platform)
+        testFramework(org.jetbrains.intellij.platform.gradle.TestFrameworkType.Starter,
+            configurationName = "integrationTestImplementation")
     }
     testImplementation(platform("org.junit:junit-bom:${providers.gradleProperty("junitVersion").get()}"))
     testImplementation("org.junit.jupiter:junit-jupiter")
     testImplementation("io.mockk:mockk:1.13.13")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+    "integrationTestImplementation"("org.kodein.di:kodein-di-jvm:7.20.2")
+    "integrationTestImplementation"("org.jetbrains.intellij.deps.kotlinx:kotlinx-coroutines-core-jvm:1.11.0-intellij-1")
 }
 
 intellijPlatform {
@@ -79,5 +95,20 @@ tasks {
 
     test {
         useJUnitPlatform()
+    }
+}
+
+val integrationTest = intellijPlatformTesting.testIdeUi.register("integrationTest") {
+    task {
+        testClassesDirs = integrationTestSourceSet.output.classesDirs
+        classpath = integrationTestSourceSet.runtimeClasspath
+        useJUnitPlatform()
+        systemProperty("java.awt.headless", "false")
+        dependsOn(tasks.buildPlugin, tasks.testClasses)
+        systemProperty("kgboard.ui.idePath", providers.gradleProperty("localPlatformPath")
+            .orElse(providers.provider { platformPath.toString() }).get())
+        systemProperty("kgboard.ui.expectedBuild", "263.7307.200")
+        systemProperty("kgboard.ui.pluginZip", tasks.buildPlugin.get().archiveFile.get().asFile.absolutePath)
+        maxParallelForks = 1
     }
 }

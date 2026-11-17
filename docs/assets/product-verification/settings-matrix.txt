@@ -1,0 +1,21 @@
+Actual IDEA UI matrix, 2026-11-17
+Plugin: 3.3.0 WIP; IU263.7307.200; JBR25.0.4.1+1-b635.79; Linux
+SettingsUiTest: 6 parameter cases, 0 failures/errors/skips; each asserts two actual logical viewports.
+Themes Light/Dark; user scale asserted 1.0/1.5/2.0 via JBUIScale.scale(1f).
+Viewports 900x700 and1200x900 logical; X11 AWT pixel dimensions = logical size * actual user scale.
+Keyboard tab selection, scenario list presence and Preview button within dialog bounds asserted.
+Scope: application settings, enabled=false, empty inventory. Does not establish all workflows or hardware behavior.
+The same invocation also ran SettingsWorkflowUiTest, which failed an incorrect idle-background expectation.
+That workflow has a separate follow-up run; the combined invocation was not green.
+Passed: dark 100% 900x700 logical
+Passed: dark 100% 1200x900 logical
+Passed: dark 150% 900x700 logical
+Passed: dark 150% 1200x900 logical
+Passed: dark 200% 900x700 logical
+Passed: dark 200% 1200x900 logical
+Passed: light 100% 900x700 logical
+Passed: light 100% 1200x900 logical
+Passed: light 150% 900x700 logical
+Passed: light 150% 1200x900 logical
+Passed: light 200% 900x700 logical
+Passed: light 200% 1200x900 logical

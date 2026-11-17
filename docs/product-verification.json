@@ -1,0 +1,142 @@
+[
+  {
+    "product": "IDEA",
+    "build": "263.7307.200",
+    "jbr": "25.0.4.1+1-b635.79",
+    "os": "Linux",
+    "plugin": "3.3.0",
+    "feature": "A5 unit suite and package",
+    "command": "./gradlew test buildPlugin verifyPluginConfiguration verifyPlugin --offline",
+    "status": "Passed",
+    "evidence": [
+      "docs/assets/product-verification/settings-software.txt"
+    ]
+  },
+  {
+    "product": "IDEA",
+    "build": "263.7307.200",
+    "jbr": "25.0.4.1+1-b635.79",
+    "os": "Linux",
+    "plugin": "3.3.0",
+    "feature": "A5 EN settings layout Light/Dark 100/150/200% and two viewports",
+    "command": "tools/run-ui-tests.sh integrationTest --tests *SettingsUiTest",
+    "status": "Passed",
+    "evidence": [
+      "docs/assets/product-verification/settings-matrix.txt"
+    ]
+  },
+  {
+    "product": "IDEA",
+    "build": "263.7307.200",
+    "jbr": "25.0.4.1+1-b635.79",
+    "os": "Linux",
+    "plugin": "3.3.0",
+    "feature": "A5 connect identify preview cancel apply disconnect disable",
+    "command": "tools/run-ui-tests.sh integrationTest --tests *SettingsWorkflowUiTest",
+    "status": "Passed",
+    "evidence": [
+      "docs/assets/product-verification/settings-workflows.txt"
+    ]
+  },
+  {
+    "product": "IDEA",
+    "build": "263.7307.200",
+    "jbr": "25.0.4.1+1-b635.79",
+    "os": "Linux",
+    "plugin": "3.3.0",
+    "feature": "Russian native settings layout",
+    "command": "",
+    "status": "NotRun",
+    "evidence": [],
+    "reason": "Compatible language pack not installed; resource key parity is covered by unit tests."
+  },
+  {
+    "product": "WebStorm",
+    "build": "263.7307.202",
+    "jbr": "25.0.4.1+1-b635.79",
+    "os": "Linux",
+    "plugin": "3.3.0",
+    "feature": "Optional providers and native UI",
+    "command": "",
+    "status": "NotRun",
+    "evidence": [],
+    "reason": "Pinned distribution cached and checksum verified; C1/E3 execution remains."
+  },
+  {
+    "product": "PyCharm",
+    "build": "263.7307.206",
+    "jbr": "25.0.4.1+1-b635.79",
+    "os": "Linux",
+    "plugin": "3.3.0",
+    "feature": "Optional providers and native UI",
+    "command": "",
+    "status": "NotRun",
+    "evidence": [],
+    "reason": "Actual product code PY observed; distribution cached; C1/E3 execution remains."
+  },
+  {
+    "product": "IDEA",
+    "build": "263.7307.200",
+    "jbr": "25.0.4.1+1-b635.79",
+    "os": "Linux",
+    "plugin": "3.3.0",
+    "feature": "B/C/E reliability and final distribution",
+    "command": "",
+    "status": "NotRun",
+    "evidence": [],
+    "reason": "Retained tasks continue under the narrowed IDE scope."
+  },
+  {
+    "product": "IDEA",
+    "build": "263.7307.200",
+    "jbr": "25.0.4.1+1-b635.79",
+    "os": "Windows",
+    "plugin": "3.3.0",
+    "feature": "Native platform verification",
+    "command": "",
+    "status": "NotRun",
+    "evidence": [],
+    "reason": "Not executed on this operating system."
+  },
+  {
+    "product": "IDEA",
+    "build": "263.7307.200",
+    "jbr": "25.0.4.1+1-b635.79",
+    "os": "macOS",
+    "plugin": "3.3.0",
+    "feature": "Native platform verification",
+    "command": "",
+    "status": "NotRun",
+    "evidence": [],
+    "reason": "Not executed on this operating system."
+  },
+  {
+    "product": "IDEA",
+    "build": "263.7307.200",
+    "jbr": "25.0.4.1+1-b635.79",
+    "os": "Linux",
+    "plugin": "3.3.0",
+    "kind": "hardware",
+    "feature": "EVision physical output with current plugin",
+    "command": "",
+    "status": "NotRun",
+    "evidence": [],
+    "model": "EVision 0C45:5004",
+    "openrgb": "0.9+ (1.0rc2), commit0fca93e",
+    "endpoint": "127.0.0.1:6742",
+    "device": "EVision Keyboard",
+    "reason": "Only read-only inventory and offline replay performed; no current-build RGB/mode write or physical flicker check."
+  },
+  {
+    "product": "IDEA",
+    "build": "263.7307.200",
+    "jbr": "25.0.4.1+1-b635.79",
+    "os": "Linux/Wayland",
+    "plugin": "3.3.0",
+    "feature": "Native Wayland focus lifecycle",
+    "command": "",
+    "status": "NotRun",
+    "evidence": [],
+    "reason": "Actual UI automation ran in isolated Xvfb/X11; the user desktop Wayland focus path was not exercised."
+  }
+]

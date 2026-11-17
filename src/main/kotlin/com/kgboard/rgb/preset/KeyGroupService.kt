@@ -58,22 +58,7 @@ class KeyGroupService : PersistentStateComponent<KeyGroupService.GroupState> {
     }
 
     /** Snapshot definitions independently of one device's current indices. */
-    fun definitions(): Map<String, GroupDefinition> {
-        val userGroups = state.userGroups.toList()
-        val counts = userGroups.groupingBy { it.id }.eachCount()
-        return java.util.Collections.unmodifiableMap(buildMap {
-            KeyGroupDefinitions.BUILT_IN_GROUPS.forEach { (id, names) ->
-                val stableId = "builtin:$id"
-                put(stableId, GroupDefinition(stableId, KeyGroupDefinitions.DISPLAY_NAMES.getValue(id),
-                    TargetSpec.NamedKeys(names.toList())))
-            }
-            userGroups.filter { it.id.startsWith("user:") && counts[it.id] == 1 &&
-                runCatching { UUID.fromString(it.id.removePrefix("user:")) }.isSuccess }.forEach { group ->
-                put(group.id, GroupDefinition(group.id, group.name, group.target?.toSpec()
-                    ?: if (group.target == null) TargetSpec.RawIndices(group.ledIndices, null) else TargetSpec.Unassigned))
-            }
-        })
-    }
+    fun definitions(): Map<String, GroupDefinition> = definitions(state)
 
     /** Compatibility view for legacy CSV controls; unconfirmed raw groups are excluded. */
     fun getAvailableGroups(): Map<String, List<Int>> {
@@ -123,6 +108,37 @@ class KeyGroupService : PersistentStateComponent<KeyGroupService.GroupState> {
         get() = state.userGroups
 
     companion object {
+        fun definitions(source: GroupState): Map<String, GroupDefinition> {
+            val userGroups = source.userGroups.toList()
+            val counts = userGroups.groupingBy { it.id }.eachCount()
+            return java.util.Collections.unmodifiableMap(buildMap {
+                KeyGroupDefinitions.BUILT_IN_GROUPS.forEach { (id, names) ->
+                    val stableId = "builtin:$id"
+                    put(
+                        stableId, GroupDefinition(
+                            stableId, KeyGroupDefinitions.DISPLAY_NAMES.getValue(id),
+                            TargetSpec.NamedKeys(names.toList())
+                        )
+                    )
+                }
+                userGroups.filter {
+                    it.id.startsWith("user:") && counts[it.id] == 1 &&
+                        runCatching { UUID.fromString(it.id.removePrefix("user:")) }.isSuccess
+                }.forEach { group ->
+                    put(
+                        group.id, GroupDefinition(
+                            group.id, group.name, group.target?.toSpec()
+                                ?: if (group.target == null) TargetSpec.RawIndices(
+                                    group.ledIndices,
+                                    null
+                                ) else TargetSpec.Unassigned
+                        )
+                    )
+                }
+            })
+        }
+
+
         fun getInstance(): KeyGroupService =
             ApplicationManager.getApplication().getService(KeyGroupService::class.java)
     }

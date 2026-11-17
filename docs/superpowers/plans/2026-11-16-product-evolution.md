@@ -2,7 +2,11 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Реализовать весь согласованный объём развития KGBoard после runtime 3.0.0.
+**Goal:** Довести KGBoard до надёжной индикации IDE после runtime 3.0.0.
+
+**Уточнение объёма от 2026-11-17:** пользователь выбрал узкий IDE-плагин.
+[Актуальная граница этапа](2026-11-17-ide-focus-scope.md) сохраняет A/B/C/E,
+откладывает D1–D3 и исключает проверки ещё не реализуемого Profile UI.
 
 **Architecture:** Сохраняем один application actor, чистую policy и bounded writer. Вводим идентичность устройств и правила сценариев до UI; объяснения строим в проходе композиции; SDK-интеграции изолируем от core.
 
@@ -40,10 +44,10 @@
 | 1 | [A: настройки и назначения](2026-11-16-settings-experience.md) | Безопасные bindings, typed targets, нативный UI и scoped preview |
 | 2 | [B: диагностика](2026-11-16-diagnostics.md) | Причины фактической композиции, доставка, Tool Window |
 | 3 | [C: интеграции](2026-11-16-integrations.md) | Optional providers, достоверный Git, общий build observer |
-| 4 | [D: профили](2026-11-16-lighting-profiles.md) | Шаблоны, яркость, статичная анимационная политика |
+| Отложено | [D: профили](2026-11-16-lighting-profiles.md) | D1–D3 исключены из текущего этапа по выбору пользователя |
 | Сквозной | [E2/E3: эксплуатация и матрица](2026-11-16-product-verification.md) | Resume/time, настоящий UI, проверенные IDE и итоговый ZIP |
 
-E3 создаёт UI test tooling вместе с A5 и повторяется после B/C/D. Проверки Linux
+E3 создаёт UI test tooling вместе с A5 и повторяется после B/C. Проверки Linux
 не заменяют Windows/macOS и физическое оборудование. Отсутствие OpenRGB блокирует
 только hardware-строки отчёта.
 
@@ -56,10 +60,9 @@ flowchart LR
     A4 --> A5[Native settings]
     A5 --> B[Decision and diagnostics]
     B --> C[Optional integrations and Git/build facts]
-    C --> D[Appearance profiles]
+    C --> E3
     B --> E2[Resume and deadline reconciliation]
     A5 --> E3[Actual UI and compatibility matrix]
-    D --> E3
     E2 --> E3
 ```
 
@@ -81,7 +84,7 @@ flowchart LR
 | IntegrationProvider, CapabilitySnapshot, ProviderLease | C1 | C2/C3/B3/E |
 | RepositoryFacts, GitSample, GitIndicator | C2 | C3/D/E |
 | BuildObservation, BuildRootTracker | C3 | B/E |
-| AppearanceTemplate, AppearanceProfile, BrightnessSettings, AnimationPolicy | D1/D2 | A5/B1/D3/E |
+| AppearanceTemplate, AppearanceProfile, BrightnessSettings, AnimationPolicy (отложено) | D1/D2 | Не требуются для текущего этапа |
 | TimeSample, RuntimeDeadline, ResumeDetector | E2 | reducer/Pomodoro/scheduler |
 
 Смена сигнатуры требует обновить связанные планы и тесты до реализации следующей
@@ -123,7 +126,7 @@ MINOR — включённая пользователю новая функци�
 | Причина цвета, частичное перекрытие, реальные ack, bounded history | B1/B2/B3 |
 | Git NUL-safe и cancellation; JPS/Gradle/Maven без двойного producer | C2/C3, actual local projects и SDK fixtures |
 | Нет обязательных Java/SM/Git; dynamic unload | C1/E3 |
-| Три точных профиля, исключённые поля, local XML, Cancel | D1/D2/D3 |
+| Три точных профиля, исключённые поля, local XML, Cancel (отложено) | D1/D2/D3, не входит в текущую готовность |
 | Resume, clocks, Pomodoro без catch-up replay | E2 |
 | Native UI themes/scale/accessibility, три IDE, итоговый ZIP | E3 |
 | Hardware и OS evidence с честными gaps | E3, Blocked/NotRun до фактических наблюдений |

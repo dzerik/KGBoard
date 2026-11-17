@@ -79,6 +79,21 @@ class BindingPolicyTest {
     }
 
     @Test
+    fun `unsupported binding roles stay lossless inactive and cannot produce frames`() {
+        val source = settings().toState()
+        source.bindingRecords.single().role = "future-role"
+        val snapshot = RuntimeSettings.capture(source)
+        assertEquals(source.bindingRecords, snapshot.toState().bindingRecords)
+        assertTrue(snapshot.bindings.isEmpty())
+        val state = RuntimeState(
+            settings = snapshot, focused = true,
+            connection = ConnectionState.Ready(SessionId(1), listOf(device("selected")))
+        )
+        assertTrue(LightingPolicy().frames(state, 0).isEmpty())
+        assertDoesNotThrow { SettingsValidation.app(snapshot) }
+    }
+
+    @Test
     fun `session-only selection is not reconfirmed by repeated counter after restart`() {
         val binding =
             DeviceBinding(id, endpoint, DeviceSelector.SessionOnly(InventoryToken(SessionId(1), 1, "old-runtime"), 0))

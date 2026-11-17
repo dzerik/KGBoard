@@ -1,0 +1,66 @@
+# Проверка KGBoard
+
+Контрольная точка A5, версия **3.3.0**, 17 ноября 2026. Текущий этап —
+[надёжная индикация IDE](superpowers/plans/2026-11-17-ide-focus-scope.md).
+Это промежуточная проверка; B/C/E продолжаются, D1–D3 отложены.
+
+## Выполненные проверки
+
+Среда: Linux, IntelliJ IDEA `IU263.7307.200`, JBR `25.0.4.1+1-b635.79`.
+
+| Проверка | Результат | Доказательство |
+|---|---|---|
+| Модульные и платформенные тесты | Passed: 302, без failures/errors/skips | [Сборка и пакет](assets/product-verification/settings-software.txt) |
+| Нативная форма настроек | Passed: Light/Dark × 100/150/200% × два размера окна | [Матрица](assets/product-verification/settings-matrix.txt) |
+| Identify и Preview одной клавиши | Passed: SDK получил белый 30%, затем выбранный цвет с сохранением фона | [Workflow](assets/product-verification/settings-workflows.txt) |
+| Cancel, Apply, Disconnect, Disable | Passed: черновик отменён; назначение применено; Preview отозван; XML сохранён | [Workflow](assets/product-verification/settings-workflows.txt) |
+| Plugin Verifier | Passed: Compatible с указанной IDEA | [Сборка и пакет](assets/product-verification/settings-software.txt) |
+
+Размеры окон — **900×700 и 1200×900 логических единиц**. На X11 при масштабе 150%
+проверяются реальные AWT-размеры 1350×1050 и 1800×1350, при 200% — 1800×1400
+и 2400×1800. Тесты проверяют фактический scale, геометрию окна, выбор вкладки
+клавиатурой и видимость Preview. Примеры: [Dark 100%](assets/product-verification/settings-dark-100-en-900x700.png),
+[Light 200%](assets/product-verification/settings-light-200-en-1200x900.png).
+
+У каждого запуска сохранены build/JBR/OS и SHA256 установленного ZIP в соседних
+`.properties`. Матрица фиксирует более раннюю сборку 3.3.0; workflow выполнен на
+текущем ZIP. После B/C/E финальная матрица будет повторена. Во всех UI-запусках
+используются изолированные config/system, временный проект и тестовый SDK на
+случайном loopback-порту. Настройки рабочего OpenRGB не менялись.
+
+## Пакет контрольной точки
+
+`build/distributions/KGBoard-3.3.0.zip`, 791343 байта.
+
+SHA256: `c1be2d24cd81f51ca0a9fc5d44e5a6d8e9ae52649cf1e5ecd41cc43e94ea8f9b`.
+
+Descriptor содержит версию 3.3.0 и диапазон `263.*`. Starter, Driver, JUnit,
+MockK, Kodein и SDK simulator не входят в runtime. Рекомендация Gradle убрать
+`until-build` не применена: совместимость намеренно ограничена проверяемой веткой.
+Публикация, установка в рабочую IDE и перезапуск пользовательских приложений
+не выполнялись.
+
+## Непроверенные возможности
+
+- Русская native UI локализация — NotRun; проверены только парность ключей и
+  наличие переводов. Совместимый языковой пакет в тестовую IDEA не установлен.
+- WebStorm `263.7307.202` и PyCharm `263.7307.206` — дистрибутивы загружены,
+  checksum и фактические product codes проверены; исполнение C1/E3 ещё требуется.
+- Windows/macOS — NotRun. Фокус native Wayland также NotRun: автоматизация
+  выполнялась в изолированном Xvfb/X11, а не на рабочем Wayland-сеансе пользователя.
+- Физический вывод нового плагина на EVision `0C45:5004` — NotRun. Выполнены
+  read-only запросы и офлайн-повтор метаданных. SDK-пакеты не доказывают отсутствие
+  мерцания; Custom/AutoSave не эквивалентен Direct. [Драйвер EVision](https://github.com/CalcProgrammer1/OpenRGB/blob/0fca93e4544f943d4d7ec8073dba4e47c18ef54b/Controllers/EVisionKeyboardController/RGBController_EVisionKeyboard.cpp).
+
+## Воспроизведение
+
+```bash
+./gradlew test buildPlugin verifyPlugin --offline -PlocalPlatformPath=/path/to/pinned/idea
+tools/run-ui-tests.sh integrationTest -PlocalPlatformPath=/path/to/pinned/idea
+python3 -m unittest discover -s tools/tests
+python3 tools/verify-evidence.py docs/product-verification.json
+```
+
+Для native UI на Linux нужны Xvfb и openbox либо twm. Машиночитаемый
+[отчёт](product-verification.json) допускает только Passed/Failed/NotRun/Blocked;
+валидатор проверяет доказательства и не повышает статус автоматически.

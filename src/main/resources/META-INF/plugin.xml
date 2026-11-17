@@ -81,7 +81,10 @@
                 implementation="com.kgboard.rgb.bridge.KgBoardStartupActivity"/>
     </extensions>
 
-    <actions>
+    <actions resource-bundle="messages.KgBoardBundle">
+        <action id="KGBoard.OpenSettings" class="com.kgboard.rgb.settings.OpenKgBoardSettingsAction">
+            <add-to-group group-id="ToolsMenu" anchor="last"/>
+        </action>
         <group id="KGBoard.ToolsMenu" text="KGBoard" popup="true">
             <add-to-group group-id="ToolsMenu" anchor="last"/>
             <action id="KGBoard.Pomodoro.StartStop"

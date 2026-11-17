@@ -105,12 +105,14 @@ class SettingsMigrationTest {
     }
 
     @Test
-    fun `legacy form color edit preserves a typed target`() {
+    fun `scenario draft color edit preserves a typed target`() {
         val baseline = SettingsMigration.app(KgBoardSettings.State())
         baseline.ruleRecords.single { it.id == "build.failure" }.target =
             TargetRecord.from(TargetSpec.NamedKeys(listOf("Esc")))
-        val draft = RuntimeSettings.capture(baseline).toState().apply { buildFailureColor = "#102030" }
-        val result = RuntimeSettings.capture(LegacyEditorBridge.app(draft, baseline)).rules.getValue("build.failure")
+        val draft = AppDraft.capture(baseline)
+        val before = draft.rules.getValue("build.failure")
+        draft.rules["build.failure"] = before.copy(style = before.style.copy(color = java.awt.Color(0x102030)))
+        val result = RuntimeSettings.capture(draft.toState()).rules.getValue("build.failure")
         assertEquals(TargetSpec.NamedKeys(listOf("Esc")), result.target)
         assertEquals(java.awt.Color(0x102030), result.style.color)
     }

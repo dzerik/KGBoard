@@ -5,7 +5,7 @@ import com.kgboard.rgb.device.*
 import com.kgboard.rgb.scenario.*
 import com.kgboard.rgb.target.*
 
-/** Validation is shared by Apply and Test. Empty means all; malformed never does. */
+/** Validation is shared by Apply and preview; malformed targets never expand to all LEDs. */
 object SettingsValidation {
     fun indices(raw: String, numLeds: Int? = null): List<Int> {
         if (raw.isBlank()) return emptyList()
@@ -26,8 +26,6 @@ object SettingsValidation {
         if (s.schemaVersion == 0) legacyApp(s, numLeds)
         require(s.schemaVersion <= SettingsSchema.VERSION) { "Configuration schema is newer than this plugin" }
         rules(s.effectiveRuleRecords(), numLeds)
-        require(s.bindingRecords.entries.map { it.id }
-            .distinct().size == s.bindingRecords.entries.size) { "Duplicate binding IDs" }
         s.bindings.forEach { binding ->
             require(binding.role in setOf("primary", "mirror", "indicator", "ambient")) { "Invalid device role" }
             require(binding.binding.endpoint.host.isNotBlank() && binding.binding.endpoint.port in 1..65535) { "Invalid binding server" }

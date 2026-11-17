@@ -1,277 +1,135 @@
 package com.kgboard.rgb.settings
 
+import com.intellij.openapi.application.ApplicationManager
+import com.intellij.openapi.application.ModalityState
 import com.intellij.openapi.options.BoundConfigurable
+import com.intellij.openapi.options.ConfigurationException
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.DialogPanel
-import com.intellij.ui.ColorPanel
-import com.intellij.ui.ToolbarDecorator
-import com.intellij.ui.components.JBCheckBox
+import com.intellij.ui.components.JBTabbedPane
 import com.intellij.ui.dsl.builder.*
-import com.intellij.ui.table.JBTable
-import com.intellij.util.ui.ListTableModel
-import com.intellij.util.ui.ColumnInfo
-import java.awt.Color
-import com.kgboard.rgb.runtime.*
+import com.kgboard.rgb.KgBoardBundle.message
 import com.kgboard.rgb.bridge.ProjectRuntimeService
-import com.intellij.util.xmlb.XmlSerializerUtil
-import com.intellij.openapi.options.ConfigurationException
-import javax.swing.JTextField
-import javax.swing.table.TableCellEditor
-import javax.swing.DefaultCellEditor
+import com.kgboard.rgb.runtime.*
+import com.kgboard.rgb.scenario.SettingsScope
+import com.kgboard.rgb.settings.ui.*
 
-/**
- * Project-level settings page: Settings → Tools → KGBoard RGB (Project).
- * Configures git indicator, code analysis, shortcut highlight per project.
- */
+/** The project captured by this Configurable never follows the active IDE window. */
 class KgBoardProjectConfigurable(private val project: Project) : BoundConfigurable("KGBoard RGB (Project)") {
-
-    private var rulesTable: JBTable? = null
-    private val draft = KgBoardProjectSettings()
-    private var legacyBaseline: KgBoardProjectSettings.State? = null
-
-    private val gitUncommittedColor = colorPanel()
-    private val gitConflictColor = colorPanel()
-    private val gitUnpushedColor = colorPanel()
-    private val gitCleanColor = colorPanel()
-    private val analysisErrorColor = colorPanel()
-    private val analysisWarningColor = colorPanel()
-    private val analysisCleanColor = colorPanel()
-
-    // Branch color rules table model
-    private val branchRulesModel = ListTableModel<KgBoardProjectSettings.GitColorRule>(
-        object : ColumnInfo<KgBoardProjectSettings.GitColorRule, String>("Pattern (regex)") {
-            override fun valueOf(item: KgBoardProjectSettings.GitColorRule): String = item.pattern
-            override fun setValue(item: KgBoardProjectSettings.GitColorRule, value: String) {
-                item.pattern = value
-            }
-
-            override fun isCellEditable(item: KgBoardProjectSettings.GitColorRule): Boolean = true
-            override fun getEditor(item: KgBoardProjectSettings.GitColorRule): TableCellEditor =
-                DefaultCellEditor(JTextField())
-        },
-        object : ColumnInfo<KgBoardProjectSettings.GitColorRule, String>("Color (#RRGGBB)") {
-            override fun valueOf(item: KgBoardProjectSettings.GitColorRule): String = item.color
-            override fun setValue(item: KgBoardProjectSettings.GitColorRule, value: String) {
-                item.color = value
-            }
-
-            override fun isCellEditable(item: KgBoardProjectSettings.GitColorRule): Boolean = true
-            override fun getEditor(item: KgBoardProjectSettings.GitColorRule): TableCellEditor =
-                DefaultCellEditor(JTextField())
-        }
+    private data class Ui(
+        val id: ProjectId, val draft: ProjectDraft, val preview: SettingsPreviewSession,
+        val header: ConnectionHeader, val device: PreviewDeviceSelector, val scenarios: ScenarioEditor,
+        val branches: BranchRulesEditor
     )
 
-    private fun colorPanel(): ColorPanel = SettingsUiUtil.colorPanel()
+    private var ui: Ui? = null
+    private var subscription: Cancellation? = null
+    private var lifetime: Any? = null
+    private var baseline: KgBoardProjectSettings.State? = null
 
     override fun createPanel(): DialogPanel {
-        XmlSerializerUtil.copyBean(
-            ProjectSettingsSnapshot.capture(KgBoardProjectSettings.getInstance(project).state).toState(), draft.state
-        )
-        legacyBaseline = ProjectSettingsSnapshot.capture(draft.state).toState()
-        val s = draft
-
-        // Init colors
-        gitUncommittedColor.selectedColor = parseColor(s.gitUncommittedColor)
-        gitConflictColor.selectedColor = parseColor(s.gitConflictColor)
-        gitUnpushedColor.selectedColor = parseColor(s.gitUnpushedColor)
-        gitCleanColor.selectedColor = parseColor(s.gitCleanColor)
-        analysisErrorColor.selectedColor = parseColor(s.analysisErrorColor)
-        analysisWarningColor.selectedColor = parseColor(s.analysisWarningColor)
-        analysisCleanColor.selectedColor = parseColor(s.analysisCleanColor)
-
-        // Load branch color rules
-        branchRulesModel.items = s.state.gitBranchColorRules.map {
-            KgBoardProjectSettings.GitColorRule(it.pattern, it.color)
+        ApplicationManager.getApplication().assertIsDispatchThread()
+        disposeUi()
+        val app = LightingRuntimeService.getInstance()
+        val service = ProjectRuntimeService.getInstance(project)
+        service.start()
+        val id = service.binding.id
+        val draft = ProjectDraft.capture(KgBoardProjectSettings.getInstance(project).state)
+        baseline = ProjectSettingsSnapshot.capture(draft.toState()).toState()
+        val preview = SettingsPreviewSession(app.events, scope = SettingsScope.PROJECT, project = id)
+        val header = ConnectionHeader(message("scope.project", project.name), null, preview, app.events)
+        var scenarioRef: ScenarioEditor? = null
+        lateinit var device: PreviewDeviceSelector
+        device = PreviewDeviceSelector {
+            preview.clear(); header.update(app.snapshot(), device.choice()); scenarioRef?.updateInventory()
         }
-
-        return panel {
-            // ── Git Indicator ──
-            group("Git Status Indicator") {
-                lateinit var enable: Cell<JBCheckBox>
-                row {
-                    enable = checkBox("Enable Git status indicator")
-                        .bindSelected(s.state::gitEnabled)
-                }
-                row("LED indices:") {
-                    val tf = textField()
-                        .columns(20)
-                        .bindText(s.state::gitLedIndices)
-                        .validationOnInput { SettingsUiUtil.validateLedIndices(it.text)?.let { msg -> error(msg) } }
-                        .comment("Comma-separated LED indices (e.g., 0,1,2). Leave empty to disable.")
-                        .component
-                    button("Key Groups...") { SettingsUiUtil.showKeyGroupPopup(tf) }
-                }.enabledIf(enable.selected)
-                row("Polling interval:") {
-                    intTextField(2..60)
-                        .columns(4)
-                        .bindIntText(s.state::gitPollingIntervalSec)
-                        .comment("Seconds between Git status checks")
-                }.enabledIf(enable.selected)
-                row("Uncommitted:") {
-                    cell(gitUncommittedColor).gap(RightGap.SMALL)
-                    comment("Modified/staged files not yet committed")
-                }.enabledIf(enable.selected)
-                row("Conflict:") {
-                    cell(gitConflictColor).gap(RightGap.SMALL)
-                    comment("Merge/rebase conflict in progress")
-                }.enabledIf(enable.selected)
-                row("Unpushed:") {
-                    cell(gitUnpushedColor).gap(RightGap.SMALL)
-                    comment("Local commits not yet pushed to remote")
-                }.enabledIf(enable.selected)
-                row("Clean:") {
-                    cell(gitCleanColor).gap(RightGap.SMALL)
-                    comment("Working tree is clean and up-to-date")
-                }.enabledIf(enable.selected)
-            }
-
-            // ── Git Branch Color Rules ──
-            group("Git Branch Color Rules") {
-                row {
-                    comment(
-                        "Apply background color based on branch name regex. First match wins.<br/>" +
-                            "Example: <code>^main$</code> → green, <code>^feature/</code> → blue."
-                    )
-                }
-                row {
-                    val table = JBTable(branchRulesModel).also { rulesTable = it }
-                    val decorator = ToolbarDecorator.createDecorator(table)
-                        .setAddAction {
-                            branchRulesModel.addRow(KgBoardProjectSettings.GitColorRule(".*", "#FFFFFF"))
-                        }
-                        .setRemoveAction {
-                            val selected = table.selectedRow
-                            if (selected >= 0) branchRulesModel.removeRow(selected)
-                        }
-                        .disableUpDownActions()
-                    cell(decorator.createPanel())
-                        .align(AlignX.FILL)
-                }
-            }
-
-            // ── Code Analysis ──
-            group("Code Analysis Indicator") {
-                lateinit var enable: Cell<JBCheckBox>
-                row {
-                    enable = checkBox("Enable code analysis indicator")
-                        .bindSelected(s.state::analysisEnabled)
-                }
-                row("LED indices:") {
-                    val tf = textField()
-                        .columns(20)
-                        .bindText(s.state::analysisLedIndices)
-                        .validationOnInput { SettingsUiUtil.validateLedIndices(it.text)?.let { msg -> error(msg) } }
-                        .comment("Comma-separated LED indices for analysis indicator")
-                        .component
-                    button("Key Groups...") { SettingsUiUtil.showKeyGroupPopup(tf) }
-                }.enabledIf(enable.selected)
-                row("Errors:") {
-                    cell(analysisErrorColor).gap(RightGap.SMALL)
-                    comment("Files with compilation errors")
-                }.enabledIf(enable.selected)
-                row("Warnings:") {
-                    cell(analysisWarningColor).gap(RightGap.SMALL)
-                    comment("Files with warnings only")
-                }.enabledIf(enable.selected)
-                row("Clean:") {
-                    cell(analysisCleanColor).gap(RightGap.SMALL)
-                    comment("No problems found")
-                }.enabledIf(enable.selected)
-            }
-
-            // ── Shortcut Highlight ──
-            group("Shortcut Highlight") {
-                row {
-                    checkBox("Enable shortcut highlighting")
-                        .bindSelected(s.state::shortcutHighlightEnabled)
-                }
-                row {
-                    comment(
-                        "Highlights relevant keyboard shortcuts based on current IDE context.<br/>" +
-                            "Requires LED name mapping from OpenRGB device (auto-detected)."
-                    )
-                }
-            }
+        val groups = { app.snapshot().groups }
+        val scenarios = ScenarioEditor(
+            SettingsScope.PROJECT, draft.rules, device::choice, app::snapshot, groups,
+            { ruleId, rule ->
+                preview.availability(
+                    app.snapshot(),
+                    device.choice(),
+                    PreviewContent.Scenario(ruleId, rule)
+                )
+            },
+            { ruleId, rule -> preview.preview(requireNotNull(device.choice()), PreviewContent.Scenario(ruleId, rule)) })
+        scenarioRef = scenarios
+        val branches = BranchRulesEditor(draft) { app.snapshot().projects[id]?.git?.branch }
+        val tabs = JBTabbedPane().identified("kgboard.project.navigation", message("nav.project")).apply {
+            minimumSize = java.awt.Dimension(0, 0); preferredSize = java.awt.Dimension(0, 0)
         }
+        tabs.addTab(message("nav.project"), scenarios.createPanel())
+        tabs.addTab(message("branch.rules"), settingsScrollPane(branches.createPanel()))
+        ui = Ui(id, draft, preview, header, device, scenarios, branches)
+        val root = panel {
+            row { cell(header.createPanel()).align(AlignX.FILL) }
+            row { cell(device.createPanel()).align(AlignX.FILL) }
+            row { cell(tabs).align(Align.FILL) }.resizableRow()
+        }
+        val token = Any().also { lifetime = it }
+        fun update(state: RuntimeState) {
+            device.update(state); header.update(
+                state,
+                device.choice()
+            ); scenarios.updateInventory(); scenarios.refreshGroups()
+        }
+        update(app.snapshot())
+        var lastPresentation: List<Any?>? = null
+        subscription = app.subscribe { state ->
+            val signature = state.settingsPresentation(preview.id, id)
+            if (signature == lastPresentation) return@subscribe
+            lastPresentation = signature
+            ApplicationManager.getApplication().invokeLater({
+                if (lifetime === token && !project.isDisposed) update(state)
+            }, ModalityState.any())
+        }
+        return root
     }
 
     override fun apply() {
-        if (rulesTable?.isEditing == true) rulesTable?.cellEditor?.stopCellEditing()
-        super.apply()
-        val s = draft
-        s.state.gitUncommittedColor = toHex(gitUncommittedColor.selectedColor)
-        s.state.gitConflictColor = toHex(gitConflictColor.selectedColor)
-        s.state.gitUnpushedColor = toHex(gitUnpushedColor.selectedColor)
-        s.state.gitCleanColor = toHex(gitCleanColor.selectedColor)
-        s.state.analysisErrorColor = toHex(analysisErrorColor.selectedColor)
-        s.state.analysisWarningColor = toHex(analysisWarningColor.selectedColor)
-        s.state.analysisCleanColor = toHex(analysisCleanColor.selectedColor)
-        // Save branch color rules
-        s.state.gitBranchColorRules = branchRulesModel.items.map {
-            KgBoardProjectSettings.GitColorRule(it.pattern, it.color)
-        }.toMutableList()
+        val view = ui ?: return
         try {
-            val app = LightingRuntimeService.getInstance()
-            val binding = ProjectRuntimeService.getInstance(project).binding
-            val numLeds =
-                (app.snapshot().connection as? ConnectionState.Ready)?.devices?.getOrNull(app.snapshot().settings.deviceIndex)?.numLeds
-            val prepared = LegacyEditorBridge.project(draft.state, legacyBaseline ?: draft.state)
+            view.scenarios.flush(); view.branches.flush()
+            val prepared = view.draft.toState()
             SettingsTransaction.applyProject(
-                binding.id,
-                prepared,
-                KgBoardProjectSettings.getInstance(project)::loadState,
-                app.events,
-                numLeds
+                view.id, prepared, KgBoardProjectSettings.getInstance(project)::loadState,
+                LightingRuntimeService.getInstance().events
             )
-            XmlSerializerUtil.copyBean(prepared, draft.state)
-            legacyBaseline = ProjectSettingsSnapshot.capture(prepared).toState()
+            view.preview.applied()
+            baseline = ProjectSettingsSnapshot.capture(KgBoardProjectSettings.getInstance(project).state).toState()
+            view.draft.reset(requireNotNull(baseline)); view.scenarios.reset(); view.branches.reset()
         } catch (error: IllegalArgumentException) {
-            throw ConfigurationException(error.message ?: "Invalid project settings")
+            throw ConfigurationException(error.message ?: message("validation.invalid"))
         }
     }
 
     override fun reset() {
-        XmlSerializerUtil.copyBean(
-            ProjectSettingsSnapshot.capture(KgBoardProjectSettings.getInstance(project).state).toState(), draft.state
-        )
-        legacyBaseline = ProjectSettingsSnapshot.capture(draft.state).toState()
-        super.reset()
-        val s = KgBoardProjectSettings.getInstance(project)
-        gitUncommittedColor.selectedColor = parseColor(s.gitUncommittedColor)
-        gitConflictColor.selectedColor = parseColor(s.gitConflictColor)
-        gitUnpushedColor.selectedColor = parseColor(s.gitUnpushedColor)
-        gitCleanColor.selectedColor = parseColor(s.gitCleanColor)
-        analysisErrorColor.selectedColor = parseColor(s.analysisErrorColor)
-        analysisWarningColor.selectedColor = parseColor(s.analysisWarningColor)
-        analysisCleanColor.selectedColor = parseColor(s.analysisCleanColor)
-        // Reset branch color rules
-        branchRulesModel.items = s.state.gitBranchColorRules.map {
-            KgBoardProjectSettings.GitColorRule(it.pattern, it.color)
-        }
+        val view = ui ?: return
+        view.preview.clear()
+        view.draft.reset(KgBoardProjectSettings.getInstance(project).state)
+        baseline = ProjectSettingsSnapshot.capture(view.draft.toState()).toState()
+        view.scenarios.reset(); view.branches.reset()
     }
 
     override fun isModified(): Boolean {
-        if (super.isModified()) return true
-        val s = KgBoardProjectSettings.getInstance(project)
-        // Check color panels
-        if (colorChanged(gitUncommittedColor, s.gitUncommittedColor) ||
-            colorChanged(gitConflictColor, s.gitConflictColor) ||
-            colorChanged(gitUnpushedColor, s.gitUnpushedColor) ||
-            colorChanged(gitCleanColor, s.gitCleanColor) ||
-            colorChanged(analysisErrorColor, s.analysisErrorColor) ||
-            colorChanged(analysisWarningColor, s.analysisWarningColor) ||
-            colorChanged(analysisCleanColor, s.analysisCleanColor)
-        ) return true
-        // Check branch rules
-        val currentRules = branchRulesModel.items
-        val savedRules = s.state.gitBranchColorRules
-        if (currentRules.size != savedRules.size) return true
-        return currentRules.zip(savedRules).any { (a, b) -> a.pattern != b.pattern || a.color != b.color }
+        val view = ui ?: return false
+        if (view.branches.hasPendingEdit()) return true
+        return try {
+            view.scenarios.flush(); view.branches.flush()
+            view.draft.toState() != baseline
+        } catch (_: IllegalArgumentException) {
+            true
+        }
     }
 
-    private fun colorChanged(panel: ColorPanel, hex: String): Boolean = SettingsUiUtil.colorChanged(panel, hex)
+    private fun disposeUi() {
+        lifetime = null
+        subscription?.cancel(); subscription = null
+        ui?.preview?.close(); ui = null
+    }
 
-    private fun parseColor(hex: String): Color = SettingsUiUtil.parseColor(hex)
-
-    private fun toHex(color: Color?): String = SettingsUiUtil.toHex(color)
+    override fun disposeUIResources() {
+        disposeUi(); super.disposeUIResources()
+    }
 }

@@ -15,9 +15,7 @@ import javax.swing.JTextField
  */
 object SettingsUiUtil {
 
-    fun colorPanel(): ColorPanel = ColorPanel().apply {
-        preferredSize = Dimension(90, 25)
-    }
+    fun colorPanel(): ColorPanel = com.kgboard.rgb.settings.ui.AccessibleColorPanel()
 
     /** Parse a #RRGGBB hex string, falling back to black on malformed input. */
     fun parseColor(hex: String): Color = try {
@@ -39,7 +37,11 @@ object SettingsUiUtil {
 
     /** Validate a comma-separated LED-index string. Returns an error message, or null if valid. */
     fun validateLedIndices(raw: String): String? {
-        return try { SettingsValidation.indices(raw); null } catch (error: IllegalArgumentException) { error.message }
+        return try {
+            SettingsValidation.indices(raw); null
+        } catch (error: IllegalArgumentException) {
+            error.message
+        }
 
     }
 
@@ -50,7 +52,8 @@ object SettingsUiUtil {
     fun showKeyGroupPopup(textField: JTextField, deviceIndex: Int? = null) {
         val groupService = KeyGroupService.getInstance()
         val state = LightingRuntimeService.getInstance().snapshot()
-        val device = (state.connection as? ConnectionState.Ready)?.devices?.getOrNull(deviceIndex ?: state.settings.deviceIndex)
+        val device =
+            (state.connection as? ConnectionState.Ready)?.devices?.getOrNull(deviceIndex ?: state.settings.deviceIndex)
         val groups = if (device == null) emptyMap() else groupService.groupsForDevice(device)
 
         if (groups.isEmpty()) {

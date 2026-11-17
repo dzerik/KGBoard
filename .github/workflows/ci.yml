@@ -30,6 +30,9 @@ jobs:
       - name: Run tests
         run: ./gradlew test
 
+      - name: Validate verification tooling
+        run: python3 -m unittest discover -s tools/tests
+
       - name: Verify plugin compatibility
         timeout-minutes: 10
         run: ./gradlew verifyPlugin
@@ -47,4 +50,31 @@ jobs:
         with:
           name: KGBoard-plugin
           path: build/distributions/*.zip
+          retention-days: 14
+
+  native-ui:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          java-version: '25'
+          distribution: 'temurin'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          validate-wrappers: false
+      - name: Install isolated X11 test dependencies
+        run: sudo apt-get update && sudo apt-get install -y xvfb openbox
+      - name: Run pinned IDEA settings matrix and SDK workflow
+        run: tools/run-ui-tests.sh integrationTest --tests '*Settings*UiTest' -PplatformVersion=263.7307.200 --console=plain
+      - name: Upload actual UI evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: native-ui-evidence
+          path: |
+            build/reports/kgboard-ui/
+            build/reports/tests/integrationTest/
+            out/ide-tests/tests/**/log/
           retention-days: 14

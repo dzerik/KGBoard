@@ -1,0 +1,12 @@
+KGBoard3.3.0 software verification, 2026-11-17
+IDE: IU263.7307.200; JBR25.0.4.1+1-b635.79; Linux
+Command: ./gradlew test buildPlugin verifyPluginConfiguration verifyPlugin --offline -PlocalPlatformPath=<pinned-IU263.7307.200> --console=plain
+Result: BUILD SUCCESSFUL (A5-ready.log, 34s)
+JUnit: 302 tests, 0 failures, 0 errors, 0 skipped
+Plugin Verifier: Compatible
+Descriptor: version3.3.0, since-build263, until-build263.*
+ZIP: 791343bytes; SHA256 c1be2d24cd81f51ca0a9fc5d44e5a6d8e9ae52649cf1e5ecd41cc43e94ea8f9b
+Runtime jars: KGBoard-3.3.0.jar and its searchableOptions.jar
+No Starter/Driver/JUnit/MockK/Kodein/simulator classes in runtime package.
+The Gradle recommendation to remove until-build is deliberately not applied: support is bounded to263.*.
+This is the A5 checkpoint, not final verification of all retained B/C/E work.

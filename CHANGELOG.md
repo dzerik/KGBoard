@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.3.0] - 2026-11-17
+
+### Added
+- Native application and project settings with shared scenario-state editor, named LED targets, draft groups, device roles and scoped previews.
+- English/Russian resource bundles, accessible color actions, keyboard activation and the public KGBoard settings action.
+- Official Starter/Driver UI tests against a pinned IDEA, isolated X11 scripts, a fake-SDK workflow and verification-evidence tooling.
+
+### Fixed
+- Stop pending branch-table editors and validate the entire draft before one scoped Apply; Cancel preserves managed configuration.
+- Keep an active branch cell editor open while the Settings dialog polls for modifications.
+- Expose inactive/duplicate device assignments for explicit recovery while preserving unknown records on unrelated edits.
+- Keep invalid timing visible for correction and prevent unsupported device roles from producing frames.
+- Keep Preview visible at compact settings sizes and cancel queued UI updates after disposal.
+
+### Removed
+- Transitional legacy form bridge, superseded by typed detached scenario drafts.
+
 ## [3.2.0] - 2026-11-17
 
 ### Added
