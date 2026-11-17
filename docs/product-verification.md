@@ -1,30 +1,33 @@
 # Проверка KGBoard
 
-Программная контрольная точка **3.9.1**, 17 ноября 2026. Реализован сохранённый
+Программная контрольная точка **3.9.2**, 17 ноября 2026. Реализован сохранённый
 объём A/B/C/E: [надёжная индикация IDE](superpowers/plans/2026-11-17-ide-focus-scope.md).
-D1–D3 и ProfileUiTest отложены. Результат заключительного обзора ветки сообщается
-отдельно при завершении работы; этот документ фиксирует выполненные проверки.
+D1–D3 и ProfileUiTest отложены. Заключительный обзор всей ветки выявил два
+Important-дефекта; оба воспроизведены и исправлены за один проход. Critical и Minor
+не выявлены. Этот документ различает проверки финального ZIP и историю этапов.
 [Журнал принятых решений и цены ошибки](implementation-decisions.md).
 
 ## Итоговая программная проверка
 
 | Проверка | Результат | Доказательство |
 |---|---|---|
-| Unit/platform и инструменты отчёта | 388 JUnit + 6 Python, без failures/errors/skips | [Software](assets/product-verification/final/software.txt) |
-| Plugin Verifier | Compatible: IU263.7307.200, WS263.7307.202, PY263.7307.206 | [Software](assets/product-verification/final/software.txt) |
-| Полный native прогон IDEA | 20 сценариев: темы/масштабы, Preview/Apply/Cancel, диагностика, JPS/Gradle/Maven, Git, редактор, фокус | [Результаты](assets/product-verification/final/IU/native-results.txt) |
-| Два окна и читаемость HEX на 200% | Ещё 3 native сценария | [Дополнительные проверки](assets/product-verification/final/IU/supplemental-results.txt) |
-| WebStorm без Java | 5 native сценариев core и optional providers | [WS](assets/product-verification/final/WS/native-results.txt) |
-| PyCharm без Java | 5 native сценариев core и optional providers | [PY](assets/product-verification/final/PY/native-results.txt) |
-| Чистая сборка без build cache | Passed; ZIP побайтово совпал с инкрементальной сборкой | [Cold build](assets/product-verification/final/cold-build.txt) |
+| Повторная native регрессия, 3.9.2 | 4 сценария: Diagnostics Light/Dark и оба Settings workflow | [Результаты](assets/product-verification/review-fixes/native-results.txt) |
+| Чистая сборка без build cache, 3.9.2 | Passed; ZIP побайтово совпал с основной сборкой | [Cold build](assets/product-verification/review-fixes/cold-build.txt) |
+| Unit/platform и инструменты отчёта, 3.9.2 | 394 JUnit + 6 Python, без failures/errors/skips | [Software](assets/product-verification/review-fixes/software.txt) |
+| Plugin Verifier, 3.9.2 | Compatible: IU263.7307.200, WS263.7307.202, PY263.7307.206 | [Software](assets/product-verification/review-fixes/software.txt) |
+| Полный native прогон IDEA, 3.9.1 | 20 сценариев: темы/масштабы, Preview/Apply/Cancel, диагностика, JPS/Gradle/Maven, Git, редактор, фокус | [Результаты](assets/product-verification/final/IU/native-results.txt) |
+| Два окна и читаемость HEX на 200%, 3.9.1 | Ещё 3 native сценария | [Дополнительные проверки](assets/product-verification/final/IU/supplemental-results.txt) |
+| WebStorm без Java, 3.9.1 | 5 native сценариев core и optional providers | [WS](assets/product-verification/final/WS/native-results.txt) |
+| PyCharm без Java, 3.9.1 | 5 native сценариев core и optional providers | [PY](assets/product-verification/final/PY/native-results.txt) |
+| Чистая сборка без build cache, 3.9.1 | Passed; ZIP побайтово совпал с инкрементальной сборкой | [Cold build](assets/product-verification/final/cold-build.txt) |
 
-Во всех **33 native запусках** устанавливался один main ZIP с SHA256, указанным
-в разделе пакета. Рядом сохранены все 33 launch properties. Test-only observer
+Во всех **33 native запусках 3.9.1** устанавливался один main ZIP с SHA256
+`601e7609b9d4c8646d78fe25fb8de0c4de8ce2e869ce295e4c684f710629b12a`. Рядом сохранены все 33 launch properties. Test-only observer
 развивался между дополнительными проверками и в main ZIP не входит.
 Проверки выполнялись на Linux/X11, в изолированных config/system, временных проектах
 и с тестовым SDK на случайном loopback-порту. Рабочая IDEA и OpenRGB не менялись.
 
-Нативные снимки новой версии: [Dark100%,900×700](assets/product-verification/final/IU/settings-dark-100-en-900x700.png),
+Нативные снимки контрольной точки 3.9.1: [Dark100%,900×700](assets/product-verification/final/IU/settings-dark-100-en-900x700.png),
 [Light200%,1200×900](assets/product-verification/final/IU/settings-light-200-en-1200x900.png).
 Оба размера проверены для каждой пары Light/Dark ×100/150/200%. Видимость Preview,
 реальный scale и геометрия проверяются assertions. Геометрия HEX дополнительно
@@ -35,6 +38,24 @@ Read-only runtime наблюдения подтверждают text→image→c
 в modal Settings и primary→secondary→primary между двумя настоящими окнами.
 Закрытие фонового проекта сохраняет активный. Эти тесты не доказывают видимый
 аппаратный цвет: SDK writes=0; renderer и доставка отдельно проверены suite.
+
+## Исправления заключительного обзора, 3.9.2
+
+[Регрессии RED→GREEN](assets/product-verification/review-fixes/regressions.txt): обычное событие
+IDE на границе Pomodoro больше не теряет Wake; Stop/Skip не продвигают фазу дважды,
+следующий отсчёт и опрос устройств продолжаются. Debug ждёт подтверждённый результат
+процесса: detach с синтетическим exit0 и неподтверждённый standalone stop не становятся
+Success. Выгрузка Debug и запоздалые provider facts не стирают подтверждённый результат.
+
+Четыре повторных native сценария финального ZIP прошли: диагностика Light/Dark,
+Identify/Preview/Cancel и Apply/Disconnect/Disable. Все четыре launch properties
+содержат SHA256 текущего пакета; полный product/UI прогон 33 сценариев выше относится
+к 3.9.1.
+
+SDK-тесты используют настоящий ProcessHandler и изолированный message bus; это
+проверка адаптеров, а не native debugger backend. Публичные Experimental предупреждения
+BuildProgressObservable остаются: по три использования на IDE; Verifier не обнаружил
+использования Internal/Deprecated API в main plugin.
 
 Исторические контрольные точки ниже сохранены со своими версиями и доказательствами.
 
@@ -58,7 +79,7 @@ Read-only runtime наблюдения подтверждают text→image→c
 
 У каждого запуска сохранены build/JBR/OS и SHA256 установленного ZIP в соседних
 `.properties`. Матрица фиксирует более раннюю сборку 3.3.0; workflow также относится к
-исторической сборке A5. После B/C/E финальная матрица будет повторена. Во всех UI-запусках
+исторической сборке A5. Повторная матрица после B/C/E записана выше в контрольной точке 3.9.1. Во всех UI-запусках
 используются изолированные config/system, временный проект и тестовый SDK на
 случайном loopback-порту. Настройки рабочего OpenRGB не менялись.
 
@@ -135,11 +156,11 @@ Public BuildProgressObservable помечен Experimental; диапазон о�
 
 ## Пакет контрольной точки
 
-`build/distributions/KGBoard-3.9.1.zip`, 1027282 байт.
+`build/distributions/KGBoard-3.9.2.zip`, 1030607 байт.
 
-SHA256: `601e7609b9d4c8646d78fe25fb8de0c4de8ce2e869ce295e4c684f710629b12a`.
+SHA256: `2de5b2bd652ad44f23bc982a36d1882b93d0a3882d5c1b22e8147b9da635cd45`.
 
-Descriptor и встроенные метаданные содержат версию 3.9.1 и диапазон `263.*`.
+Descriptor и встроенные метаданные содержат версию 3.9.2 и диапазон `263.*`.
 Starter, Driver, JUnit, MockK, Kodein и SDK simulator не входят в runtime.
 Рекомендация Gradle убрать `until-build` не применена: совместимость намеренно
 ограничена проверяемой веткой. Исторический SHA версии 3.3.0 сохранён в доказательствах A5;

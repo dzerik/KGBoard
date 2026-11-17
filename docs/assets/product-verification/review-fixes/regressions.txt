@@ -1,0 +1,10 @@
+Whole-branch review eae8b4545beff9b34b806e317c81d96decc8b2dc..4d5e81f: Critical0, Important2, Minor0.
+Both Important findings retained after impact re-grade. One TDD fix pass; no second review.
+F1 RED: ordinary focus event at Pomodoro deadline consumed sole Wake: expected BREAK, actual WORK.
+F1 GREEN: both event/Wake orders advance one phase and preserve later countdown and inventory probe. Stop/Skip at deadline remain single-step.
+F2 RED: four SDK adapter test failures: exit failure lost to debug success, detach synthetic zero became success, standalone stop invented success, provider unload erased core terminal.
+F2 extra RED: a queued stale provider fact retagged the confirmed result and unload removed it (1/4 failed).
+F2 GREEN: core process outcome wins in both callback orders; zero success/nonzero failure retain visible debug rule; detach and unconfirmed standalone stop produce NOT_EXECUTED. Stale facts cannot retag a confirmed core result. Completed registry activeCount=0.
+Final full suite394passed, zero failures/errors/skips includes all regressions.
+SDK fixture uses real ProcessHandler, isolated public SDK message bus, interface debug session callbacks. Failed preliminary fixtures (null RunProfile/global XDebugSessionImpl assertions) were infrastructure errors, not behavioral RED evidence.
+Native debugger backend and Run/Debug/SM overlap remain NotRun. No physical device writes or hardware flicker claim.

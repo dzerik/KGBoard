@@ -162,8 +162,9 @@ class LightingRuntime(
             state.lastDecision?.nextWakeAtMs,
             (state.connection as? ConnectionState.Backoff)?.retryAtMs,
             state.probeAtMs
-        ).minOrNull()?.takeIf { it > now }?.let { due ->
-            scheduled = scheduler.scheduleAt(due) { dispatch(RuntimeEvent.Wake(generation)) }
+        ).minOrNull()?.takeIf { now < Long.MAX_VALUE }?.let { due ->
+            // A normal event can overtake an already-due Wake. Replace it with a valid generation.
+            scheduled = scheduler.scheduleAt(due.coerceAtLeast(now)) { dispatch(RuntimeEvent.Wake(generation)) }
         }
     }
 

@@ -12,9 +12,13 @@ class OperationIdentityRegistry {
     private val revisions = mutableMapOf<OperationId, Long>()
     private val pending = mutableMapOf<Long, Any>()
     private val processes = WeakHashMap<Any, Any>()
+    private val executionOwned = WeakHashMap<Any, Boolean>()
+    private val detached = WeakHashMap<Any, Boolean>()
 
     @Synchronized
-    fun reserveExecution(executionId: Long): Any = pending.getOrPut(executionId) { Any() }
+    fun reserveExecution(executionId: Long): Any = pending.getOrPut(executionId) { Any() }.also {
+        executionOwned[it] = true
+    }
 
     @Synchronized
     fun cancelExecution(executionId: Long): Any? = pending.remove(executionId)
@@ -22,6 +26,26 @@ class OperationIdentityRegistry {
     @Synchronized
     fun processKey(handler: Any, executionId: Long = 0): Any =
         processes.getOrPut(handler) { pending.remove(executionId) ?: Any() }
+
+    @Synchronized
+    fun executionKey(handler: Any, executionId: Long): Any = processKey(handler, executionId).also {
+        executionOwned[it] = true
+    }
+
+    @Synchronized
+    fun isExecutionOwned(key: Any): Boolean = executionOwned[key] == true
+
+    @Synchronized
+    fun markDetached(key: Any) {
+        detached[key] = true
+    }
+
+    @Synchronized
+    fun executionOutcome(key: Any, exitCode: Int): OperationOutcome = when {
+        detached[key] == true -> OperationOutcome.NOT_EXECUTED
+        exitCode == 0 -> OperationOutcome.SUCCESS
+        else -> OperationOutcome.FAILURE
+    }
 
     val activeCount: Int get() = synchronized(this) { revisions.size }
 
@@ -43,13 +67,17 @@ class OperationIdentityRegistry {
 
     @Synchronized
     fun release(id: OperationId) {
-        identities.values.firstOrNull { it.id == id }?.retired = true
+        identities.entries.firstOrNull { it.value.id == id }?.let { (key, entry) ->
+            entry.retired = true
+            executionOwned.remove(key)
+            detached.remove(key)
+        }
         revisions.remove(id)
     }
 
     @Synchronized
     fun clear() {
-        identities.clear(); revisions.clear(); pending.clear(); processes.clear()
+        identities.clear(); revisions.clear(); pending.clear(); processes.clear(); executionOwned.clear(); detached.clear()
     }
 }
 

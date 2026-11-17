@@ -1,0 +1,10 @@
+Final3.9.2artifact targeted native regression; IU263.7307.200; Linux/X11; JBR25.0.4.1+1-b635.79.
+Command: KGBOARD_UI_WM=<task-owned twm> tools/run-ui-tests.sh integrationTest --tests com.kgboard.rgb.DiagnosticsUiTest --tests com.kgboard.rgb.SettingsWorkflowUiTest -PlocalPlatformPath=<IU> --offline --console=plain
+BUILD SUCCESSFUL in4m50s. Four cases passed, no failures or skips:
+- Diagnostics DARK: child view from Settings, Copy/Clear, keyboard popup and twenty panel lifetimes without extra frames.
+- Diagnostics LIGHT: same native workflow.
+- Apply commits binding; Disconnect and Disable revoke Preview.
+- Identify and keyboard Preview preserve idle baseline; Cancel discards draft binding.
+All4launch properties alongside this file have the same main ZIP3.9.2SHA256=2de5b2bd652ad44f23bc982a36d1882b93d0a3882d5c1b22e8147b9da635cd45.
+These are real native IDE tests with an isolated loopback SDK simulator; no physical keyboard or user IDE changes.
+The historical full33-case product/UI matrix remains3.9.1 evidence, not a rerun on3.9.2. Native debugger backend/parallel Run-Debug-SM and physical EVision output remain NotRun.

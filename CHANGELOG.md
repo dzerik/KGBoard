@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.9.2] - 2026-11-17
+
+### Fixed
+- Reschedule an already-due runtime wake when an IDE event overtakes it, preserving Pomodoro phase transitions and later device probes.
+- Let core execution confirm Debug process outcomes; detach and unconfirmed standalone stops no longer invent success, and optional Debug unload cannot erase a confirmed process result.
+- Add deterministic deadline regressions and SDK adapter tests for both termination callback orders and detach's synthetic zero exit code.
+
 ## [3.9.1] - 2026-11-17
 
 ### Fixed

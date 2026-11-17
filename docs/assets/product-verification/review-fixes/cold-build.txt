@@ -1,0 +1,6 @@
+Fresh directory /var/tmp/kgboard-review-fixes-cold-daezad5i extracted from git archive4d5e81f with the exact pending3.9.2 runtime, build and version file overlay; no preexisting build outputs.
+Command: ./gradlew buildPlugin -PlocalPlatformPath=<IU> --offline --no-build-cache --console=plain
+BUILD SUCCESSFUL in1m6s. All25actionable tasks executed.
+No searchable-options directory was created manually; dependent tasks correctly skipped through the extension flag.
+cmp against main build/distributions/KGBoard-3.9.2.zip returned0: byte-identical.
+bytes=1030607 SHA256=2de5b2bd652ad44f23bc982a36d1882b93d0a3882d5c1b22e8147b9da635cd45

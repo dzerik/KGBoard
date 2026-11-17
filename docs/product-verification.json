@@ -43,7 +43,7 @@
     "build": "263.7307.200",
     "jbr": "25.0.4.1+1-b635.79",
     "os": "Linux",
-    "plugin": "3.9.1",
+    "plugin": "3.9.2",
     "feature": "Russian native settings layout",
     "command": "",
     "status": "NotRun",
@@ -81,7 +81,7 @@
     "build": "263.7307.200",
     "jbr": "25.0.4.1+1-b635.79",
     "os": "Windows",
-    "plugin": "3.9.1",
+    "plugin": "3.9.2",
     "feature": "Native platform verification",
     "command": "",
     "status": "NotRun",
@@ -93,7 +93,7 @@
     "build": "263.7307.200",
     "jbr": "25.0.4.1+1-b635.79",
     "os": "macOS",
-    "plugin": "3.9.1",
+    "plugin": "3.9.2",
     "feature": "Native platform verification",
     "command": "",
     "status": "NotRun",
@@ -105,7 +105,7 @@
     "build": "263.7307.200",
     "jbr": "25.0.4.1+1-b635.79",
     "os": "Linux",
-    "plugin": "3.9.1",
+    "plugin": "3.9.2",
     "kind": "hardware",
     "feature": "EVision physical output with current plugin",
     "command": "",
@@ -122,7 +122,7 @@
     "build": "263.7307.200",
     "jbr": "25.0.4.1+1-b635.79",
     "os": "Linux/Wayland",
-    "plugin": "3.9.1",
+    "plugin": "3.9.2",
     "feature": "Native Wayland focus lifecycle",
     "command": "",
     "status": "NotRun",
@@ -160,7 +160,7 @@
     "build": "263.7307.200",
     "jbr": "25.0.4.1+1-b635.79",
     "os": "Linux",
-    "plugin": "3.9.1",
+    "plugin": "3.9.2",
     "feature": "Physical OS sleep/resume and native signal",
     "command": "",
     "status": "NotRun",
@@ -364,11 +364,55 @@
     "build": "263.7307.200",
     "jbr": "25.0.4.1+1-b635.79",
     "os": "Linux",
-    "plugin": "3.9.1",
+    "plugin": "3.9.2",
     "feature": "Actual parallel Run Debug and SM processes",
     "command": "",
     "status": "NotRun",
     "evidence": [],
     "reason": "Parallel lifecycle and SDK producer behavior are covered by deterministic unit/platform fixtures; an actual native multi-process overlap was not executed."
+  },
+  {
+    "product": "IDEA/WebStorm/PyCharm",
+    "build": "IU263.7307.200 / WS263.7307.202 / PY263.7307.206",
+    "jbr": "JDK25 / IDE JBR25.0.4.1+1-b635.79",
+    "os": "Linux",
+    "plugin": "3.9.2",
+    "feature": "Final review fixes: 394 unit/platform, 6 Python and three Plugin Verifier checks",
+    "command": "./gradlew test buildPlugin verifyPlugin compileIntegrationTestKotlin -PlocalPlatformPath=<IU> -PverificationIdePaths=<IU>|<WS>|<PY> --offline --console=plain; python3 -m unittest discover -s tools/tests -v",
+    "status": "Passed",
+    "evidence": [
+      "docs/assets/product-verification/review-fixes/software.txt",
+      "docs/assets/product-verification/review-fixes/regressions.txt"
+    ]
+  },
+  {
+    "product": "IDEA",
+    "build": "263.7307.200",
+    "jbr": "JDK25",
+    "os": "Linux",
+    "plugin": "3.9.2",
+    "feature": "Clean no-build-cache distribution byte-identical to the incremental build",
+    "command": "./gradlew buildPlugin -PlocalPlatformPath=<IU> --offline --no-build-cache --console=plain; cmp <main ZIP> <cold ZIP>",
+    "status": "Passed",
+    "evidence": [
+      "docs/assets/product-verification/review-fixes/cold-build.txt"
+    ]
+  },
+  {
+    "product": "IDEA",
+    "build": "263.7307.200",
+    "jbr": "25.0.4.1+1-b635.79",
+    "os": "Linux/X11",
+    "plugin": "3.9.2",
+    "feature": "Final artifact native Diagnostics Light/Dark and both Settings workflows: 4 passed",
+    "command": "tools/run-ui-tests.sh integrationTest --tests com.kgboard.rgb.DiagnosticsUiTest --tests com.kgboard.rgb.SettingsWorkflowUiTest -PlocalPlatformPath=<IU> --offline --console=plain",
+    "status": "Passed",
+    "evidence": [
+      "docs/assets/product-verification/review-fixes/native-results.txt",
+      "docs/assets/product-verification/review-fixes/kgboard-diagnostics-dark.properties",
+      "docs/assets/product-verification/review-fixes/kgboard-diagnostics-light.properties",
+      "docs/assets/product-verification/review-fixes/kgboard-settings-cancel.properties",
+      "docs/assets/product-verification/review-fixes/kgboard-settings-apply.properties"
+    ]
   }
 ]

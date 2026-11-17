@@ -44,8 +44,11 @@ class DebugAdapter(
         session.addSessionListener(object : XDebugSessionListener {
             override fun sessionPaused() = publisher.change(key, OperationKind.DEBUG, OperationPhase.PAUSED)
             override fun sessionResumed() = publisher.change(key, OperationKind.DEBUG, OperationPhase.RUNNING)
-            override fun sessionStopped() =
-                publisher.change(key, OperationKind.DEBUG, OperationPhase.TERMINATED, OperationOutcome.SUCCESS)
+            override fun sessionStopped() {
+                // Execution owns process results; stopped also means detach and is not proof of success.
+                if (binding.operations.isExecutionOwned(key) || session.executionEnvironment != null) return
+                publisher.change(key, OperationKind.DEBUG, OperationPhase.TERMINATED, OperationOutcome.NOT_EXECUTED)
+            }
         }, this)
         publisher.change(
             key,

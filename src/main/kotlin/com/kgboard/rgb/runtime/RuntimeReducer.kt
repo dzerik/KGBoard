@@ -35,7 +35,10 @@ class RuntimeReducer {
             if (previousOwner != null && previousOwner != lease) return Transition(original)
             val next = reduce(original, event.fact, now)
             return if (operation == null) next else next.copy(state = updateProject(next.state, lease.project) { p ->
-                if (operation.operation.id !in p.operations) p else p.copy(operationOwners = frozenMap(p.operationOwners + (operation.operation.id to lease)))
+                val incoming = operation.operation
+                val accepted = p.operations[incoming.id]?.revision == incoming.revision &&
+                    project.operations[incoming.id]?.let { it.revision >= incoming.revision } != true
+                if (!accepted) p else p.copy(operationOwners = frozenMap(p.operationOwners + (incoming.id to lease)))
             })
         }
         val connection = settingsTransition(original, event, nowMs)
@@ -178,9 +181,13 @@ class RuntimeReducer {
                     previous != null && event.operation.revision <= previous.revision -> project
                     previous?.phase == OperationPhase.TERMINATED -> project
                     event.operation.phase == OperationPhase.TERMINATED && !state.settings.enabled ->
-                        project.copy(operations = frozenMap(project.operations - event.operation.id))
+                        project.copy(
+                            operations = frozenMap(project.operations - event.operation.id),
+                            operationOwners = frozenMap(project.operationOwners - event.operation.id)
+                        )
 
                     else -> project.copy(
+                        operationOwners = frozenMap(project.operationOwners - event.operation.id),
                         operations = frozenMap(
                             project.operations + (event.operation.id to event.operation.copy(
                                 changedAtMs = nowMs,

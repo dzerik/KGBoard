@@ -5,6 +5,61 @@ import org.junit.jupiter.api.Test
 
 class PomodoroStateTest {
     @Test
+    fun `ordinary event at phase deadline cannot consume the only wake or block probes`() {
+        for (eventFirst in listOf(true, false)) {
+            RuntimeHarness(
+                RuntimeSettings(
+                    pomodoroEnabled = true,
+                    pomodoroWorkMinutes = 1
+                ).withTestBindings()
+            ).use { h ->
+                h.send(RuntimeEvent.DisconnectRequested)
+                h.send(RuntimeEvent.ConnectRequested())
+                val session = (h.snapshotForTest().connection as ConnectionState.Connecting).session
+                h.send(RuntimeEvent.Connected(session, testDevices()))
+                val p = ProjectId("p"); h.project(p); h.send(RuntimeEvent.PomodoroStart(p))
+                h.advanceBy(59_000)
+                h.clock.value += 1000; h.clock.wallValue += 1000
+                if (eventFirst) h.send(RuntimeEvent.FocusChanged(true))
+                h.scheduler.advanceBy(0)
+                if (!eventFirst) h.send(RuntimeEvent.FocusChanged(true))
+                val phase = h.snapshotForTest().projects.getValue(p).pomodoro
+                assertEquals(PomodoroPhase.BREAK, phase.phase, "eventFirst=$eventFirst")
+                val seconds = phase.remainingSeconds(h.clock.sample())
+                h.advanceBy(1000)
+                assertEquals(
+                    seconds - 1,
+                    h.snapshotForTest().projects.getValue(p).pomodoro.remainingSeconds(h.clock.sample())
+                )
+                assertTrue(
+                    requireNotNull(h.snapshotForTest().probeAtMs) > h.clock.value,
+                    "A due phase must not suppress inventory probing"
+                )
+            }
+        }
+    }
+
+    @Test
+    fun `stop and skip at due deadline still take effect exactly once`() {
+        for (stop in listOf(true, false)) {
+            RuntimeHarness(
+                RuntimeSettings(
+                    pomodoroEnabled = true,
+                    pomodoroWorkMinutes = 1
+                ).withTestBindings()
+            ).use { h ->
+                val p = ProjectId("p"); h.project(p); h.send(RuntimeEvent.PomodoroStart(p)); h.advanceBy(59_000)
+                h.clock.value += 1000; h.clock.wallValue += 1000
+                h.send(if (stop) RuntimeEvent.PomodoroStop(p) else RuntimeEvent.PomodoroSkip(p))
+                h.scheduler.advanceBy(0)
+                val phase = h.snapshotForTest().projects.getValue(p).pomodoro
+                assertEquals(if (stop) PomodoroPhase.IDLE else PomodoroPhase.BREAK, phase.phase)
+                assertEquals(if (stop) 0 else 1, phase.completedSessions)
+            }
+        }
+    }
+
+    @Test
     fun `skip and stop fence old wake without decrementing new phase`() {
         val h = RuntimeHarness(RuntimeSettings(pomodoroEnabled = true).withTestBindings())
         val p = ProjectId("p"); h.project(p)

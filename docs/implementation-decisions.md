@@ -1,6 +1,6 @@
 # Решения при реализации
 
-Полный журнал решений по этапам: исходные формулировки, основания и цена ошибки. Повторённые дословно решения объёма перечислены один раз. Результат заключительного обзора и отложенные замечания сообщаются отдельно при завершении работы.
+Полный журнал решений по этапам: исходные формулировки, основания и цена ошибки. Повторённые дословно решения объёма перечислены один раз. Заключительный обзор и решения по его результатам включены в последний раздел; замечаний Minor не было.
 
 ## 2026-11-16-product-evolution
 
@@ -145,3 +145,30 @@
 7. Ruling: Use the documented extension flag to disable all searchable-options tasks instead of creating missing generated directories — Gradle task-only disable left dependent input validation active — cost if wrong: searchable settings index remains intentionally absent, as before; native Settings access is verified independently.
 
 8. Ruling: Run verifyPluginProjectConfiguration in the pinned IntelliJ Platform Gradle Plugin2.20.1 instead of the plan's legacy verifyPluginConfiguration name — current official task and actual Gradle output use the project-qualified name — cost if wrong: command-only adaptation; binary verifier and package checks remain separate required gates.
+
+
+## Final whole-branch review, 2026-11-17
+
+Critical: 0; Important: 2; Minor: 0. Both Important findings reproduced and retained at that severity. One fix pass; no minor findings deferred.
+
+1. Ruling: D1-D3/ProfileUiTest/extra brightness and animation policies remain deferred — user explicitly narrowed the scope — cost if wrong: those convenience features require a later phase; current Static remains available.
+
+2. Ruling: Hardware compatibility, EVision flicker elimination and firmware/native backend remain unclaimed — no physical new-build test or confirmed Direct/RAM-only command — cost if wrong: the keyboard can still flicker despite software fixes; physical validation remains NotRun.
+
+3. Ruling: Other OS, Wayland, real sleep and Russian native UI remain NotRun — supplied evidence covers Linux/X11 and deterministic clock fixtures only — cost if wrong: environment-specific bugs remain untested.
+
+4. Ruling: Native Run/Debug/SM overlap remains NotRun while actual SDK fixtures and terminal-order regressions cover the code path — reviewer did not execute native multi-process overlap — cost if wrong: native runner interaction beyond fixtures can still differ; no Passed native-overlap claim.
+
+5. Ruling: Keep automatic JPS unknown terminal — public UUID lifecycle cannot be joined to result callback by identity — cost if wrong: automatic compiler success/failure is not displayed; no invented success.
+
+6. Ruling: Preserve essential plugin guards — IDEA Java absence and WS/PY SM absence are impossible supported product modes — cost if wrong: those absence configurations remain platform-Blocked; genuine no-Java WS/PY and no-SM IDEA are separately tested.
+
+7. Ruling: Remote Development and SDK branches beyond263.* remain outside declared support — product targets local pinned263 distributions — cost if wrong: remote host/client focus and future SDK APIs are not guaranteed.
+
+8. Ruling: Keep scheduler repair at the wake-registration boundary, scheduling due work immediately with the current generation — advancing every reducer event could double-advance Stop/Skip — cost if wrong: an extra actor Wake at a due deadline; deterministic ordering and Stop/Skip regressions guard the behavior.
+
+9. Ruling: Core Execution owns process-backed Debug terminal results; a standalone sessionStopped without a confirmed process outcome becomes NOT_EXECUTED — stopped also means detach and the pinned SDK synthesizes exit zero for detach — cost if wrong: standalone debug completion has no green success indication; exact process/environment identity is required, never time/title matching.
+
+10. Ruling: Observe ProcessHandler.processWillTerminate(false) to distinguish detach from natural zero exit, clear optional-provider ownership on an accepted core update, and grant ownership only to an accepted newer provider fact — process result must survive Debug provider unload — cost if wrong: one temporary listener per live handler; disposal and termination remove listeners, weak metadata does not retain retired SDK objects.
+
+11. Ruling: Isolate the public SDK message bus for Debug adapter regression fixtures while retaining a real ProcessHandler — global debugger listeners require backend XDebugSessionImpl and cannot accept a test interface session — cost if wrong: callback ordering/outcome contracts are proven, but real debugger backend and native multi-process overlap remain NotRun.

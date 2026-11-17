@@ -1,0 +1,9 @@
+Review fixes3.9.2; Linux; JDK25; compile SDK IU263.7307.200.
+Command: ./gradlew test buildPlugin verifyPlugin compileIntegrationTestKotlin -PlocalPlatformPath=<IU> '-PverificationIdePaths=<IU>|<WS>|<PY>' --offline --console=plain
+BUILD SUCCESSFUL in44s. JUnit tests=394 failures=0 errors=0 skipped=0.
+Verifier: Compatible IU263.7307.200, WS263.7307.202, PY263.7307.206.
+Three existing public Experimental BuildProgressObservable usages per IDE; no Internal or Deprecated API usages in the plugin.
+Package=build/distributions/KGBoard-3.9.2.zip bytes=1030607 SHA256=2de5b2bd652ad44f23bc982a36d1882b93d0a3882d5c1b22e8147b9da635cd45
+Descriptor and embedded pluginVersion=3.9.2; range263.*.
+Six stdlib Python evidence-checker tests passed.
+Full historical33native cases used3.9.1, not this artifact; final targeted native checks recorded separately.
