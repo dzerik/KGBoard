@@ -18,27 +18,47 @@ class RuntimeReducer {
         )
     }
 
-    fun reduce(original: RuntimeState, event: RuntimeEvent, nowMs: Long): Transition {
+    fun reduce(original: RuntimeState, event: RuntimeEvent, nowMs: Long): Transition =
+        reduce(original, event, TimeSample(nowMs, nowMs))
+
+    fun reduce(previous: RuntimeState, event: RuntimeEvent, now: TimeSample): Transition {
+        val nowMs = now.monotonicMs
+        val original = previous.copy(lastTime = now)
         if (original.shuttingDown) return Transition(original)
         val connection = settingsTransition(original, event, nowMs)
         val state = connection.state.copy(
-            preview = connection.state.preview?.takeIf { it.deadlineMs > nowMs },
+            preview = connection.state.preview?.takeIf {
+                (it.deadline?.remaining(now) ?: safeDifference(
+                    it.deadlineMs,
+                    nowMs
+                )) > 0
+            },
             projects = frozenMap(original.projects.mapValues { (_, project) ->
                 project.copy(
                     pomodoro = when {
                         !original.settings.enabled || !original.settings.pomodoroEnabled -> project.pomodoro.stop()
-                        event is RuntimeEvent.Wake && project.pomodoro.deadlineMs?.let { it <= nowMs } == true -> project.pomodoro.next(
+                        (event is RuntimeEvent.Wake || event == RuntimeEvent.ResumeDetected) &&
+                            (project.pomodoro.deadline?.remaining(now) ?: project.pomodoro.deadlineMs?.let {
+                                safeDifference(
+                                    it,
+                                    nowMs
+                                )
+                            })?.let { it <= 0 } == true -> project.pomodoro.next(
                             original.settings,
-                            nowMs
+                            now
                         )
 
                         else -> project.pomodoro
                     }, operations = frozenMap(project.operations.filterValues {
-                        (OperationPolicy().deadline(it, original.settings) ?: Long.MAX_VALUE) > nowMs
+                        (OperationPolicy().deadlineAt(it, original.settings, now) ?: Long.MAX_VALUE) > nowMs
                     })
                 )
             }),
-            layers = frozenMap(original.layers.filterValues { it.expiresAtMs == null || it.expiresAtMs > nowMs })
+            lowMemoryAtMs = original.lowMemoryAtMs.takeUnless { original.lowMemoryDeadline?.remaining(now) == 0L },
+            lowMemoryDeadline = original.lowMemoryDeadline?.takeUnless { it.remaining(now) == 0L },
+            layers = frozenMap(original.layers.filterValues {
+                it.expiryAt(now)?.let { expiry -> expiry > nowMs } != false
+            })
         )
         val next = when (event) {
             is RuntimeEvent.ProjectOpened -> if (event.id in state.closedProjects || event.id in state.projects) state
@@ -72,10 +92,12 @@ class RuntimeReducer {
                     p.copy(
                         pomodoro = if (event.settings.enabled && event.settings.pomodoroEnabled) p.pomodoro else p.pomodoro.stop(),
                         savedAtMs = if (event.settings.enabled) p.savedAtMs else null,
+                        saveDeadline = if (event.settings.enabled) p.saveDeadline else null,
                         operations = if (event.settings.enabled) p.operations else frozenMap(p.operations.filterValues { it.phase != OperationPhase.TERMINATED })
                     )
                 }),
                 lowMemoryAtMs = if (event.settings.enabled) state.lowMemoryAtMs else null,
+                lowMemoryDeadline = if (event.settings.enabled) state.lowMemoryDeadline else null,
                 layers = if (event.settings.enabled) state.layers else frozenMap(state.layers.filterValues { it.expiresAtMs == null })
             )
 
@@ -96,7 +118,15 @@ class RuntimeReducer {
                     else -> project.copy(
                         operations = frozenMap(
                             project.operations + (event.operation.id to event.operation.copy(
-                                changedAtMs = nowMs
+                                changedAtMs = nowMs,
+                                deadline = if (event.operation.phase == OperationPhase.TERMINATED)
+                                    RuntimeDeadline.after(
+                                        state.settings.rules[OperationPolicy().ruleId(
+                                            event.operation,
+                                            state.settings
+                                        )]?.style?.durationMs
+                                            ?: state.settings.effectDurationMs, now, event.operation.revision
+                                    ) else null
                             ))
                         )
                     )
@@ -154,12 +184,17 @@ class RuntimeReducer {
 
             is RuntimeEvent.DocumentsSaved -> updateProject(state, event.project) { p ->
                 if (event.revision <= p.saveRevision) p
-                else p.copy(saveRevision = event.revision, savedAtMs = if (state.settings.enabled) nowMs else null)
+                else p.copy(
+                    saveRevision = event.revision, savedAtMs = if (state.settings.enabled) nowMs else null,
+                    saveDeadline = if (state.settings.enabled) RuntimeDeadline.after(
+                        expiryAt(state.settings.rules["fileSave"]?.style?.durationMs ?: 300, 50), now, event.revision
+                    ) else null
+                )
             }
 
             is RuntimeEvent.PomodoroStart -> updateProject(state, event.project) { p ->
                 if (!state.settings.enabled || !state.settings.pomodoroEnabled || p.pomodoro.phase != PomodoroPhase.IDLE) p
-                else p.copy(pomodoro = PomodoroState(generation = p.pomodoro.generation).next(state.settings, nowMs))
+                else p.copy(pomodoro = PomodoroState(generation = p.pomodoro.generation).next(state.settings, now))
             }
 
             is RuntimeEvent.PomodoroStop -> updateProject(
@@ -169,10 +204,29 @@ class RuntimeReducer {
 
             is RuntimeEvent.PomodoroSkip -> updateProject(state, event.project) { p ->
                 if (p.pomodoro.phase == PomodoroPhase.IDLE) p
-                else p.copy(pomodoro = p.pomodoro.next(state.settings, nowMs))
+                else p.copy(pomodoro = p.pomodoro.next(state.settings, now))
             }
 
-            RuntimeEvent.LowMemory -> state.copy(lowMemoryAtMs = if (state.settings.enabled) nowMs else null)
+            RuntimeEvent.LowMemory -> state.copy(
+                lowMemoryAtMs = if (state.settings.enabled) nowMs else null,
+                lowMemoryDeadline = if (state.settings.enabled) RuntimeDeadline.after(
+                    expiryAt(state.settings.rules["lowMemory"]?.style?.durationMs ?: 2000, 100), now, 0
+                ) else null
+            )
+
+            RuntimeEvent.ResumeDetected -> state.copy(
+                preview = null, previewFeedback = emptyMap(),
+                lowMemoryAtMs = null, lowMemoryDeadline = null,
+                layers = frozenMap(state.layers.filterValues { it.expiresAtMs == null && it.deadline == null }),
+                projects = frozenMap(state.projects.mapValues { (_, p) ->
+                    p.copy(
+                        savedAtMs = null, saveDeadline = null,
+                        operations = frozenMap(p.operations.filterValues { it.phase != OperationPhase.TERMINATED }),
+                        shortcutIndices = emptyMap(), shortcutMapping = null
+                    )
+                })
+            )
+
             RuntimeEvent.Shutdown -> state.copy(
                 shuttingDown = true, preview = null, settingsSession = null,
                 previewFeedback = emptyMap()
@@ -184,9 +238,10 @@ class RuntimeReducer {
             else state.copy(
                 layers = frozenMap(
                     state.layers + (event.layer.key to event.layer.copy(
-                        effect = frozenEffect(
-                            event.layer.effect
-                        )
+                        effect = frozenEffect(event.layer.effect),
+                        deadline = event.layer.deadline ?: event.layer.expiresAtMs?.let {
+                            RuntimeDeadline.after(safeDifference(it, nowMs).coerceAtLeast(0), now, 0)
+                        }
                     ))
                 )
             )

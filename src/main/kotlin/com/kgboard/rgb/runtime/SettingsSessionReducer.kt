@@ -180,8 +180,17 @@ internal object SettingsSessionReducer {
             state.copy(
                 settingsSession = group, previewFeedback = feedback,
                 preview = PreviewState(
-                    request.owner, request.choice.index, indices, now, expiryAt(now, duration), binding,
-                    inventory.token, content, effect, owner.project
+                    request.owner,
+                    request.choice.index,
+                    indices,
+                    now,
+                    expiryAt(now, duration),
+                    binding,
+                    inventory.token,
+                    content,
+                    effect,
+                    owner.project,
+                    RuntimeDeadline.after(duration, state.timeAt(now), request.owner)
                 )
             )
         )

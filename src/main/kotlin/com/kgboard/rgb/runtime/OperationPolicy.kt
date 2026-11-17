@@ -25,7 +25,13 @@ class OperationPolicy {
     }
 
     fun deadline(op: OperationState, settings: RuntimeSettings): Long? = if (op.phase != OperationPhase.TERMINATED) null
-    else expiryAt(op.changedAtMs, settings.rules[ruleId(op, settings)]?.style?.durationMs ?: settings.effectDurationMs)
+    else op.deadline?.monotonicAtMs ?: expiryAt(
+        op.changedAtMs,
+        settings.rules[ruleId(op, settings)]?.style?.durationMs ?: settings.effectDurationMs
+    )
+
+    fun deadlineAt(op: OperationState, settings: RuntimeSettings, now: TimeSample): Long? =
+        op.deadline?.wakeAt(now) ?: deadline(op, settings)
 
     fun layers(state: RuntimeState, nowMs: Long): List<EffectLayer> {
         val id = state.activeProject ?: return emptyList()
@@ -34,7 +40,7 @@ class OperationPolicy {
             project.operations.values.filter { it.kind == OperationKind.TEST }.mapNotNull { it.parent }.toSet()
         return project.operations.values.mapNotNull { op ->
             if (op.id in parents && op.kind == OperationKind.RUN) return@mapNotNull null
-            val deadline = deadline(op, state.settings)
+            val deadline = deadlineAt(op, state.settings, state.timeAt(nowMs))
             if (deadline != null && deadline <= nowMs) return@mapNotNull null
             val ruleId = ruleId(op, state.settings)
             val appearance = state.settings.rules[ruleId] ?: return@mapNotNull null
@@ -43,11 +49,11 @@ class OperationPolicy {
                 ScenarioEffects.create(ruleId, appearance.style, EffectTarget.AllLeds),
                 op.changedAtMs,
                 deadline,
-                ruleId
+                ruleId, deadline = op.deadline
             )
         }
     }
 
     fun nextDeadline(state: RuntimeState, nowMs: Long): Long? = state.projects.values.flatMap { it.operations.values }
-        .mapNotNull { deadline(it, state.settings) }.filter { it > nowMs }.minOrNull()
+        .mapNotNull { deadlineAt(it, state.settings, state.timeAt(nowMs)) }.filter { it > nowMs }.minOrNull()
 }

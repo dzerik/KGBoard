@@ -18,7 +18,11 @@ class FrameWriterTest {
         val executor = ManualExecutor();
         val transport = Transport();
         val events = mutableListOf<RuntimeEvent>()
-        val writer = CoalescingFrameWriter(transport, executor, RuntimeEvents { events.add(it) }, RuntimeClock { 17 })
+        val writer = CoalescingFrameWriter(
+            transport,
+            executor,
+            RuntimeEvents { events.add(it) },
+            RuntimeClock { TimeSample(17, 17) })
         writer.connect(Endpoint("localhost", 1), SessionId(1)); executor.drain()
         val dropped = frame(1, Color.RED);
         val kept = frame(2, Color.BLUE)

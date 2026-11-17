@@ -25,8 +25,12 @@ class RuntimeIntegrationTest {
         }
         lateinit var runtime: LightingRuntime
         val writer =
-            CoalescingFrameWriter(transport, network, RuntimeEvents { runtime.dispatch(it) }, RuntimeClock { 42 })
-        runtime = LightingRuntime(actor, RuntimeClock { 0 }, object : RuntimeScheduler {
+            CoalescingFrameWriter(
+                transport,
+                network,
+                RuntimeEvents { runtime.dispatch(it) },
+                RuntimeClock { TimeSample(42, 42) })
+        runtime = LightingRuntime(actor, RuntimeClock { TimeSample(0, 0) }, object : RuntimeScheduler {
             override fun scheduleAt(timeMs: Long, action: () -> Unit) = Cancellation {}
         }, RuntimeReducer(), LightingPolicy(), writer, RuntimeState(settings = RuntimeSettings().withTestBindings()))
         runtime.subscribe { if (it.diagnostics.delivery.values.any { d -> d.lastSent != null }) sent.countDown() }
@@ -87,7 +91,7 @@ class RuntimeIntegrationTest {
                 override fun scheduleAt(timeMs: Long, action: () -> Unit) = Cancellation {}
             }
             runtime = LightingRuntime(
-                actor, RuntimeClock { 0 }, scheduler,
+                actor, RuntimeClock { TimeSample(0, 0) }, scheduler,
                 RuntimeReducer(), LightingPolicy(), writer, RuntimeState(settings = settings)
             )
             runtime.subscribe { if (it.connection is ConnectionState.Ready) ready.countDown() }
@@ -158,7 +162,7 @@ class RuntimeIntegrationTest {
             override fun scheduleAt(timeMs: Long, action: () -> Unit) = Cancellation { }
         }
         runtime = LightingRuntime(
-            actor, RuntimeClock { System.nanoTime() / 1_000_000 }, scheduler,
+            actor, RuntimeClock { TimeSample(System.nanoTime() / 1_000_000, System.currentTimeMillis()) }, scheduler,
             RuntimeReducer(), LightingPolicy(), writer, RuntimeState(settings = RuntimeSettings().withTestBindings())
         )
         runtime.subscribe { if (it.connection is ConnectionState.Ready) ready.countDown() }

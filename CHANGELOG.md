@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.5.1] - 2026-11-17
+
+### Fixed
+- Expire transient indications and Pomodoro phases using both monotonic and wall-clock deadlines, with overflow-safe arithmetic.
+- Invalidate device inventory, previews and pending delivery before reconnecting after a detected resume or clock jump.
+- Advance an expired Pomodoro phase once from the current time, preserving Stop and manual Disconnect.
+
+### Changed
+- Subscribe to public JDK system-resume events when supported; expose availability and retain clock-gap/probe fallback elsewhere.
+
 ## [3.5.0] - 2026-11-17
 
 ### Added

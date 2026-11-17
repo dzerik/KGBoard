@@ -58,7 +58,8 @@ internal class ManualExecutor : Executor {
 
 internal class ManualClock : RuntimeClock {
     var value = 0L;
-    override fun nowMs() = value
+    var wallValue = 0L
+    override fun sample() = TimeSample(value, wallValue)
 }
 
 internal class ManualScheduler(private val clock: ManualClock, private val executor: ManualExecutor) :
@@ -84,11 +85,14 @@ internal class ManualScheduler(private val clock: ManualClock, private val execu
             check(runs++ < 100_000) { "Scheduler failed to make progress" }
             val task = tasks.remove()
             if (!task.cancelled) {
-                clock.value = task.at.coerceAtLeast(clock.value)
+                val next = task.at.coerceAtLeast(clock.value)
+                clock.wallValue += next - clock.value
+                clock.value = next
                 task.action()
                 executor.drain()
             }
         }
+        clock.wallValue += until - clock.value
         clock.value = until
         executor.drain()
     }

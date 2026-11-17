@@ -62,14 +62,20 @@ class IndicatorPolicy {
             add(
                 "fileSave",
                 at,
-                expiryAt(at, expiryAt(state.settings.rules["fileSave"]?.style?.durationMs ?: 300, 50))
+                project.saveDeadline?.wakeAt(state.timeAt(now)) ?: expiryAt(
+                    at,
+                    expiryAt(state.settings.rules["fileSave"]?.style?.durationMs ?: 300, 50)
+                )
             )
         }
         state.lowMemoryAtMs?.let { at ->
             add(
                 "lowMemory",
                 at,
-                expiryAt(at, expiryAt(state.settings.rules["lowMemory"]?.style?.durationMs ?: 2000, 100))
+                state.lowMemoryDeadline?.wakeAt(state.timeAt(now)) ?: expiryAt(
+                    at,
+                    expiryAt(state.settings.rules["lowMemory"]?.style?.durationMs ?: 2000, 100)
+                )
             )
         }
     }
@@ -77,14 +83,14 @@ class IndicatorPolicy {
     fun nextDeadline(state: RuntimeState, now: Long): Long? = (
         state.projects.values.mapNotNull {
             it.savedAtMs?.let { at ->
-                expiryAt(
+                it.saveDeadline?.wakeAt(state.timeAt(now)) ?: expiryAt(
                     at,
                     expiryAt(state.settings.rules["fileSave"]?.style?.durationMs ?: 300, 50)
                 )
             }
         } +
             listOfNotNull(state.lowMemoryAtMs?.let {
-                expiryAt(
+                state.lowMemoryDeadline?.wakeAt(state.timeAt(now)) ?: expiryAt(
                     it,
                     expiryAt(state.settings.rules["lowMemory"]?.style?.durationMs ?: 2000, 100)
                 )

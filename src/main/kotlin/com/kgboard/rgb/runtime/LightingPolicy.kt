@@ -14,7 +14,10 @@ class LightingPolicy {
     private fun activePreview(state: RuntimeState, nowMs: Long): PreviewState? {
         val inventory = state.inventory() ?: return null
         return state.preview?.takeIf { preview ->
-            preview.deadlineMs > nowMs && preview.owner in state.settingsSession?.owners.orEmpty() &&
+            (preview.deadline?.remaining(state.timeAt(nowMs)) ?: safeDifference(
+                preview.deadlineMs,
+                nowMs
+            )) > 0 && preview.owner in state.settingsSession?.owners.orEmpty() &&
                 (preview.project == null || preview.project in state.projects) &&
                 preview.token == inventory.token && preview.binding.let {
                 val resolved = DeviceResolver.resolve(it, inventory, state.settings.untrustedSerials)
@@ -119,10 +122,12 @@ class LightingPolicy {
             decisions.add(result.first); animated = animated || result.second
         }
         val wake = if (state.shuttingDown) null else listOfNotNull(
-            state.layers.values.mapNotNull { it.expiresAtMs }.filter { it > nowMs }.minOrNull(),
-            state.preview?.deadlineMs?.takeIf { it > nowMs }, OperationPolicy().nextDeadline(state, nowMs),
-            IndicatorPolicy().nextDeadline(state, nowMs), PomodoroPolicy().nextWakeAt(state, nowMs),
-            if (animated) nowMs + 33 else null
+            state.layers.values.mapNotNull { it.expiryAt(state.timeAt(nowMs)) }.filter { it > nowMs }.minOrNull(),
+            state.preview?.let { it.deadline?.wakeAt(state.timeAt(nowMs)) ?: it.deadlineMs }?.takeIf { it > nowMs },
+            OperationPolicy().nextDeadline(state, nowMs),
+            IndicatorPolicy().nextDeadline(state, nowMs),
+            PomodoroPolicy().nextWakeAt(state, nowMs),
+            if (animated) expiryAt(nowMs, 33) else null
         ).minOrNull()
         return LightingDecision(revision, inventory?.token, frozenList(decisions), wake)
     }
@@ -333,7 +338,7 @@ class LightingPolicy {
             // Low memory is application-wide and already belongs to the active presentation.
             derived(state.copy(activeProject = it, lowMemoryAtMs = null))
         }
-    }.filter { it.expiresAtMs == null || it.expiresAtMs > now }
+    }.filter { it.expiryAt(state.timeAt(now))?.let { expiry -> expiry > now } != false }
 
     private fun isAnimated(effect: RgbEffect): Boolean = effect is PulseEffect || effect is FlashEffect ||
         effect is GradientEffect || effect is RainbowEffect || effect is WaveEffect

@@ -94,20 +94,28 @@ class LightingRuntime(
             subscriptions.forEach { notify(it) }
             return
         }
-        processAndRender(event)
+        if (event is RuntimeEvent.Wake && event.generation != wakeGeneration) return
+        val sample = clock.sample()
+        val previous = state.lastTime
+        if (event != RuntimeEvent.ResumeDetected && event != RuntimeEvent.Shutdown && previous != null && ResumeDetector.observe(
+                previous,
+                sample
+            )
+        )
+            processAndRender(RuntimeEvent.ResumeDetected, sample)
+        processAndRender(event, sample)
     }
 
-    private fun processAndRender(event: RuntimeEvent) {
-        if (event is RuntimeEvent.Wake && event.generation != wakeGeneration) return
-        val now = clock.nowMs()
+    private fun processAndRender(event: RuntimeEvent, sample: TimeSample) {
+        val now = sample.monotonicMs
         val previous = state
-        val transition = reducer.reduce(state, event, now)
+        val transition = reducer.reduce(state, event, sample)
         state = transition.state.copy(nowMs = now)
         scheduled?.cancel()
         scheduled = null
         val generation = ++wakeGeneration
         val finalFrames = if (previous.connection is ConnectionState.Ready && event !is RuntimeEvent.InventoryChanged &&
-            event !is RuntimeEvent.TransportFailed && event !is RuntimeEvent.ConnectFailed && transition.commands.any { it is RuntimeCommand.Connect || it is RuntimeCommand.Disconnect }
+            event !is RuntimeEvent.TransportFailed && event !is RuntimeEvent.ConnectFailed && event != RuntimeEvent.ResumeDetected && transition.commands.any { it is RuntimeCommand.Connect || it is RuntimeCommand.Disconnect }
         ) {
             val previousDecision = policy.decide(previous.copy(preview = null), now, RenderRevision(renderRevision + 1))
             val normal = previousDecision.devices.mapNotNull { it.frame }.associateBy { it.deviceIndex }.toMutableMap()
@@ -134,6 +142,16 @@ class LightingRuntime(
             }
         }
         render(now)
+        if (event == RuntimeEvent.ResumeDetected)
+            history.record(
+                HistoryEntry(
+                    "resume:${state.connectionGeneration}",
+                    "diagnostics.clockChanged",
+                    now,
+                    now,
+                    1
+                )
+            )
         recordSignificantState(now)
         subscriptions.forEach { notify(it) }
         if (state.shuttingDown) {
@@ -144,7 +162,7 @@ class LightingRuntime(
             state.lastDecision?.nextWakeAtMs,
             (state.connection as? ConnectionState.Backoff)?.retryAtMs,
             state.probeAtMs
-        ).minOrNull()?.let { due ->
+        ).minOrNull()?.takeIf { it > now }?.let { due ->
             scheduled = scheduler.scheduleAt(due) { dispatch(RuntimeEvent.Wake(generation)) }
         }
     }
@@ -254,7 +272,7 @@ class LightingRuntime(
 
     override fun close() {
         if (accepting.getAndSet(false)) eventsExecutor.execute {
-            if (!state.shuttingDown) process(RuntimeEvent.Shutdown)
+            if (!state.shuttingDown) processAndRender(RuntimeEvent.Shutdown, clock.sample())
         }
     }
 }

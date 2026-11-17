@@ -2,9 +2,10 @@ package com.kgboard.rgb.runtime
 
 import com.kgboard.rgb.diagnostics.FrameEnvelope
 
-/** Monotonic milliseconds; never the adjustable wall clock. */
+/** One paired sample per actor event; scheduling and animation stay monotonic. */
 fun interface RuntimeClock {
-    fun nowMs(): Long
+    fun sample(): TimeSample
+    fun nowMs(): Long = sample().monotonicMs
 }
 
 fun interface Cancellation {

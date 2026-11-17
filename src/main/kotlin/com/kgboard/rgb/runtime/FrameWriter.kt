@@ -10,7 +10,12 @@ class CoalescingFrameWriter(
     private val transport: RgbTransport,
     private val executor: Executor,
     private val events: RuntimeEvents,
-    private val clock: RuntimeClock = RuntimeClock { System.nanoTime() / 1_000_000 }
+    private val clock: RuntimeClock = RuntimeClock {
+        TimeSample(
+            System.nanoTime() / 1_000_000,
+            System.currentTimeMillis()
+        )
+    }
 ) : FrameWriter {
     private sealed interface Control {
         val finalFrames: Map<Int, FrameEnvelope>

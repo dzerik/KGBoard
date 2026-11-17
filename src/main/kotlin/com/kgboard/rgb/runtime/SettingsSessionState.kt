@@ -15,7 +15,8 @@ data class SettingsSessionState(
 data class PreviewState(
     val owner: Long, val device: Int, val indices: List<Int>,
     val createdAtMs: Long, val deadlineMs: Long, val binding: DeviceBinding, val token: InventoryToken,
-    val content: PreviewContent, val effect: RgbEffect, val project: ProjectId? = null
+    val content: PreviewContent, val effect: RgbEffect, val project: ProjectId? = null,
+    val deadline: RuntimeDeadline? = null
 )
 
 internal fun settingsTransition(state: RuntimeState, event: RuntimeEvent, now: Long): Transition =

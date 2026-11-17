@@ -22,9 +22,12 @@ class LightingRuntimeService : Disposable {
     private val actor = Executors.newSingleThreadExecutor(thread("Runtime"))
     private val timer = Executors.newSingleThreadScheduledExecutor(thread("Deadlines"))
     private val network = Executors.newSingleThreadExecutor(thread("OpenRGB"))
-    private val clock = RuntimeClock { System.nanoTime() / 1000000 }
+    private val clock = RuntimeClock { TimeSample(System.nanoTime() / 1_000_000, System.currentTimeMillis()) }
     private val transport = OpenRgbTransport { snapshot().settings.skipCustomMode }
     private val runtime: LightingRuntime
+    private val resumeSource = com.kgboard.rgb.bridge.DesktopResumeSignalSource()
+    private val resumeSubscription: Cancellation
+    val nativeResumeAvailable: Boolean get() = resumeSource.available
     private val started = AtomicBoolean()
     private val closed = AtomicBoolean()
     private val projects = ConcurrentHashMap<Project, ProjectRuntimeBinding>()
@@ -40,7 +43,11 @@ class LightingRuntimeService : Disposable {
         val writer = CoalescingFrameWriter(transport, network, RuntimeEvents { events.dispatch(it) }, clock)
         val scheduler = object : RuntimeScheduler {
             override fun scheduleAt(timeMs: Long, action: () -> Unit): Cancellation {
-                val future = timer.schedule(action, (timeMs - clock.nowMs()).coerceAtLeast(0), TimeUnit.MILLISECONDS)
+                val future = timer.schedule(
+                    action,
+                    safeDifference(timeMs, clock.nowMs()).coerceAtLeast(0),
+                    TimeUnit.MILLISECONDS
+                )
                 return Cancellation { future.cancel(false) }
             }
         }
@@ -53,6 +60,7 @@ class LightingRuntimeService : Disposable {
             writer,
             initial
         ) { log.warn("Lighting runtime error", it) }
+        resumeSubscription = resumeSource.subscribe { events.dispatch(RuntimeEvent.ResumeDetected) }
         source = IdeFocusedProjectSource { project -> projects[project]?.id }
         focus = FrameFocusTracker(source, events)
         focus.start()
@@ -105,6 +113,7 @@ class LightingRuntimeService : Disposable {
     override fun dispose() {
         if (!closed.compareAndSet(false, true)) return
         focus.close()
+        resumeSubscription.cancel()
         val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(3)
         fun remaining() = (deadline - System.nanoTime()).coerceAtLeast(0)
         runtime.close(); timer.shutdownNow(); actor.shutdown()

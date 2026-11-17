@@ -25,7 +25,7 @@ class ConnectionController {
             val retry = state.connectionWanted && state.settings.autoReconnect
             return Transition(
                 state.copy(
-                    connection = if (retry) ConnectionState.Backoff(session, nowMs + delay, message)
+                    connection = if (retry) ConnectionState.Backoff(session, expiryAt(nowMs, delay), message)
                     else ConnectionState.Disconnected,
                     connectionError = message,
                     probeAtMs = null,
@@ -69,9 +69,31 @@ class ConnectionController {
                                 state.settings.untrustedSerials +
                                     com.kgboard.rgb.device.DeviceResolver.duplicates(event.devices)
                             )
-                        ), retryDelayMs = 1000, probeAtMs = nowMs + 5000
+                        ), retryDelayMs = 1000, probeAtMs = expiryAt(nowMs, 5000)
                     )
                 )
+            }
+
+            RuntimeEvent.ResumeDetected -> {
+                val fenced = state.copy(
+                    connection = ConnectionState.Disconnected, probeAtMs = null,
+                    connectionError = null, connectionEpoch = java.util.UUID.randomUUID().toString()
+                )
+                if (state.connectionWanted && !state.manuallyDisconnected) {
+                    val session = SessionId(state.connectionGeneration + 1)
+                    Transition(
+                        fenced.copy(
+                            connection = ConnectionState.Connecting(session, state.endpoint),
+                            connectionGeneration = session.value
+                        ), listOf(RuntimeCommand.Connect(state.endpoint, session))
+                    )
+                } else {
+                    val session = SessionId(state.connectionGeneration + 1)
+                    Transition(
+                        fenced.copy(connectionGeneration = session.value),
+                        listOf(RuntimeCommand.Disconnect(session))
+                    )
+                }
             }
 
             is RuntimeEvent.InventoryChanged -> if ((state.connection as? ConnectionState.Ready)?.session == event.session)
@@ -86,7 +108,7 @@ class ConnectionController {
 
                 state.connection is ConnectionState.Ready && state.probeAtMs != null && state.probeAtMs <= nowMs ->
                     Transition(
-                        state.copy(probeAtMs = nowMs + 5000),
+                        state.copy(probeAtMs = expiryAt(nowMs, 5000)),
                         listOf(RuntimeCommand.Probe(state.connection.session))
                     )
 

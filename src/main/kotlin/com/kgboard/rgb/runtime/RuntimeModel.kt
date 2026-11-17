@@ -29,7 +29,8 @@ data class EffectKey(val project: ProjectId?, val source: String)
 data class EffectLayer(
     val key: EffectKey, val effect: RgbEffect, val createdAtMs: Long, val expiresAtMs: Long? = null,
     val ruleId: String? = null, val factDurationMs: Long? = null, val colorOverride: java.awt.Color? = null,
-    val hintCodes: List<Int>? = null, val mapping: DeviceMappingRevision? = null
+    val hintCodes: List<Int>? = null, val mapping: DeviceMappingRevision? = null,
+    val deadline: RuntimeDeadline? = null
 )
 
 sealed interface ConnectionState {
@@ -52,7 +53,7 @@ data class OperationState(
     val outcome: OperationOutcome? = null,
     val parent: OperationId? = null,
     val revision: Long = 1,
-    val changedAtMs: Long = 0
+    val changedAtMs: Long = 0, val deadline: RuntimeDeadline? = null
 )
 
 data class ProjectState(
@@ -66,7 +67,7 @@ data class ProjectState(
     val shortcutMapping: DeviceMappingRevision? = null,
     val shortcutIndices: Map<String, List<Int>> = emptyMap(),
     val shortcutKeyCodes: Map<String, List<Int>> = emptyMap(),
-    val savedAtMs: Long? = null,
+    val savedAtMs: Long? = null, val saveDeadline: RuntimeDeadline? = null,
     val saveRevision: Long = -1,
     val pomodoro: PomodoroState = PomodoroState()
 )
@@ -91,8 +92,8 @@ data class RuntimeState(
     val settingsSession: SettingsSessionState? = null,
     val preview: PreviewState? = null,
     val previewFeedback: Map<Long, com.kgboard.rgb.settings.PreviewAvailability> = emptyMap(),
-    val nowMs: Long = 0,
-    val lowMemoryAtMs: Long? = null,
+    val nowMs: Long = 0, val lastTime: TimeSample? = null,
+    val lowMemoryAtMs: Long? = null, val lowMemoryDeadline: RuntimeDeadline? = null,
     val shuttingDown: Boolean = false,
     val lastDecision: com.kgboard.rgb.diagnostics.LightingDecision? = null,
     val diagnostics: com.kgboard.rgb.diagnostics.DiagnosticsSnapshot = com.kgboard.rgb.diagnostics.DiagnosticsSnapshot()
